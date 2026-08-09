@@ -19,6 +19,7 @@ import {
   type GovernanceField,
   type GovernanceSelectValue,
 } from "../components/InteractionGovernancePanel";
+import { useTranslation } from "@/i18n";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -38,6 +39,7 @@ export function CompanySettings() {
     setSelectedCompanyId
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   // General settings local state
   const [companyName, setCompanyName] = useState("");
@@ -172,15 +174,15 @@ export function CompanySettings() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: selectedCompany?.name ?? "Company", href: "/dashboard" },
-      { label: "Settings" }
+      { label: selectedCompany?.name ?? t("nav.company"), href: "/dashboard" },
+      { label: t("nav.settings") }
     ]);
-  }, [setBreadcrumbs, selectedCompany?.name]);
+  }, [setBreadcrumbs, selectedCompany?.name, t]);
 
   if (!selectedCompany) {
     return (
       <div className="text-sm text-muted-foreground">
-        No company selected. Select a company from the switcher above.
+        {t("pages.companySettings.noCompanySelected", { defaultValue: "No company selected. Select a company from the switcher above." })}
       </div>
     );
   }
@@ -198,16 +200,16 @@ export function CompanySettings() {
     <div className="max-w-6xl space-y-8">
       <div className="flex items-center gap-2">
         <SlidersHorizontal className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">General</h1>
+        <h1 className="text-lg font-semibold">{t("pages.companySettings.general", { defaultValue: "General" })}</h1>
       </div>
 
       {/* General */}
       <div className="max-w-2xl space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          General
+          {t("pages.companySettings.general", { defaultValue: "General" })}
         </div>
         <div className="space-y-3">
-          <Field label="Company name" hint="The display name for your company.">
+          <Field label={t("pages.companySettings.companyName", { defaultValue: "Company name" })} hint={t("pages.companySettings.companyNameHint", { defaultValue: "The display name for your company." })}>
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
@@ -216,14 +218,14 @@ export function CompanySettings() {
             />
           </Field>
           <Field
-            label="Description"
-            hint="Optional description shown in the company profile."
+            label={t("pages.companySettings.description", { defaultValue: "Description" })}
+            hint={t("pages.companySettings.descriptionHint", { defaultValue: "Optional description shown in the company profile." })}
           >
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
               value={description}
-              placeholder="Optional company description"
+              placeholder={t("pages.companySettings.descriptionPlaceholder", { defaultValue: "Optional company description" })}
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
@@ -233,7 +235,7 @@ export function CompanySettings() {
       {/* Appearance */}
       <div className="max-w-2xl space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Appearance
+          {t("pages.companySettings.appearance", { defaultValue: "Appearance" })}
         </div>
         <div className="space-y-3">
           <div className="flex items-start gap-4">
@@ -247,8 +249,8 @@ export function CompanySettings() {
             </div>
             <div className="flex-1 space-y-3">
               <Field
-                label="Logo"
-                hint="Upload a PNG, JPEG, WEBP, GIF, or SVG logo image."
+                label={t("pages.companySettings.logo", { defaultValue: "Logo" })}
+                hint={t("pages.companySettings.logoHint", { defaultValue: "Upload a PNG, JPEG, WEBP, GIF, or SVG logo image." })}
               >
                 <div className="space-y-2">
                   <input
@@ -265,7 +267,7 @@ export function CompanySettings() {
                         onClick={handleClearLogo}
                         disabled={clearLogoMutation.isPending}
                       >
-                        {clearLogoMutation.isPending ? "Removing..." : "Remove logo"}
+                        {clearLogoMutation.isPending ? t("pages.companySettings.removingLogo", { defaultValue: "Removing..." }) : t("pages.companySettings.removeLogo", { defaultValue: "Remove logo" })}
                       </Button>
                     </div>
                   )}
@@ -274,7 +276,7 @@ export function CompanySettings() {
                       {logoUploadError ??
                         (logoUploadMutation.error instanceof Error
                           ? logoUploadMutation.error.message
-                          : "Logo upload failed")}
+                          : t("pages.companySettings.logoUploadFailed", { defaultValue: "Logo upload failed" }))}
                     </span>
                   )}
                   {clearLogoMutation.isError && (
@@ -283,13 +285,13 @@ export function CompanySettings() {
                     </span>
                   )}
                   {logoUploadMutation.isPending && (
-                    <span className="text-xs text-muted-foreground">Uploading logo...</span>
+                    <span className="text-xs text-muted-foreground">{t("pages.companySettings.uploadingLogo", { defaultValue: "Uploading logo..." })}</span>
                   )}
                 </div>
               </Field>
               <Field
-                label="Brand color"
-                hint="Sets the hue for the company icon. Leave empty for auto-generated color."
+                label={t("pages.companySettings.brandColor", { defaultValue: "Brand color" })}
+                hint={t("pages.companySettings.brandColorHint", { defaultValue: "Sets the hue for the company icon. Leave empty for auto-generated color." })}
               >
                 <div className="flex items-center gap-2">
                   {/* token-extraction: allowlisted — <input type="color"> value must be a real hex string, not a var() reference. */}
@@ -308,7 +310,7 @@ export function CompanySettings() {
                         setBrandColor(v);
                       }
                     }}
-                    placeholder="Auto"
+                    placeholder={t("pages.companySettings.auto", { defaultValue: "Auto" })}
                     className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none"
                   />
                   {brandColor && (
@@ -318,14 +320,14 @@ export function CompanySettings() {
                       onClick={() => setBrandColor("")}
                       className="text-xs text-muted-foreground"
                     >
-                      Clear
+                      {t("pages.companySettings.clear", { defaultValue: "Clear" })}
                     </Button>
                   )}
                 </div>
               </Field>
               <Field
-                label="Attachment size limit"
-                hint={`Accepted range: 1-${MAX_COMPANY_ATTACHMENT_MAX_MIB} MiB.`}
+                label={t("pages.companySettings.attachmentSizeLimit", { defaultValue: "Attachment size limit" })}
+                hint={t("pages.companySettings.attachmentSizeLimitHint", { defaultValue: "Accepted range: 1-{{max}} MiB.", max: MAX_COMPANY_ATTACHMENT_MAX_MIB })}
               >
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
@@ -342,7 +344,7 @@ export function CompanySettings() {
                   </div>
                   {!attachmentMaxValid && (
                     <span className="text-xs text-destructive">
-                      Enter a whole number from 1 to {MAX_COMPANY_ATTACHMENT_MAX_MIB}.
+                      {t("pages.companySettings.attachmentSizeInvalid", { defaultValue: "Enter a whole number from 1 to {{max}}.", max: MAX_COMPANY_ATTACHMENT_MAX_MIB })}
                     </span>
                   )}
                 </div>
@@ -360,16 +362,16 @@ export function CompanySettings() {
             onClick={handleSaveGeneral}
             disabled={generalMutation.isPending || !companyName.trim() || !attachmentMaxValid}
           >
-            {generalMutation.isPending ? "Saving..." : "Save changes"}
+            {generalMutation.isPending ? t("pages.companySettings.saving", { defaultValue: "Saving..." }) : t("pages.companySettings.saveChanges", { defaultValue: "Save changes" })}
           </Button>
           {generalMutation.isSuccess && (
-            <span className="text-xs text-muted-foreground">Saved</span>
+            <span className="text-xs text-muted-foreground">{t("pages.companySettings.saved", { defaultValue: "Saved" })}</span>
           )}
           {generalMutation.isError && (
             <span className="text-xs text-destructive">
               {generalMutation.error instanceof Error
                   ? generalMutation.error.message
-                  : "Failed to save"}
+                  : t("pages.companySettings.saveFailed", { defaultValue: "Failed to save" })}
             </span>
           )}
         </div>
@@ -378,12 +380,12 @@ export function CompanySettings() {
       {/* Hiring */}
       <div className="max-w-2xl space-y-4" data-testid="company-settings-team-section">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Hiring
+          {t("pages.companySettings.hiring", { defaultValue: "Hiring" })}
         </div>
         <div>
           <ToggleField
-            label="Require board approval for new hires"
-            hint="New agent hires stay pending until approved by board."
+            label={t("pages.companySettings.requireBoardApproval", { defaultValue: "Require board approval for new hires" })}
+            hint={t("pages.companySettings.requireBoardApprovalHint", { defaultValue: "New agent hires stay pending until approved by board." })}
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
             toggleTestId="company-settings-team-approval-toggle"
@@ -400,7 +402,7 @@ export function CompanySettings() {
           governanceMutation.isError
             ? governanceMutation.error instanceof Error
               ? governanceMutation.error.message
-              : "Failed to save interaction governance"
+              : t("pages.companySettings.saveGovernanceFailed", { defaultValue: "Failed to save interaction governance" })
             : null
         }
       />
@@ -410,12 +412,11 @@ export function CompanySettings() {
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-          Danger Zone
+          {t("pages.companySettings.dangerZone", { defaultValue: "Danger Zone" })}
         </div>
         <div className="space-y-3 bg-destructive/5 px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Archive this company to hide it from the sidebar. This persists in
-            the database.
+            {t("pages.companySettings.archiveDescription", { defaultValue: "Archive this company to hide it from the sidebar. This persists in the database." })}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -428,7 +429,7 @@ export function CompanySettings() {
               onClick={() => {
                 if (!selectedCompanyId) return;
                 const confirmed = window.confirm(
-                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`
+                  t("pages.companySettings.archiveConfirm", { defaultValue: "Archive company {{name}}? It will be hidden from the sidebar.", name: selectedCompany.name })
                 );
                 if (!confirmed) return;
                 const nextCompanyId =
@@ -444,16 +445,16 @@ export function CompanySettings() {
               }}
             >
               {archiveMutation.isPending
-                ? "Archiving..."
+                ? t("pages.companySettings.archiving", { defaultValue: "Archiving..." })
                 : selectedCompany.status === "archived"
-                ? "Already archived"
-                : "Archive company"}
+                ? t("pages.companySettings.alreadyArchived", { defaultValue: "Already archived" })
+                : t("pages.companySettings.archiveCompany", { defaultValue: "Archive company" })}
             </Button>
             {archiveMutation.isError && (
               <span className="text-xs text-destructive">
                 {archiveMutation.error instanceof Error
                   ? archiveMutation.error.message
-                  : "Failed to archive company"}
+                  : t("pages.companySettings.archiveFailed", { defaultValue: "Failed to archive company" })}
               </span>
             )}
           </div>
