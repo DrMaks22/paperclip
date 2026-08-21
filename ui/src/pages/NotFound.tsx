@@ -34,10 +34,9 @@ export function NotFoundPage({ scope = "global", requestedPrefix }: NotFoundPage
     : t("pages.notFound.pageNotFound", { defaultValue: "Page not found" });
   const description =
     scope === "invalid_company_prefix"
-      ? t("pages.notFound.noCompanyMatchesPrefix", {
-          defaultValue: 'No company matches prefix "{{prefix}}".',
-          prefix: normalizedPrefix ?? t("pages.notFound.unknown", { defaultValue: "unknown" }),
-        })
+      ? `${t("pages.notFound.companyNotFound", { defaultValue: "Company not found" })}: ${
+          normalizedPrefix ?? t("pages.notFound.unknown", { defaultValue: "unknown" })
+        }.`
       : t("pages.notFound.routeDoesNotExist", { defaultValue: "This route does not exist." });
 
   return (

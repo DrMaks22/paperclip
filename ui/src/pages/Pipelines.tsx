@@ -1319,7 +1319,13 @@ function PipelineCaseCard({
         </div>
         {childrenSummary != null ? (
           <p className="mt-1.5 text-xs text-muted-foreground">
-            {t("pages.pipelines.builtFromCount", { defaultValue: "Built from {{count}} items", count: formatNumber(childrenSummary) })}
+            {t("pages.pipelines.builtFromCount", {
+              defaultValue: "Built from {{count}} {{noun}}",
+              count: formatNumber(childrenSummary),
+              noun: childrenSummary === 1
+                ? t("pages.pipelines.itemWord", { defaultValue: "item" })
+                : t("pages.pipelines.itemsWord", { defaultValue: "items" }),
+            })}
           </p>
         ) : null}
       </Link>

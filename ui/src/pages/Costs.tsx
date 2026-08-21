@@ -151,7 +151,7 @@ function FinanceSummaryCard({
 export function Costs() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
 
   const [mainTab, setMainTab] = useState<"overview" | "budgets" | "providers" | "billers" | "finance">("overview");
@@ -908,10 +908,16 @@ export function Costs() {
                 {(["company", "agent", "project"] as const).map((scopeType) => {
                   const rows = budgetPoliciesByScope[scopeType];
                   if (rows.length === 0) return null;
+                  const scopeLabel = (scopeType === "company"
+                    ? t("nav.company", { defaultValue: "Company" })
+                    : scopeType === "agent"
+                      ? t("pages.agentDetail.agentFallback", { defaultValue: "Agent" })
+                      : t("pages.routines.project", { defaultValue: "Project" })
+                  ).toLocaleLowerCase(i18n.resolvedLanguage);
                   return (
                     <section key={scopeType} className="space-y-3">
                       <div>
-                        <h2 className="text-lg font-semibold capitalize">{t("pages.costs.scopeBudgets", { defaultValue: "{{scopeType}} budgets", scopeType })}</h2>
+                        <h2 className="text-lg font-semibold capitalize">{t("pages.costs.scopeBudgets", { defaultValue: "{{scopeType}} budgets", scopeType: scopeLabel })}</h2>
                         <p className="text-sm text-muted-foreground">
                           {scopeType === "company"
                             ? t("pages.costs.companyPolicy", { defaultValue: "Company-wide monthly policy." })
