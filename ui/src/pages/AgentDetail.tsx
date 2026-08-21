@@ -768,7 +768,7 @@ export function AgentDetail() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [dismissedLeftAgentIds, setDismissedLeftAgentIds] = useState<Set<string>>(() => new Set());
   const activeView = urlRunId ? "runs" as AgentDetailView : parseAgentDetailView(urlTab ?? null);
@@ -825,7 +825,18 @@ export function AgentDetail() {
     : null;
   const builtInFeatureLabel = builtInState
     ? builtInState.definition.featureKeys
-        .map((key) => key.charAt(0).toUpperCase() + key.slice(1))
+        .map((key) => {
+          if (key === "briefs") {
+            return t("pages.pipelines.deliverableBrief", { defaultValue: "Brief" });
+          }
+          if (key === "learning") {
+            return t("pages.pipelines.learningsTitle", { defaultValue: "Learnings" });
+          }
+          if (key === "summarizer") {
+            return t("pages.pipelines.deliverableSummary", { defaultValue: "Summary" });
+          }
+          return t("pages.agentDetail.builtInAgent", { defaultValue: "Built-in agent" });
+        })
         .join(", ")
     : "";
   const invalidateBuiltIn = useCallback(() => {
@@ -1337,7 +1348,7 @@ export function AgentDetail() {
                         {t("pages.agentDetail.pauseBuiltInDescription", {
                           defaultValue: "{{feature}} depends on this agent. While paused, {{featureLower}} generation is skipped and the {{feature}} page shows a warning.",
                           feature: builtInFeatureLabel,
-                          featureLower: builtInFeatureLabel.toLowerCase(),
+                          featureLower: builtInFeatureLabel.toLocaleLowerCase(i18n.resolvedLanguage),
                         })}
                       </>
                     ),
