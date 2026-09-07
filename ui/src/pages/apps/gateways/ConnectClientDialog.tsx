@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/i18n";
+import { Trans } from "react-i18next";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import type { ToolMcpGatewayTokenCreated, ToolMcpGatewayWithTokens } from "@paperclipai/shared";
@@ -34,6 +36,7 @@ export function ConnectClientDialog({
   onOpenChange: (open: boolean) => void;
   createdToken?: ToolMcpGatewayTokenCreated | null;
 }) {
+  useTranslation();
   const { pushToast } = useToast();
   const snippets = useMemo(() => orderedSnippets(gateway.clientSnippets ?? []), [gateway.clientSnippets]);
   const endpoint = useMemo(() => {
@@ -54,11 +57,11 @@ export function ConnectClientDialog({
   async function copyText(value: string, label: string) {
     try {
       await copyTextToClipboard(value);
-      pushToast({ title: "Copied", body: label, tone: "success" });
+      pushToast({ title: t("pages.agentDetail.copied"), body: label, tone: "success" });
     } catch (error) {
       pushToast({
-        title: "Copy failed",
-        body: error instanceof Error ? error.message : "Clipboard access is unavailable.",
+        title: t("pages.agentDetail.copyFailed"),
+        body: error instanceof Error ? error.message : t("pages.agentDetail.clipboardUnavailable"),
         tone: "error",
       });
     }
@@ -71,14 +74,12 @@ export function ConnectClientDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Connect a client</DialogTitle>
-          <DialogDescription>
-            Pick how you’ll point your client at this gateway.
-          </DialogDescription>
+          <DialogTitle>{t("stableApps.gateway.connectClient")}</DialogTitle>
+          <DialogDescription>{t("stableApps.gateway.connectHint")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-(--gtc-10)">
-          <nav className="flex gap-1 overflow-x-auto sm:flex-col" aria-label="Clients">
+          <nav className="flex gap-1 overflow-x-auto sm:flex-col" aria-label={t("localizationApps.clients131")}>
             {snippets.map((snippet) => (
               <button
                 key={snippet.client}
@@ -103,27 +104,21 @@ export function ConnectClientDialog({
                   ? "bg-muted font-medium text-foreground"
                   : "text-muted-foreground hover:bg-muted/60",
               )}
-            >
-              Raw URL
-            </button>
+            >{t("localizationApps.rawURL132")}</button>
           </nav>
 
           <div className="min-w-0 space-y-3">
             {active === "raw_url" ? (
               <div className="space-y-1.5">
-                <div className="text-sm font-medium text-foreground">Endpoint URL</div>
+                <div className="text-sm font-medium text-foreground">{t("localizationApps.endpointURL133")}</div>
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
                     {endpoint}
                   </code>
-                  <Button variant="outline" size="sm" onClick={() => void copyText(endpoint, "Endpoint URL")}>
-                    <Copy className="mr-1 h-3.5 w-3.5" />
-                    Copy
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => void copyText(endpoint, t("localizationApps.endpointURL133"))}>
+                    <Copy className="mr-1 h-3.5 w-3.5" />{t("pages.apps.common.copy")}</Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Authenticate with <code>Authorization: Bearer &lt;token&gt;</code> over streamable HTTP.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("stableApps.gateway.authPrefix")}{" "}<code>Authorization: Bearer &lt;token&gt;</code>{" "}{t("stableApps.gateway.authSuffix")}</p>
               </div>
             ) : activeSnippet ? (
               <div className="space-y-1.5">
@@ -132,11 +127,9 @@ export function ConnectClientDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => void copyText(configText, `${activeSnippet.label} config`)}
+                    onClick={() => void copyText(configText, t("localizationApps.clientConfig", { client: activeSnippet.label }))}
                   >
-                    <Copy className="mr-1 h-3.5 w-3.5" />
-                    Copy
-                  </Button>
+                    <Copy className="mr-1 h-3.5 w-3.5" />{t("pages.apps.common.copy")}</Button>
                 </div>
                 <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-mono text-xs text-muted-foreground">
                   {configText}
@@ -150,11 +143,11 @@ export function ConnectClientDialog({
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No client snippets available for this gateway.</p>
+              <p className="text-sm text-muted-foreground">{t("localizationApps.noClientSnippetsAvailableForThisGateway138")}</p>
             )}
 
             <div className="space-y-1.5 rounded-md border border-border p-3">
-              <div className="text-xs font-medium text-muted-foreground">Token</div>
+              <div className="text-xs font-medium text-muted-foreground">{t("localizationApps.token211")}</div>
               {createdToken ? (
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 truncate rounded bg-background px-2 py-1.5 font-mono text-xs text-foreground">
@@ -164,37 +157,26 @@ export function ConnectClientDialog({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => void copyText(createdToken.token, "Access token")}
+                      onClick={() => void copyText(createdToken.token, t("localizationApps.accessToken197"))}
                     >
-                      <Copy className="mr-1 h-3.5 w-3.5" />
-                      Copy
-                    </Button>
+                      <Copy className="mr-1 h-3.5 w-3.5" />{t("pages.apps.common.copy")}</Button>
                   ) : (
-                    <Button variant="outline" size="sm" onClick={() => setRevealed(true)}>
-                      Show
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setRevealed(true)}>{t("pages.agentDetail.show")}</Button>
                   )}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Mint a token on the <span className="font-medium">Tokens</span> tab, then paste it where the
-                  snippet shows <code>Bearer …</code>. You won’t see a token’s full value again after it’s
-                  created.
+                  <Trans i18nKey="stableApps.gateway.tokenInstructions" components={{ tokens: <span className="font-medium" />, code: <code /> }} />
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                Treat this like a password. Anyone with the token can call exactly the tools this gateway
-                allows. If it leaks, revoke it — the client goes silent immediately.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("stableApps.gateway.tokenSafety")}</p>
             </div>
           </div>
         </div>
 
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>
-            <Check className="mr-1.5 h-4 w-4" />
-            Done
-          </Button>
+            <Check className="mr-1.5 h-4 w-4" />{t("pages.apps.common.done")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import type { AdapterConfigFieldsProps } from "../types";
 import {
   Field,
@@ -16,8 +17,7 @@ import {
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
-const instructionsFileHint =
-  "Absolute path to a markdown file (e.g. AGENTS.md) that defines this agent's behavior. Injected into the system prompt at runtime. Note: Codex may still auto-apply repo-scoped AGENTS.md files from the workspace.";
+const instructionsFileHint = () => t("localizationAgents.codexInstructionsHint");
 
 export function CodexLocalConfigFields({
   mode,
@@ -32,6 +32,7 @@ export function CodexLocalConfigFields({
   hideInstructionsFile,
   managedSandboxOnly,
 }: AdapterConfigFieldsProps) {
+  const { t } = useTranslation();
   const runnerManaged = adapterType === "paperclip_runner";
   // The execution engine picks which binary runs on the execution host, and the
   // ACP sub-fields below name host paths. The platform-managed environment owns
@@ -55,14 +56,14 @@ export function CodexLocalConfigFields({
   const fastModeSupported = isCodexLocalFastModeSupported(currentModel);
   const supportedModelsLabel = CODEX_LOCAL_FAST_MODE_SUPPORTED_MODELS.join(", ");
   const fastModeMessage = fastModeManualModel
-    ? "Fast mode will be passed through for this manual model. If Codex rejects it, turn the toggle off."
+    ? t("localizationAgents.fastModeManual")
     : fastModeSupported
-      ? "Fast mode consumes credits/tokens much faster than standard Codex runs."
-      : `Fast mode currently only works on ${supportedModelsLabel} or manual model IDs. Paperclip will ignore this toggle until the model is switched.`;
+      ? t("localizationAgents.fastModeCost")
+      : t("localizationAgents.fastModeUnsupported", { models: supportedModelsLabel });
 
   return (
     <>
-      {!hideEngineChoice && <Field label="Execution engine" hint="Auto uses ACP when prerequisites pass and falls back to Codex CLI with diagnostics.">
+      {!hideEngineChoice && <Field label={t("localizationAgents.ui303_Execution_engine")} hint={t("localizationAgents.ui304_Auto_uses_ACP_when_prerequisites_pass_and_falls_back_to_Code")}>
         <select
           className={inputClass}
           value={engine}
@@ -73,13 +74,13 @@ export function CodexLocalConfigFields({
               : mark("adapterConfig", "engine", value === "auto" ? undefined : value);
           }}
         >
-          <option value="auto">Auto (ACP preferred)</option>
+          <option value="auto">{t("localizationAgents.ui305_Auto_ACP_preferred_")}</option>
           <option value="cli">Codex CLI</option>
           <option value="acp">ACP</option>
         </select>
       </Field>}
       {runnerManaged && (
-        <Field label="Provider" hint="Paperclip Runner currently supports Codex through app-server.">
+        <Field label={t("pages.secrets.fields.provider")} hint={t("stableCore.runnerProviderHint")}>
           <select className={inputClass} value="codex" disabled>
             <option value="codex">Codex</option>
           </select>
@@ -89,8 +90,8 @@ export function CodexLocalConfigFields({
         <>
           {!managedSandboxOnly && (
             <Field
-              label="ACP server command"
-              hint="Optional override for the Codex ACP server command. Defaults to the package-local codex-acp binary."
+              label={t("localizationAgents.ui350_ACP_server_command")}
+              hint={t("localizationAgents.ui351_Optional_override_for_the_Codex_ACP_server_command_Defaults_")}
             >
               <DraftInput
                 value={
@@ -109,7 +110,7 @@ export function CodexLocalConfigFields({
               />
             </Field>
           )}
-          <Field label="ACP session mode" hint="Persistent keeps ACP session state between runs. One-shot starts fresh each run.">
+          <Field label={t("localizationAgents.ui353_ACP_session_mode")} hint={t("localizationAgents.ui354_Persistent_keeps_ACP_session_state_between_runs_One_shot_sta")}>
             <select
               className={inputClass}
               value={
@@ -124,13 +125,13 @@ export function CodexLocalConfigFields({
                   : mark("adapterConfig", "mode", value);
               }}
             >
-              <option value="persistent">Persistent</option>
-              <option value="oneshot">One-shot</option>
+              <option value="persistent">{t("localizationAgents.ui355_Persistent")}</option>
+              <option value="oneshot">{t("localizationAgents.ui356_One_shot")}</option>
             </select>
           </Field>
           <Field
-            label="ACP non-interactive permissions"
-            hint="Fallback if the ACP agent asks for input outside an interactive session."
+            label={t("localizationAgents.ui357_ACP_non_interactive_permissions")}
+            hint={t("localizationAgents.ui358_Fallback_if_the_ACP_agent_asks_for_input_outside_an_interact")}
           >
             <select
               className={inputClass}
@@ -146,14 +147,14 @@ export function CodexLocalConfigFields({
                   : mark("adapterConfig", "nonInteractivePermissions", value);
               }}
             >
-              <option value="deny">Deny</option>
-              <option value="fail">Fail</option>
+              <option value="deny">{t("localizationAgents.ui359_Deny")}</option>
+              <option value="fail">{t("localizationAgents.ui360_Fail")}</option>
             </select>
           </Field>
           {!managedSandboxOnly && (
             <Field
-              label="ACP state directory"
-              hint="Optional ACP session state directory. Defaults to Paperclip-managed organization/agent scoped storage."
+              label={t("localizationAgents.ui361_ACP_state_directory")}
+              hint={t("localizationAgents.ui362_Optional_ACP_session_state_directory_Defaults_to_Paperclip_m")}
             >
               <div className="flex items-center gap-2">
                 <DraftInput
@@ -176,8 +177,8 @@ export function CodexLocalConfigFields({
             </Field>
           )}
           <Field
-            label="ACP warm process idle ms"
-            hint="Defaults to 0, which closes the ACP process after each run while retaining persistent session state."
+            label={t("localizationAgents.ui364_ACP_warm_process_idle_ms")}
+            hint={t("localizationAgents.ui365_Defaults_to_0_which_closes_the_ACP_process_after_each_run_wh")}
           >
             {isCreate ? (
               <input
@@ -202,7 +203,7 @@ export function CodexLocalConfigFields({
         </>
       )}
       {!runnerManaged && !hideInstructionsFile && (
-        <Field label="Agent instructions file" hint={instructionsFileHint}>
+        <Field label={t("localizationAgents.ui270_Agent_instructions_file")} hint={instructionsFileHint()}>
           <div className="flex items-center gap-2">
             <DraftInput
               value={
@@ -230,7 +231,7 @@ export function CodexLocalConfigFields({
       {!runnerManaged && (
         <>
           <ToggleField
-            label="Bypass sandbox"
+            label={t("localizationAgents.ui366_Bypass_sandbox")}
             hint={help.dangerouslyBypassSandbox}
             checked={
               isCreate
@@ -248,7 +249,7 @@ export function CodexLocalConfigFields({
             }
           />
           <ToggleField
-            label="Enable search"
+            label={t("localizationAgents.ui367_Enable_search")}
             hint={help.search}
             checked={
               isCreate
@@ -262,7 +263,7 @@ export function CodexLocalConfigFields({
             }
           />
           <ToggleField
-            label="Fast mode"
+            label={t("localizationAgents.ui368_Fast_mode")}
             hint={help.fastMode}
             checked={fastModeEnabled}
             onChange={(v) =>

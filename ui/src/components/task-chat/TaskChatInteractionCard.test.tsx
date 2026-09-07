@@ -7,7 +7,9 @@ import type { RequestConfirmationInteraction } from "@/lib/issue-thread-interact
 import { ThemeProvider } from "@/context/ThemeContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { expiredSecretProposalInteraction } from "@/fixtures/issueThreadInteractionFixtures";
+import { i18n } from "@/i18n";
 import { TaskChatInteractionCard } from "./TaskChatInteractionCard";
+import { TaskChatMarker } from "./TaskChatMarker";
 import { TaskChatThreadView } from "./TaskChatThreadView";
 import type { TaskChatInteractionItem } from "./task-chat-model";
 
@@ -117,6 +119,33 @@ describe("TaskChatInteractionCard", () => {
     expect(container.querySelector('[data-testid="task-chat-interaction"]')).toBeNull();
     expect(container.textContent).toContain("Approve the plan");
     expect(container.textContent).toContain("expired");
+  });
+
+  it.each([
+    ["Plan created", "stableTaskChat.planCreated"],
+    ["Plan updated", "stableTaskChat.planUpdated"],
+    ["Running", "localizationTaskRuntime.display.ui_Running_j6ts6k"],
+  ])("preserves the expired confirmation title %s while translating system markers", async (title, labelKey) => {
+    const interaction = createRequestConfirmation({ status: "expired", title });
+    const original = structuredClone(interaction);
+    flushSync(() => root.render(<>
+      <div data-testid="expired-title"><TaskChatInteractionCard item={interactionItem(interaction)} /></div>
+      <div data-testid="system-title"><TaskChatMarker item={{ id: "system-marker", kind: "marker", variant: "turn_boundary", label: title }} /></div>
+    </>));
+    const expiredLabel = container.querySelector('[data-testid="expired-title"] .font-medium');
+    const systemLabel = container.querySelector('[data-testid="system-title"] .font-medium');
+    try {
+      for (const locale of ["ru", "en", "ru"]) {
+        flushSync(() => { void i18n.changeLanguage(locale); });
+        expect(container.querySelector('[data-testid="expired-title"] .font-medium')).toBe(expiredLabel);
+        expect(expiredLabel?.textContent).toBe(title);
+        expect(systemLabel?.textContent).toBe(i18n.t(labelKey));
+        expect(container.querySelector('[data-testid="expired-title"] button')).toBeNull();
+        expect(interaction).toEqual(original);
+      }
+    } finally {
+      flushSync(() => { void i18n.changeLanguage("en"); });
+    }
   });
 
   it("renders an expired secret proposal as a full receipt", () => {

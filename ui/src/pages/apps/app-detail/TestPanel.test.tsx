@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { flushSync } from "react-dom";
-import type { ReactNode } from "react";
+import { act as reactAct, type ReactNode } from "react";
+import { i18n } from "@/i18n";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -218,6 +219,33 @@ afterEach(() => {
 });
 
 describe("TestPanel", () => {
+  it("updates compact agent access counts without closing the picker or clearing its search", async () => {
+    await i18n.changeLanguage("en");
+    await act(async () => renderPanel());
+    await flushReact();
+    const picker = container.querySelector<HTMLButtonElement>(`button[aria-label="${i18n.t("localizationApps.chooseWhichAgentToTestAs507")}"]`)!;
+    await reactAct(async () => { picker.click(); });
+    const search = document.body.querySelector<HTMLInputElement>('[data-slot="popover-content"] input')!;
+    expect(search).toBeTruthy();
+    await reactAct(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "Claude");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    try {
+      for (const language of ["ru", "en", "ru"]) {
+        await reactAct(async () => { await i18n.changeLanguage(language); });
+        expect(document.body.contains(search)).toBe(true);
+        expect(search.value).toBe("Claude");
+        expect(document.body.textContent).toContain(i18n.t("stableApps.test.compactSummary", { allowed: 1, ask: 1, off: 1 }));
+        expect(picker.textContent).toContain("ClaudeCoder");
+        expect(runTestCallMock).not.toHaveBeenCalled();
+        expect(declineActionRequestMock).not.toHaveBeenCalled();
+      }
+    } finally {
+      await reactAct(async () => { await i18n.changeLanguage("en"); });
+    }
+  });
+
   it("renders the Test-as header and grouped actions with access badges", async () => {
     await act(async () => renderPanel());
     await flushReact();

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@/i18n";
+
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -189,14 +191,15 @@ describe("OrgChart mobile gestures", () => {
     document.body.innerHTML = "";
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
-  async function renderOrgChart() {
+  async function renderOrgChart(Component: typeof OrgChart = OrgChart) {
     root = createRoot(container);
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <OrgChart />
+          <Component />
         </QueryClientProvider>,
       );
     });
@@ -262,6 +265,12 @@ describe("OrgChart mobile gestures", () => {
     });
 
     expect(layer.style.transform).toBe("translate(-45px, 40px) scale(1.5)");
+    await act(async () => { await i18n.changeLanguage("ru"); });
+    await flushReact();
+    expect(layer.style.transform).toBe("translate(-45px, 40px) scale(1.5)");
+    expect(container.querySelector('[aria-label="Zoom in"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Увеличить масштаб"]')).toBeTruthy();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it("shows both portability buttons on self-hosted instances", async () => {

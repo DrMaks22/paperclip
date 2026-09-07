@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+import { useTranslation } from "@/i18n";
 import { IssueThreadInteractionCard } from "@/components/IssueThreadInteractionCard";
 import { TaskChatMarker } from "./TaskChatMarker";
 import type { TaskChatInteractionItem } from "./task-chat-model";
@@ -20,6 +21,7 @@ export interface TaskChatInteractionCardProps extends InteractionCardProps {
  * are part of the terminal outcome.
  */
 export function TaskChatInteractionCard({ item, ...cardProps }: TaskChatInteractionCardProps) {
+  const { t } = useTranslation();
   const interaction = item.interaction;
   if (
     interaction.kind === "request_confirmation"
@@ -28,12 +30,13 @@ export function TaskChatInteractionCard({ item, ...cardProps }: TaskChatInteract
   ) {
     return (
       <TaskChatMarker
+        verbatimLabel
         item={{
           id: item.id,
           kind: "marker",
           variant: "turn_boundary",
-          label: interaction.title ?? "Confirmation",
-          detail: "expired",
+          label: interaction.title ?? t("localizationTaskThread.confirmation"),
+          detail: t("localizationIssueDetail.status_expired"),
         }}
       />
     );

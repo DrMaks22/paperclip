@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import {
   useEffect,
   useRef,
@@ -25,7 +26,7 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@/components/ui/attachment";
-import { fileKindForName, formatFileSize } from "./task-chat-attachments";
+import { fileKindForNameDisplay as fileKindForName, formatFileSizeDisplay as formatFileSize } from "./task-chat-attachments";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import { nextWorkMode, workModeMetaFor, workModeMetaList } from "@/lib/work-mode-meta";
 import { InlineEntitySelector, type InlineEntityOption } from "@/components/InlineEntitySelector";
@@ -73,20 +74,20 @@ function modeHue(mode: IssueWorkMode): string {
 }
 
 const MODE_DESCRIPTION: Partial<Record<IssueWorkMode, string>> = {
-  standard: "Make changes and run work",
-  planning: "Draft a plan before acting",
-  ask: "Answer questions only, no changes",
+  get standard() { return t("localizationTaskRuntime.ui_Make_changes_and_run_work_1dp03gb"); },
+  get planning() { return t("localizationTaskRuntime.ui_Draft_a_plan_before_acting_17vq4wn"); },
+  get ask() { return t("localizationTaskRuntime.ui_Answer_questions_only_no_changes_86pd32"); },
 };
 
 /** v7 per-mode placeholder copy; `{agent}` is the pending assignee's name. */
 function modePlaceholder(mode: IssueWorkMode, agentName: string): string {
   switch (mode) {
     case "planning":
-      return `Plan with ${agentName} — shapes the plan doc, no code changes…`;
+      return t("localizationTaskRuntime.composerPlanning", { agent: agentName });
     case "ask":
-      return `Ask ${agentName} a question — read-only, nothing runs…`;
+      return t("localizationTaskRuntime.composerAsk", { agent: agentName });
     default:
-      return `Message ${agentName} — describe what you want done…`;
+      return t("localizationTaskRuntime.composerStandard", { agent: agentName });
   }
 }
 
@@ -96,6 +97,7 @@ type ComposerAttachment = {
   size?: number;
   status: "uploading" | "attached" | "error";
   error?: string;
+  errorKey?: string;
   /** Set once uploaded; the submit path appends `[name](contentPath)` lines. */
   contentPath?: string;
 };
@@ -152,6 +154,7 @@ export function TaskChatComposer({
   mobile = false,
   draftKey,
 }: TaskChatComposerProps) {
+  useTranslation();
   const [body, setBody] = useState(() => (draftKey ? loadDraft(draftKey) : ""));
   const [submitting, setSubmitting] = useState(false);
   const [pendingMode, setPendingMode] = useState<IssueWorkMode>(workMode);
@@ -198,9 +201,11 @@ export function TaskChatComposer({
   const canAcceptFiles = Boolean(onAttachImage || onImageUpload);
   const showAssignee = Boolean(enableReassign && reassignOptions && reassignOptions.length > 0);
   const assigneeValue = pendingAssignee ?? currentAssigneeValue;
-  const assigneeLabel =
-    reassignOptions?.find((o) => o.id === assigneeValue)?.label ?? "Unassigned";
-  const assigneeName = assigneeLabel === "Unassigned" ? "the agent" : assigneeLabel;
+  const rawAssigneeLabel = reassignOptions?.find((o) => o.id === assigneeValue)?.label;
+  const assigneeLabel = rawAssigneeLabel ?? t("localizationTaskRuntime.ui_Unassigned_f745fm");
+  const assigneeName = rawAssigneeLabel == null || !assigneeValue
+    ? t("localizationTaskRuntime.ui_the_agent_12to8b1")
+    : assigneeLabel;
   const effectivePlaceholder = placeholder ?? modePlaceholder(pendingMode, assigneeName);
 
   /** Upload an image and return its URL for inline `![](src)` markdown. */
@@ -208,10 +213,10 @@ export function TaskChatComposer({
     if (onAttachImage) {
       const attachment = await onAttachImage(file);
       if (attachment?.contentPath) return attachment.contentPath;
-      throw new Error("Upload did not return a file URL");
+      throw new Error(t("localizationTaskRuntime.ui_Upload_did_not_return_a_file_URL_gsrcr4"));
     }
     if (onImageUpload) return onImageUpload(file);
-    throw new Error("This file type cannot be attached here");
+    throw new Error(t("localizationTaskRuntime.ui_This_file_type_cannot_be_attached_here_1htxodp"));
   }
 
   /** Non-image files: attach to the task and track in the chip row. */
@@ -223,7 +228,7 @@ export function TaskChatComposer({
         setAttachments((prev) =>
           prev.map((item) =>
             item.id === id
-              ? { ...item, status: "error", error: "This file type cannot be attached here" }
+              ? { ...item, status: "error", errorKey: "localizationTaskRuntime.ui_This_file_type_cannot_be_attached_here_1htxodp" }
               : item,
           ),
         );
@@ -242,7 +247,7 @@ export function TaskChatComposer({
       setAttachments((prev) =>
         prev.map((item) =>
           item.id === id
-            ? { ...item, status: "error", error: err instanceof Error ? err.message : "Upload failed" }
+            ? { ...item, status: "error", error: err instanceof Error ? err.message : undefined, errorKey: err instanceof Error ? undefined : "localizationTaskRuntime.ui_Upload_failed_mxel7t" }
             : item,
         ),
       );
@@ -267,7 +272,8 @@ export function TaskChatComposer({
           name: file.name,
           size: file.size,
           status: "error",
-          error: err instanceof Error ? err.message : "Upload failed",
+          error: err instanceof Error ? err.message : undefined,
+          errorKey: err instanceof Error ? undefined : "localizationTaskRuntime.ui_Upload_failed_mxel7t",
         },
       ]);
     }
@@ -402,7 +408,7 @@ export function TaskChatComposer({
           ref={editorRef}
           value={body}
           onChange={setBody}
-          placeholder={disabled ? (disabledReason ?? "Composer disabled") : effectivePlaceholder}
+          placeholder={disabled ? (disabledReason ?? t("localizationTaskRuntime.ui_Composer_disabled_bdf06h")) : effectivePlaceholder}
           readOnly={disabled}
           mentions={mentions}
           onSubmit={() => void submit()}
@@ -447,15 +453,15 @@ export function TaskChatComposer({
                   <AttachmentTitle className="max-w-48">{attachment.name}</AttachmentTitle>
                   <AttachmentDescription className="max-w-48">
                     {attachment.status === "uploading"
-                      ? "Uploading…"
+                      ? t("localizationTaskRuntime.ui_Uploading_tvrypa")
                       : attachment.status === "error"
-                        ? (attachment.error ?? "Upload failed")
+                        ? (attachment.errorKey ? t(attachment.errorKey) : attachment.error ?? t("localizationTaskRuntime.ui_Upload_failed_mxel7t"))
                         : [kind.label, sizeLabel].filter(Boolean).join(" · ")}
                   </AttachmentDescription>
                 </AttachmentContent>
                 <AttachmentActions>
                   <AttachmentAction
-                    aria-label={`Remove ${attachment.name}`}
+                    aria-label={t("localizationTaskRuntime.removeAttachment", { name: attachment.name })}
                     onClick={() =>
                       setAttachments((prev) => prev.filter((item) => item.id !== attachment.id))
                     }
@@ -482,8 +488,8 @@ export function TaskChatComposer({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              title="Attach file"
-              aria-label="Attach file"
+              title={t("localizationTaskRuntime.ui_Attach_file_9gvepm")}
+              aria-label={t("localizationTaskRuntime.ui_Attach_file_9gvepm")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
               data-testid="task-chat-composer-attach"
             >
@@ -538,10 +544,10 @@ export function TaskChatComposer({
           <InlineEntitySelector
             value={assigneeValue}
             options={reassignOptions ?? []}
-            placeholder="Assignee"
-            noneLabel="No assignee"
-            searchPlaceholder="Search assignees…"
-            emptyMessage="No matches."
+            placeholder={t("localizationFilters.assignee")}
+            noneLabel={t("localizationIssueLists.noAssignee")}
+            searchPlaceholder={t("localizationFilters.searchAssignees")}
+            emptyMessage={t("localizationIssueDetail.ui_No_matches")}
             onChange={setPendingAssignee}
             disabled={disabled}
             triggerTestId="task-chat-composer-assignee"
@@ -567,12 +573,12 @@ export function TaskChatComposer({
           }
           title={
             uploadPending
-              ? "Waiting for upload to finish"
+              ? t("localizationTaskRuntime.ui_Waiting_for_upload_to_finish_1bq6lvk")
               : uploadFailed
-                ? "Remove the failed attachment to send"
-                : "Send (⌘+Enter)"
+                ? t("localizationTaskRuntime.ui_Remove_the_failed_attachment_to_send_ko9vyt")
+                : t("localizationTaskRuntime.ui_Send_Enter_1hz8l27")
           }
-          aria-label="Send"
+          aria-label={t("localizationTaskRuntime.ui_Send_1vatbdb")}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-transform hover:scale-105 disabled:scale-100 disabled:bg-muted disabled:text-muted-foreground"
           data-testid="task-chat-composer-send"
         >

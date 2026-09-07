@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import type {
   IssueBlockerAttentionIssueSummary,
   IssueRelationIssueSummary,
@@ -118,7 +119,8 @@ function BlockerRow({
 }
 
 function LiveWorkGlyph({ status }: { status: WaitingBlockerStatus }) {
-  const label = status === "done" ? "Done" : status === "running" ? "Running" : "Waiting";
+  useTranslation();
+  const label = status === "done" ? t("localizationTaskRuntime.ui_Done_13cn9g1") : status === "running" ? t("localizationTaskRuntime.ui_Running_j6ts6k") : t("localizationTaskRuntime.ui_Waiting_1jufdxk");
   if (status === "done") {
     return (
       <CheckCircle2
@@ -171,16 +173,17 @@ export function TaskChatBlockerLinks({
   ultimateBlocker: IssueRelationIssueSummary | IssueBlockerAttentionIssueSummary | null;
   placement: "top" | "bottom";
 }) {
+  useTranslation();
   return (
     <div
-      aria-label="Task blockers"
+      aria-label={t("localizationTaskRuntime.ui_Task_blockers_z5t3hj")}
       data-placement={placement}
       data-testid="task-chat-blocker-links"
       className="flex min-w-0 flex-col gap-1 overflow-hidden text-(length:--text-micro) leading-4 text-amber-700 dark:text-amber-300"
     >
-      <BlockerRow label="Blocked by" blocker={directBlocker} />
+      <BlockerRow label={t("localizationTaskRuntime.ui_Blocked_by_1v79l08")} blocker={directBlocker} />
       {ultimateBlocker ? (
-        <BlockerRow label="Ultimately blocked by" blocker={ultimateBlocker} />
+        <BlockerRow label={t("localizationTaskRuntime.ui_Ultimately_blocked_by_1yrvflq")} blocker={ultimateBlocker} />
       ) : null}
     </div>
   );
@@ -193,9 +196,10 @@ export function TaskChatLiveWorkLinks({
   liveWork: ResolvedTaskChatLiveWork;
   placement: "top" | "bottom";
 }) {
+  useTranslation();
   return (
     <div
-      aria-label="Tasks waiting on live work"
+      aria-label={t("localizationTaskRuntime.ui_Tasks_waiting_on_live_work_1ixpcb4")}
       data-placement={placement}
       data-testid="task-chat-live-work-links"
       className="flex min-w-0 flex-col gap-1.5 overflow-hidden text-(length:--text-micro) leading-4 text-blue-700 dark:text-blue-300"
@@ -204,7 +208,7 @@ export function TaskChatLiveWorkLinks({
         <span className="flex h-3.5 w-3.5 items-center justify-center" aria-hidden>
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400" />
         </span>
-        Waiting on live work
+        {t("localizationTaskRuntime.ui_Waiting_on_live_work_dp4nby")}
       </div>
       <ol className="flex min-w-0 flex-col gap-1">
         {liveWork.steps.map(({ blocker, status }, index) => (
@@ -223,7 +227,7 @@ export function TaskChatLiveWorkLinks({
       </ol>
       {liveWork.nowRunning.map((blocker) => (
         <div key={blocker.id} className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
-          <span className="shrink-0 font-medium">Now running</span>
+          <span className="shrink-0 font-medium">{t("localizationTaskRuntime.ui_Now_running_1ppzncs")}</span>
           <LiveWorkLink blocker={blocker} />
         </div>
       ))}

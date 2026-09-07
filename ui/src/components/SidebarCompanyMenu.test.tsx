@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ReactNode } from "react";
+import { act as reactAct, type ReactNode } from "react";
+import { i18n } from "@/i18n";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -225,6 +226,31 @@ describe("SidebarCompanyMenu", () => {
     });
     await flushReact();
   }
+
+  it("updates the named-company invite without closing the menu or changing its destination", async () => {
+    await i18n.changeLanguage("en");
+    let rendered!: ReturnType<typeof renderMenu>;
+    await reactAct(async () => { rendered = renderMenu({ health: { status: "ok" } }); });
+    const { root, queryClient } = rendered;
+    try {
+      await reactAct(async () => { await flushReact(); });
+      await reactAct(async () => { await openMenu("Open Acme Labs organization switcher"); });
+      const invite = document.body.querySelector<HTMLAnchorElement>('a[href="/company/settings/members?tab=invites"]');
+      expect(invite).toBeTruthy();
+      for (const language of ["ru", "en", "ru"]) {
+        await reactAct(async () => { await i18n.changeLanguage(language); });
+        expect(document.body.querySelector('a[href="/company/settings/members?tab=invites"]')).toBe(invite);
+        expect(invite!.textContent).toContain(i18n.t("common.invitePeopleTo", { name: "Acme Labs" }));
+        expect(invite!.textContent).toContain("Acme Labs");
+        expect(mockSetSelectedCompanyId).not.toHaveBeenCalled();
+        expect(mockSidebarPreferencesApi.updateCompanyOrder).not.toHaveBeenCalled();
+      }
+    } finally {
+      await reactAct(async () => { root.unmount(); });
+      queryClient.clear();
+      await i18n.changeLanguage("en");
+    }
+  });
 
   // This menu is the one the app renders, so it is the only place a customer can
   // act on a failed company list. Saying "No companies" there states something

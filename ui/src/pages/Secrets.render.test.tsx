@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderVaultsTab, Secrets } from "./Secrets";
 import { ApiError } from "../api/client";
 import { queryKeys } from "../lib/queryKeys";
+import { i18n } from "@/i18n";
 
 const mockSecretsApi = vi.hoisted(() => ({
   list: vi.fn(),
@@ -1676,6 +1677,37 @@ describe("Secrets folder view (PAP-14698)", () => {
     expect(table.textContent).not.toContain("standalone");
 
     await act(async () => root.unmount());
+  });
+
+  it.each(["Все секреты", "All secrets"])("keeps a real parent folder named %s visible in the narrow breadcrumb across locales", async (folderName) => {
+    const secret = makeCompanySecret({ id: "raw-secret", key: "raw_key", name: `${folderName}/child/token` });
+    const original = structuredClone(secret);
+    mockSecretsApi.list.mockResolvedValue([secret]);
+    const root = await renderAt(`/?path=${encodeURIComponent(`${folderName}/child`)}`);
+    const breadcrumb = container.querySelector('nav[aria-label="Breadcrumb"]')!;
+    const narrow = breadcrumb.querySelector(":scope > div")!;
+    const parent = narrow.querySelector("span.shrink-0");
+    const back = narrow.querySelector("a")!;
+    const href = back.getAttribute("href");
+    const reads = mockSecretsApi.list.mock.calls.length;
+    expect(parent?.textContent).toBe(`${folderName} /`);
+    expect(new URL(href!, "http://localhost").searchParams.get("path")).toBe(folderName);
+    try {
+      for (const locale of ["ru", "en", "ru"]) {
+        await act(async () => { await i18n.changeLanguage(locale); });
+        expect(breadcrumb.querySelector(":scope > div")).toBe(narrow);
+        expect(narrow.querySelector("span.shrink-0")).toBe(parent);
+        expect(parent?.textContent).toBe(`${folderName} /`);
+        expect(narrow.querySelector('[aria-current="page"]')?.textContent).toBe("child");
+        expect(back.getAttribute("href")).toBe(href);
+        expect(mockSecretsApi.list).toHaveBeenCalledTimes(reads);
+        expect(mockSecretsApi.update).not.toHaveBeenCalled();
+        expect(secret).toEqual(original);
+      }
+    } finally {
+      await act(async () => root.unmount());
+      await act(async () => { await i18n.changeLanguage("en"); });
+    }
   });
 
   it("renders the empty-folder state (breadcrumb intact) for an unknown path", async () => {

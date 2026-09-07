@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CaseSummary } from "@/api/cases";
 import { Cases } from "./Cases";
+import { i18n } from "@/i18n";
 
 function act(callback: () => void) {
   flushSync(callback);
@@ -289,6 +290,49 @@ describe("Cases list", () => {
     });
 
     act(() => root.unmount());
+  });
+
+  it("preserves project group identity, collapse state and raw project names across locales", async () => {
+    window.localStorage.setItem("paperclip:cases:company-1:view", JSON.stringify({ groupBy: "project" }));
+    mockProjectsApi.list.mockResolvedValue([{ id: "named", name: "Без проекта" }]);
+    mockCasesApi.list.mockResolvedValue([
+      createCase({ id: "unassigned", title: "Unassigned raw case", projectId: null }),
+      createCase({ id: "unknown", title: "Unknown raw case", projectId: "missing" }),
+      createCase({ id: "named", title: "Named raw case", projectId: "named" }),
+    ]);
+    const root = renderPage(container);
+    try {
+      await waitForAssertion(() => expect(container.textContent).toContain("Unassigned raw case"));
+      const headings = Array.from(container.querySelectorAll<HTMLButtonElement>('[data-case-item] button[aria-expanded]'));
+      const noProject = headings.find((button) => button.textContent?.includes("No project"))!;
+      const unknownProject = headings.find((button) => button.textContent?.includes("Unknown project"))!;
+      const namedProject = headings.find((button) => button.textContent?.includes("Без проекта"))!;
+      expect(noProject).toBeTruthy();
+      expect(unknownProject).toBeTruthy();
+      expect(namedProject).toBeTruthy();
+      const calls = mockCasesApi.list.mock.calls.length;
+      act(() => { noProject.click(); unknownProject.click(); });
+
+      for (const locale of ["ru", "en", "ru"]) {
+        act(() => { void i18n.changeLanguage(locale); });
+        await flush();
+        expect(container.contains(noProject)).toBe(true);
+        expect(container.contains(unknownProject)).toBe(true);
+        expect(container.contains(namedProject)).toBe(true);
+        expect(noProject.getAttribute("aria-expanded")).toBe("false");
+        expect(unknownProject.getAttribute("aria-expanded")).toBe("false");
+        expect(noProject.textContent).toContain(i18n.t("pages.cases.noProject"));
+        expect(unknownProject.textContent).toContain(i18n.t("pages.cases.unknownProject"));
+        expect(namedProject.textContent).toContain("Без проекта");
+        expect(container.textContent).not.toContain("Unassigned raw case");
+        expect(container.textContent).not.toContain("Unknown raw case");
+        expect(container.textContent).toContain("Named raw case");
+        expect(mockCasesApi.list).toHaveBeenCalledTimes(calls);
+      }
+    } finally {
+      act(() => root.unmount());
+      act(() => { void i18n.changeLanguage("en"); });
+    }
   });
 
   it("tree mode forces an ungrouped parent-child order and adds the type column", async () => {

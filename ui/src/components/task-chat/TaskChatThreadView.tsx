@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type {
   TaskChatInteractionItem,
@@ -145,6 +146,7 @@ export function TaskChatThreadView({
   className,
   scroll = true,
 }: TaskChatThreadViewProps) {
+  useTranslation();
   const body = (
     <div className={cn("mx-auto flex w-full max-w-(--tc-shell-max-w) flex-col gap-5 px-4 py-4", className)}>
       {header ? (

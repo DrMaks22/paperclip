@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { deriveOriginatingActor, type Issue } from "@paperclipai/shared";
 import { Columns3 } from "lucide-react";
@@ -13,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatAssigneeUserLabel } from "../lib/assignees";
+import { formatAssigneeUserDisplayLabel as formatAssigneeUserLabel } from "../lib/assignees";
 import type { InboxIssueColumn } from "../lib/inbox";
 import { cn } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
@@ -24,31 +25,31 @@ import { Badge } from "@/components/ui/badge";
 export const issueTrailingColumns: InboxIssueColumn[] = ["assignee", "kickedOffBy", "project", "workspace", "parent", "labels", "updated"];
 
 const issueColumnLabels: Record<InboxIssueColumn, string> = {
-  status: "Status",
-  id: "ID",
-  assignee: "Responsible",
-  kickedOffBy: "Kicked off by",
-  project: "Project",
-  workspace: "Workspace",
-  parent: "Parent task",
-  labels: "Tags",
-  updated: "Last updated",
+  get status() { return t("localizationFilters.columnstatusLabel", { defaultValue: "Status" }); },
+  get id() { return t("localizationFilters.columnidLabel", { defaultValue: "ID" }); },
+  get assignee() { return t("localizationFilters.columnassigneeLabel", { defaultValue: "Responsible" }); },
+  get kickedOffBy() { return t("localizationFilters.columnkickedOffByLabel", { defaultValue: "Kicked off by" }); },
+  get project() { return t("localizationFilters.columnprojectLabel", { defaultValue: "Project" }); },
+  get workspace() { return t("localizationFilters.columnworkspaceLabel", { defaultValue: "Workspace" }); },
+  get parent() { return t("localizationFilters.columnparentLabel", { defaultValue: "Parent task" }); },
+  get labels() { return t("localizationFilters.columnlabelsLabel", { defaultValue: "Tags" }); },
+  get updated() { return t("localizationFilters.columnupdatedLabel", { defaultValue: "Last updated" }); },
 };
 
 const issueColumnDescriptions: Record<InboxIssueColumn, string> = {
-  status: "Task state chip on the left edge.",
-  id: "Ticket identifier like PAP-1009.",
-  assignee: "Responsible agent or board user.",
-  kickedOffBy: "Board user or agent who created the task.",
-  project: "Linked project pill with its color.",
-  workspace: "Execution or project workspace used for the task.",
-  parent: "Parent task identifier and title.",
-  labels: "Task labels and tags.",
-  updated: "Latest visible activity time.",
+  get status() { return t("localizationFilters.columnstatusDescription", { defaultValue: "Task state chip on the left edge." }); },
+  get id() { return t("localizationFilters.columnidDescription", { defaultValue: "Ticket identifier like PAP-1009." }); },
+  get assignee() { return t("localizationFilters.columnassigneeDescription", { defaultValue: "Responsible agent or board user." }); },
+  get kickedOffBy() { return t("localizationFilters.columnkickedOffByDescription", { defaultValue: "Board user or agent who created the task." }); },
+  get project() { return t("localizationFilters.columnprojectDescription", { defaultValue: "Linked project pill with its color." }); },
+  get workspace() { return t("localizationFilters.columnworkspaceDescription", { defaultValue: "Execution or project workspace used for the task." }); },
+  get parent() { return t("localizationFilters.columnparentDescription", { defaultValue: "Parent task identifier and title." }); },
+  get labels() { return t("localizationFilters.columnlabelsDescription", { defaultValue: "Task labels and tags." }); },
+  get updated() { return t("localizationFilters.columnupdatedDescription", { defaultValue: "Latest visible activity time." }); },
 };
 
 export function issueActivityText(issue: Issue): string {
-  return `Updated ${timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt)}`;
+  return t("localizationFilters.updatedAt", { time: timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt) });
 }
 
 function issueTrailingGridTemplate(columns: InboxIssueColumn[]): string {
@@ -80,6 +81,7 @@ export function IssueColumnPicker({
   title: string;
   iconOnly?: boolean;
 }) {
+  useTranslation();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -88,17 +90,17 @@ export function IssueColumnPicker({
           variant={iconOnly ? "outline" : "ghost"}
           size={iconOnly ? "icon" : "sm"}
           className={iconOnly ? "h-8 w-8 shrink-0" : "hidden h-8 shrink-0 px-2 text-xs sm:inline-flex"}
-          title="Columns"
+          title={t("localizationFilters.columns", { defaultValue: "Columns" })}
         >
           <Columns3 className={iconOnly ? "h-3.5 w-3.5" : "mr-1 h-3.5 w-3.5"} />
-          {!iconOnly && "Columns"}
+          {!iconOnly && t("localizationFilters.columns", { defaultValue: "Columns" })}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-(--sz-300px) rounded-xl border-border/70 p-1.5 shadow-xl shadow-black/10">
         <DropdownMenuLabel className="px-2 pb-1 pt-1.5">
           <div className="space-y-1">
             <div className="text-(length:--text-nano) font-semibold uppercase tracking-(--tracking-caps) text-muted-foreground">
-              Desktop task rows
+              {t("localizationFilters.desktopRows", { defaultValue: "Desktop task rows" })}
             </div>
             <div className="text-sm font-medium text-foreground">
               {title}
@@ -129,8 +131,8 @@ export function IssueColumnPicker({
           onSelect={onResetColumns}
           className="rounded-lg px-3 py-2 text-sm"
         >
-          Reset defaults
-          <span className="ml-auto text-xs text-muted-foreground">status, id, updated</span>
+          {t("localizationFilters.resetDefaults", { defaultValue: "Reset defaults" })}
+          <span className="ml-auto text-xs text-muted-foreground">{t("localizationFilters.defaultColumns", { defaultValue: "status, id, updated" })}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -156,6 +158,7 @@ export function InboxIssueMetaLeading({
   statusSlot?: ReactNode;
   checklistStepNumber?: number | string | null;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       {showStatus ? (
@@ -195,7 +198,7 @@ export function InboxIssueMetaLeading({
               "text-blue-600 dark:text-blue-400",
             )}
           >
-            Live
+            {t("localizationFilters.live", { defaultValue: "Live" })}
           </span>
         </Badge>
       )}
@@ -205,7 +208,7 @@ export function InboxIssueMetaLeading({
             "px-1.5 sm:gap-1.5 sm:px-2",
             "border-border bg-transparent",
           )}
-          title={`${subtreeLiveCount} sub-task${subtreeLiveCount === 1 ? "" : "s"} running below`}
+          title={t("localizationFilters.runningSubtasks", { count: subtreeLiveCount })}
         >
           <span
             className={cn(
@@ -215,7 +218,7 @@ export function InboxIssueMetaLeading({
             aria-hidden="true"
           />
           <span className="hidden text-(length:--text-micro) font-medium text-muted-foreground sm:inline">
-            {subtreeLiveCount} live below
+            {t("localizationFilters.liveBelow", { count: subtreeLiveCount })}
           </span>
         </Badge>
       )}
@@ -262,11 +265,12 @@ export function InboxIssueTrailingColumns({
   assigneeContent?: ReactNode;
   onFilterWorkspace?: (workspaceId: string) => void;
 }) {
+  useTranslation();
   const activityText = timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt);
-  const userLabel = assigneeUserName ?? formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "User";
+  const userLabel = assigneeUserName ?? formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? t("localizationFilters.user", { defaultValue: "User" });
   const originatingActor = deriveOriginatingActor(issue);
   const originatingUserId = originatingActor?.kind === "user" ? originatingActor.id : null;
-  const creatorUserLabel = creatorUserName ?? formatAssigneeUserLabel(originatingUserId, currentUserId) ?? "User";
+  const creatorUserLabel = creatorUserName ?? formatAssigneeUserLabel(originatingUserId, currentUserId) ?? t("localizationFilters.user", { defaultValue: "User" });
 
   return (
     <span
@@ -307,7 +311,7 @@ export function InboxIssueTrailingColumns({
 
           return (
             <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              Unassigned
+              {t("filter.unassigned")}
             </span>
           );
         }
@@ -333,7 +337,7 @@ export function InboxIssueTrailingColumns({
           }
 
           if (originatingActor?.kind === "user") {
-            const tooltipText = viaAgentName ? `${creatorUserLabel} · via ${viaAgentName}` : creatorUserLabel;
+            const tooltipText = viaAgentName ? t("localizationFilters.viaAgent", { defaultValue: "{{user}} · via {{agent}}", user: creatorUserLabel, agent: viaAgentName }) : creatorUserLabel;
             return (
               <Tooltip key={column}>
                 <TooltipTrigger asChild>
@@ -353,7 +357,7 @@ export function InboxIssueTrailingColumns({
 
           return (
             <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              Unknown
+              {t("localizationFilters.unknown", { defaultValue: "Unknown" })}
             </span>
           );
         }
@@ -379,7 +383,7 @@ export function InboxIssueTrailingColumns({
 
           return (
             <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              No project
+              {t("localizationFilters.noProject", { defaultValue: "No project" })}
             </span>
           );
         }
@@ -436,7 +440,7 @@ export function InboxIssueTrailingColumns({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={6}>
-                    Filter by workspace
+                    {t("localizationFilters.filterWorkspace", { defaultValue: "Filter by workspace" })}
                   </TooltipContent>
                 </Tooltip>
               ) : (
@@ -456,7 +460,7 @@ export function InboxIssueTrailingColumns({
               {parentIdentifier ? (
                 <span className="font-mono">{parentIdentifier}</span>
               ) : (
-                <span className="italic">Sub-task</span>
+                <span className="italic">{t("localizationFilters.subtask", { defaultValue: "Sub-task" })}</span>
               )}
             </span>
           );

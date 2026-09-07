@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { i18n, LOCALE_STORAGE_KEY } from "@/i18n";
+import { act as reactAct } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -94,10 +96,120 @@ describe("SidebarAccountMenu", () => {
     mockAuthApi.signOut.mockResolvedValue({ success: true, redirectTo: "/cloud/logout" });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     container.remove();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
+  });
+
+  it("switches languages through the account menu and keeps the saved preference and account actions on remount", async () => {
+    const previousPreference = localStorage.getItem(LOCALE_STORAGE_KEY);
+    let root: ReturnType<typeof createRoot> | undefined;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(queryKeys.health, {
+      status: "ok",
+      deploymentMode: "authenticated",
+    });
+
+    const menu = () => {
+      const content = document.body.querySelector<HTMLElement>('[data-slot="popover-content"]');
+      expect(content).not.toBeNull();
+      return content!;
+    };
+    const languageButton = (locale: "en" | "ru") => {
+      const button = menu().querySelector<HTMLButtonElement>(`button[lang="${locale}"]`);
+      expect(button).not.toBeNull();
+      return button!;
+    };
+    const expectLanguage = (locale: "en" | "ru") => {
+      expect(languageButton("en").textContent).toBe(locale === "en" ? "English" : "Английский");
+      expect(languageButton("ru").textContent).toBe(locale === "en" ? "Russian" : "Русский");
+      expect(languageButton("en").getAttribute("aria-pressed")).toBe(String(locale === "en"));
+      expect(languageButton("ru").getAttribute("aria-pressed")).toBe(String(locale === "ru"));
+      expect(i18n.resolvedLanguage).toBe(locale);
+      expect(document.documentElement.lang).toBe(locale);
+      expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe(locale);
+    };
+    const openMenu = async () => {
+      expect(document.body.querySelector('[data-slot="popover-content"]')).toBeNull();
+      const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]');
+      expect(trigger).not.toBeNull();
+      await reactAct(async () => trigger!.click());
+      expect(trigger!.getAttribute("aria-expanded")).toBe("true");
+    };
+    const mountAndOpen = async () => {
+      root = createRoot(container);
+      await reactAct(async () => {
+        root!.render(
+          <QueryClientProvider client={queryClient}>
+            <SidebarAccountMenu deploymentMode="authenticated" version="1.2.3" />
+          </QueryClientProvider>,
+        );
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      });
+      await openMenu();
+    };
+
+    try {
+      await i18n.changeLanguage("en");
+      localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+      await mountAndOpen();
+      expectLanguage("en");
+      const originalLinks = [...menu().querySelectorAll("a")].map(link => ({
+        href: link.getAttribute("href"), target: link.getAttribute("target"),
+      }));
+      const expectAccountActions = () => {
+        expect(menu().textContent).toContain("Jane Example");
+        expect(menu().textContent).toContain("jane@example.com");
+        expect(menu().textContent).toContain("Paperclip v1.2.3");
+        expect([...menu().querySelectorAll("a")].map(link => ({
+          href: link.getAttribute("href"), target: link.getAttribute("target"),
+        }))).toEqual(originalLinks);
+        expect(menu().querySelector('a[href="/company/settings/instance/profile"]')).not.toBeNull();
+        expect(menu().querySelector('a[href="https://paperclip.ing/feedback"]')?.getAttribute("target")).toBe("_blank");
+        expect(mockAuthApi.signOut).not.toHaveBeenCalled();
+        expect(mockNavigateTopLevel).not.toHaveBeenCalled();
+      };
+
+      await reactAct(async () => languageButton("ru").click());
+      expectLanguage("ru");
+      expectAccountActions();
+
+      await reactAct(async () => root!.unmount());
+      root = undefined;
+      expect(document.body.querySelector('[data-slot="popover-content"]')).toBeNull();
+      expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe("ru");
+      await mountAndOpen();
+      expectLanguage("ru");
+      expectAccountActions();
+
+      await reactAct(async () => languageButton("en").click());
+      expectLanguage("en");
+      expectAccountActions();
+      expect(menu().textContent).toContain("Edit profile");
+      expect(menu().textContent).toContain("Documentation");
+      expect(menu().textContent).toContain("Feedback");
+      const theme = [...menu().querySelectorAll("button")].find(button => button.textContent?.includes("Switch to"));
+      expect(theme).toBeDefined();
+      await reactAct(async () => theme!.click());
+      expect(mockToggleTheme).toHaveBeenCalledOnce();
+      await openMenu();
+      expectLanguage("en");
+      const signOut = [...menu().querySelectorAll("button")].find(button => button.textContent?.includes("Sign out"));
+      expect(signOut).toBeDefined();
+      await reactAct(async () => signOut!.click());
+      expect(mockAuthApi.signOut).toHaveBeenCalledOnce();
+      expect(mockNavigateTopLevel).not.toHaveBeenCalled();
+      expect(queryClient.getQueryState(queryKeys.health)?.isInvalidated).toBe(true);
+    } finally {
+      await reactAct(async () => root?.unmount());
+      queryClient.clear();
+      if (previousPreference === null) localStorage.removeItem(LOCALE_STORAGE_KEY);
+      else localStorage.setItem(LOCALE_STORAGE_KEY, previousPreference);
+    }
   });
 
   it("keeps authenticated self-hosted sign-out on the local auth flow", async () => {

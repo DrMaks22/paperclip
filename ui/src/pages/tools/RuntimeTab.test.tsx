@@ -7,6 +7,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RuntimeTab } from "./RuntimeTab";
+import { act as reactAct } from "react";
+import { i18n } from "@/i18n";
+import { runtimeAlertFieldDisplay } from "@/lib/runtime-alert-display";
+import type { ToolRuntimeAlertRecommendation } from "@paperclipai/shared";
 
 const listRuntimeSlotsMock = vi.hoisted(() => vi.fn());
 const getRuntimeHealthMock = vi.hoisted(() => vi.fn());
@@ -164,9 +168,10 @@ describe("RuntimeTab", () => {
     restartRuntimeSlotMock.mockResolvedValue(slot());
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     flushSync(() => root?.unmount());
     container.remove();
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
   });
 
@@ -184,6 +189,55 @@ describe("RuntimeTab", () => {
     });
     await flushReact();
   }
+
+  it("refreshes status and alert labels while keeping runtime expansion and routes", async () => {
+    getRuntimeHealthMock.mockResolvedValue(health({ alerts: [alert({ status: "firing" })] }));
+    await render();
+    await reactAct(async () => container.querySelector<HTMLTableRowElement>("tbody tr")!.click());
+    for (const locale of ["ru", "en"]) {
+      await reactAct(async () => { await i18n.changeLanguage(locale); });
+      expect(container.textContent).toContain(i18n.t("stableTools.copy135"));
+      expect(container.textContent).toContain(i18n.t("stableTools.copy65"));
+      expect(container.textContent).toContain("gmail-stdio-local");
+      expect(container.querySelector('a[href="/apps/conn-1"]')?.textContent).toBe("Gmail");
+      expect(stopRuntimeSlotMock).not.toHaveBeenCalled();
+      expect(restartRuntimeSlotMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("updates finite operational instructions and plain-body counts without closing technical details or mutating runtime state", async () => {
+    const failure: ToolRuntimeAlertRecommendation = {
+      name: "mcp_runtime_high_error_rate", status: "firing", severity: "critical",
+      threshold: "Warning at >=5 failures and >=10% failure rate in 1 hour; critical at >=10 failures or >=25%.",
+      observed: "21 failure(s), 17.5% failure rate.",
+      description: "Tool gateway calls are failing after policy authorization.",
+      firstResponderAction: "Group audit failures by reasonCode, then fix credentials/config or disable the affected connection.",
+      runbookSection: "runbook#unchanged-raw-id",
+    };
+    const raw = JSON.stringify(failure);
+    getRuntimeHealthMock.mockResolvedValue(health({ alerts: [failure] }));
+    await reactAct(async () => { await render(); });
+    const toggle = Array.from(container.querySelectorAll("button")).find(button => button.textContent?.includes(i18n.t("localizationIssueDetail.ui_Technical_details")))!;
+    await reactAct(async () => { toggle.click(); });
+    const details = container.querySelector("dl")!;
+    expect(details).toBeTruthy();
+    for (const language of ["ru", "en", "ru"]) {
+      await reactAct(async () => { await i18n.changeLanguage(language); });
+      expect(container.contains(toggle)).toBe(true);
+      expect(container.querySelector("dl")).toBe(details);
+      for (const field of ["threshold", "observed", "firstResponderAction"] as const) {
+        expect(details.textContent).toContain(runtimeAlertFieldDisplay(failure, field));
+      }
+      expect(details.textContent).toContain(language === "ru" ? i18n.t("stableRuntimeAlerts.severity.critical") : "critical");
+      expect(container.textContent).toContain(i18n.t("stableTools.failedActions", { observed: runtimeAlertFieldDisplay(failure, "observed") }));
+      expect(details.textContent).toContain(failure.name);
+      expect(details.textContent).toContain(failure.runbookSection);
+      expect(details.textContent).toContain("reasonCode");
+      expect(JSON.stringify(failure)).toBe(raw);
+      expect(stopRuntimeSlotMock).not.toHaveBeenCalled();
+      expect(restartRuntimeSlotMock).not.toHaveBeenCalled();
+    }
+  });
 
   it("shows the plain-words summary strip and a Working row linked to the app page", async () => {
     await render();

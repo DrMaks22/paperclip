@@ -1,3 +1,4 @@
+import { t, useTranslation, i18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Gauge } from "lucide-react";
 import type { TaskChatUsageItem } from "./task-chat-model";
@@ -8,6 +9,7 @@ import type { TaskChatUsageItem } from "./task-chat-model";
  * Recedes to metadata weight so it never competes with message content.
  */
 export function TaskChatUsageReadout({ item }: { item: TaskChatUsageItem }) {
+  useTranslation();
   const { used, size, inputTokens, outputTokens, costUsd } = item.usage;
   const pct = size > 0 ? Math.min(100, Math.round((used / size) * 100)) : 0;
   return (
@@ -15,11 +17,11 @@ export function TaskChatUsageReadout({ item }: { item: TaskChatUsageItem }) {
       <div className="flex items-center gap-1.5">
         <Gauge className="h-3 w-3" />
         <span>
-          {used.toLocaleString()}/{size.toLocaleString()} ctx ({pct}%)
+          {t("localizationTaskRuntime.contextUsagePercent", { used: used.toLocaleString(i18n.resolvedLanguage), size: size.toLocaleString(i18n.resolvedLanguage), percent: pct })}
         </span>
         {inputTokens != null || outputTokens != null ? (
           <span>
-            · ↑{(inputTokens ?? 0).toLocaleString()} ↓{(outputTokens ?? 0).toLocaleString()}
+            · ↑{(inputTokens ?? 0).toLocaleString(i18n.resolvedLanguage)} ↓{(outputTokens ?? 0).toLocaleString(i18n.resolvedLanguage)}
           </span>
         ) : null}
         {costUsd != null ? <span>· ${costUsd.toFixed(4)}</span> : null}

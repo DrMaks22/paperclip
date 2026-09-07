@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import { usePanel } from "../context/PanelContext";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function PropertiesPanel() {
+  useTranslation();
   const { panelContent, panelVisible, setPanelVisible } = usePanel();
   const { enabled: classicTaskInterfaceEnabled } = useClassicTaskInterfaceEnabled();
 
@@ -20,7 +22,7 @@ export function PropertiesPanel() {
       >
         <div className="w-80 flex-1 flex flex-col min-w-(--sz-320px) min-h-0">
           <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-            <span className="text-sm font-medium">Properties</span>
+            <span className="text-sm font-medium">{t("localizationCommonChrome.properties")}</span>
             <Button variant="ghost" size="icon-xs" onClick={() => setPanelVisible(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -138,6 +140,7 @@ function ResizablePropertiesPanel({
   panelVisible,
   setPanelVisible,
 }: ResizablePropertiesPanelProps) {
+  useTranslation();
   const [width, setWidth] = useState(() => clampPaneWidth(readStoredPaneWidth()));
   const [dragging, setDragging] = useState(false);
   const [maximized, setMaximized] = useState(false);
@@ -330,7 +333,7 @@ function ResizablePropertiesPanel({
           <div
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize panel"
+            aria-label={t("localizationCommonChrome.resizePanel")}
             data-dragging={dragging ? "" : undefined}
             className="group absolute inset-y-0 z-10 cursor-col-resize touch-none"
             style={{ left: -4, width: 8 }}
@@ -368,8 +371,8 @@ function ResizablePropertiesPanel({
                 variant="ghost"
                 size="icon-xs"
                 className="size-7"
-                title={maximized ? "Restore panel" : "Maximize panel"}
-                aria-label={maximized ? "Restore panel" : "Maximize panel"}
+                title={maximized ? t("stableCore.restorePanel") : t("stableCore.maximizePanel")}
+                aria-label={maximized ? t("stableCore.restorePanel") : t("stableCore.maximizePanel")}
                 onClick={maximized ? handleRestore : handleMaximize}
               >
                 {maximized ? (

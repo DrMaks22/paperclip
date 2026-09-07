@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import {
   ClipboardPaste,
   FlaskConical,
@@ -24,8 +25,8 @@ export function advancedTabHref(tab: ToolTabKey): string {
 // M8a/M8b — the prosumer-facing Advanced setup tabs (PAP-10839 wires). The only
 // screens where "MCP" vocabulary is permitted (PAP-10827).
 export const ADVANCED_TABS = [
-  { key: "run-your-own", label: "Run your own", icon: TerminalSquare },
-  { key: "paste-config", label: "Paste a config", icon: ClipboardPaste },
+  { key: "run-your-own", get label() { return t("pages.apps.connect.gallery.runYourOwn"); }, icon: TerminalSquare },
+  { key: "paste-config", get label() { return t("pages.apps.connect.gallery.pasteConfig"); }, icon: ClipboardPaste },
 ] as const;
 
 // The pre-Apps developer surface, kept reachable behind the Advanced door.
@@ -33,12 +34,12 @@ export const ADVANCED_TABS = [
 // `experimental.enableSmokeLab` is on (see `isExperimentalToolTab` +
 // `useSmokeLabEnabled`), and the route/tab itself gates on the same flag.
 export const DEVELOPER_TABS = [
-  { key: "gateways", label: "Gateways", icon: Network },
-  { key: "profiles", label: "Profiles", icon: Layers },
-  { key: "policies", label: "Rules", icon: Shield },
-  { key: "runtime", label: "Health", icon: Server },
-  { key: "audit", label: "Activity", icon: ScrollText },
-  { key: "smoke-lab", label: "Smoke Lab", icon: FlaskConical },
+  { key: "gateways", get label() { return t("pages.apps.subNav.gateways"); }, icon: Network },
+  { key: "profiles", get label() { return t("localizationTools.profiles342"); }, icon: Layers },
+  { key: "policies", get label() { return t("stableApps.tools.rules"); }, icon: Shield },
+  { key: "runtime", get label() { return t("localizationApps.health248"); }, icon: Server },
+  { key: "audit", get label() { return t("pages.apps.tabs.activity"); }, icon: ScrollText },
+  { key: "smoke-lab", get label() { return t("localizationTools.smokeLab343"); }, icon: FlaskConical },
 ] as const;
 
 export const TOOL_TABS = [...ADVANCED_TABS, ...DEVELOPER_TABS] as const;

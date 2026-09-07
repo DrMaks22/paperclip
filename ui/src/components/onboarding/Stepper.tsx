@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 
 /**
@@ -13,10 +14,10 @@ export const AGENT_ARC_TOTAL_STEPS = 3;
  * controls both announcing "Step 1" while meaning different steps is worse
  * than no number at all. The visible "Step N of 3" line carries the count.
  */
-export const AGENT_ARC_STEP_LABELS = [
-  "Create your first agent",
-  "Connect a model",
-  "Review",
+export const AGENT_ARC_STEP_LABEL_KEYS = [
+  "localizationOnboarding.stepAgent",
+  "localizationOnboarding.stepModel",
+  "localizationOnboarding.stepReview",
 ] as const;
 
 /** Wizard step numbers that make up the arc, in order. */
@@ -60,6 +61,8 @@ export function Stepper({
   canJumpToStep?: (target: number) => boolean;
   onJumpToStep?: (target: number) => void;
 }) {
+  const { t } = useTranslation();
+  const stepLabels = AGENT_ARC_STEP_LABEL_KEYS.map((key) => t(key));
   return (
     <div className="mb-7 flex flex-col items-start gap-3.5">
       <div className="flex items-center gap-2">
@@ -69,7 +72,7 @@ export function Stepper({
             <button
               key={segment}
               type="button"
-              aria-label={AGENT_ARC_STEP_LABELS[segment - 1] ?? `Step ${segment}`}
+              aria-label={stepLabels[segment - 1] ?? t("localizationOnboarding.stepNumber", { number: segment })}
               aria-current={segment === step ? "step" : undefined}
               disabled={!jumpable}
               onClick={() => jumpable && onJumpToStep?.(segment)}
@@ -87,7 +90,7 @@ export function Stepper({
         })}
       </div>
       <span className="text-(length:--text-micro) font-medium uppercase tracking-widest text-muted-foreground">
-        Step {step} of {total}
+        {t("localizationOnboarding.stepProgress", { step, total })}
       </span>
     </div>
   );

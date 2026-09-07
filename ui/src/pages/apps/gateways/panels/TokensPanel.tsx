@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/i18n";
+import { Trans } from "react-i18next";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound, Plus } from "lucide-react";
@@ -31,6 +33,7 @@ const STATUS_CLASS: Record<TokenStatus, string> = {
 
 /** Token status pill, shared by the desktop table and mobile cards. */
 function StatusBadge({ status }: { status: TokenStatus }) {
+  useTranslation();
   return (
     <span
       className={cn(
@@ -45,6 +48,7 @@ function StatusBadge({ status }: { status: TokenStatus }) {
 
 /** One label:value pair inside a mobile stacked card. */
 function TokenField({ label, value }: { label: string; value: ReactNode }) {
+  useTranslation();
   return (
     <div className="min-w-0">
       <dt className="text-(length:--text-micro) font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
@@ -62,6 +66,7 @@ export function TokensPanel({
   gateway: ToolMcpGatewayWithTokens;
   onTokenCreated?: (token: ToolMcpGatewayTokenCreated) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
   const [minting, setMinting] = useState(false);
@@ -94,8 +99,8 @@ export function TokensPanel({
       setOwnerNote("");
       setExpiresAt(defaultExpiry());
       pushToast({
-        title: "Token minted",
-        body: "Copy it now — you won’t see the full value again.",
+        title: t("stableApps.tokens.created"),
+        body: t("stableApps.tokens.copyNow"),
         tone: "success",
       });
       onTokenCreated?.(token);
@@ -103,7 +108,7 @@ export function TokensPanel({
     },
     onError: (error) =>
       pushToast({
-        title: "Token was not minted",
+        title: t("stableApps.tokens.createError"),
         body: error instanceof Error ? error.message : String(error),
         tone: "error",
       }),
@@ -114,12 +119,12 @@ export function TokensPanel({
     onSuccess: async (token) => {
       setConfirmToken(null);
       setRevokeName("");
-      pushToast({ title: "Token revoked", body: `${token.name} can no longer connect.`, tone: "success" });
+      pushToast({ title: t("localizationApps.tokenRevoked194"), body: t("localizationApps.tokenCanNoLongerConnect", { name: token.name }), tone: "success" });
       await invalidate();
     },
     onError: (error) =>
       pushToast({
-        title: "Token was not revoked",
+        title: t("localizationApps.tokenWasNotRevoked196"),
         body: error instanceof Error ? error.message : String(error),
         tone: "error",
       }),
@@ -128,11 +133,11 @@ export function TokensPanel({
   async function copyToken(value: string) {
     try {
       await copyTextToClipboard(value);
-      pushToast({ title: "Copied", body: "Access token", tone: "success" });
+      pushToast({ title: t("pages.agentDetail.copied"), body: t("localizationApps.accessToken197"), tone: "success" });
     } catch (error) {
       pushToast({
-        title: "Copy failed",
-        body: error instanceof Error ? error.message : "Clipboard access is unavailable.",
+        title: t("pages.agentDetail.copyFailed"),
+        body: error instanceof Error ? error.message : t("pages.agentDetail.clipboardUnavailable"),
         tone: "error",
       });
     }
@@ -155,47 +160,41 @@ export function TokensPanel({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Each token is a separate way in. Revoke any one without breaking the others.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("stableApps.tokens.hint")}</p>
         <Button size="sm" onClick={() => setMinting((value) => !value)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Mint token
-        </Button>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />{t("stableApps.tokens.create")}</Button>
       </div>
 
       {minting ? (
         <form className="space-y-3 rounded-md border border-border p-4" onSubmit={submit}>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground">Name</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("pages.apps.connect.nameLabel")}</span>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="cto-cursor" required autoFocus />
             </label>
             <label className="space-y-1.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground">Owner / client</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("stableApps.tokens.owner")}</span>
               <Input
                 value={clientLabel}
                 onChange={(e) => setClientLabel(e.target.value)}
-                placeholder="Cursor on work laptop"
+                placeholder={t("localizationTools.cursorOnWorkLaptop325")}
               />
             </label>
           </div>
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <label className="space-y-1.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground">Note (why it exists)</span>
-              <Input value={ownerNote} onChange={(e) => setOwnerNote(e.target.value)} placeholder="Dotta’s MacBook" />
+              <span className="text-xs font-medium text-muted-foreground">{t("stableApps.tokens.note")}</span>
+              <Input value={ownerNote} onChange={(e) => setOwnerNote(e.target.value)} placeholder={t("localizationTools.dottaSMacBook323")} />
             </label>
             <label className="space-y-1.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground">Expires</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("localizationIssueDetail.ui_Expires")}</span>
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} required />
             </label>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMinting(false)}>
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMinting(false)}>{t("pages.apps.common.cancel")}</Button>
             <Button type="submit" size="sm" disabled={createMutation.isPending || !name.trim()}>
-              {createMutation.isPending ? "Minting…" : "Mint token"}
+              {createMutation.isPending ? t("stableApps.tokens.creating") : t("stableApps.tokens.create")}
             </Button>
           </div>
         </form>
@@ -205,14 +204,10 @@ export function TokensPanel({
         <div className="space-y-2 rounded-md border-2 border-foreground/80 bg-muted/40 p-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <div className="text-sm font-semibold text-foreground">New token — copy now</div>
-              <div className="text-xs text-muted-foreground">
-                You won’t see the full value again. Store it in your client’s config or your secret manager.
-              </div>
+              <div className="text-sm font-semibold text-foreground">{t("localizationApps.newTokenCopyNow205")}</div>
+              <div className="text-xs text-muted-foreground">{t("stableApps.tokens.storeHint")}</div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setCreated(null)} aria-label="Dismiss new token">
-              Dismiss
-            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setCreated(null)} aria-label={t("localizationApps.dismissNewToken207")}>{t("localizationSkills.dismiss661")}</Button>
           </div>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded bg-background px-3 py-2 font-mono text-xs text-foreground">
@@ -220,22 +215,16 @@ export function TokensPanel({
             </code>
             {revealed ? (
               <Button variant="outline" size="sm" onClick={() => void copyToken(created.token)}>
-                <Copy className="mr-1 h-3.5 w-3.5" />
-                Copy
-              </Button>
+                <Copy className="mr-1 h-3.5 w-3.5" />{t("pages.apps.common.copy")}</Button>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setRevealed(true)}>
-                Show
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setRevealed(true)}>{t("pages.agentDetail.show")}</Button>
             )}
           </div>
         </div>
       ) : null}
 
       {tokens.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No tokens yet. Mint one for the client that will connect to this gateway.
-        </div>
+        <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("stableApps.tokens.empty")}</div>
       ) : (
         <>
           {/* Desktop / tablet: full table. */}
@@ -243,12 +232,12 @@ export function TokensPanel({
             <table className="w-full min-w-(--sz-44rem) text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-(length:--text-micro) font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-2.5">Token</th>
-                  <th className="px-4 py-2.5">Owner</th>
-                  <th className="px-4 py-2.5">Created</th>
-                  <th className="px-4 py-2.5">Last used</th>
-                  <th className="px-4 py-2.5">Expires</th>
-                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">{t("localizationApps.token211")}</th>
+                  <th className="px-4 py-2.5">{t("pages.inviteLanding.roles.owner")}</th>
+                  <th className="px-4 py-2.5">{t("localizationApps.created212")}</th>
+                  <th className="px-4 py-2.5">{t("pages.apps.connections.columnLastUsed")}</th>
+                  <th className="px-4 py-2.5">{t("localizationIssueDetail.ui_Expires")}</th>
+                  <th className="px-4 py-2.5">{t("pages.apps.connections.columnStatus")}</th>
                   <th className="px-4 py-2.5 text-right" />
                 </tr>
               </thead>
@@ -268,7 +257,7 @@ export function TokensPanel({
                         {token.lastUsedAt ? <RelativeTime value={token.lastUsedAt} /> : "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {token.revokedAt ? "—" : token.expiresAt ? <RelativeTime value={token.expiresAt} /> : "no expiry"}
+                        {token.revokedAt ? "—" : token.expiresAt ? <RelativeTime value={token.expiresAt} /> : t("localizationTools.noExpiry334")}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={status} />
@@ -283,9 +272,7 @@ export function TokensPanel({
                               setConfirmToken({ id: token.id, name: token.name });
                               setRevokeName("");
                             }}
-                          >
-                            Revoke
-                          </Button>
+                          >{t("pages.agentDetail.revoke")}</Button>
                         ) : null}
                       </td>
                     </tr>
@@ -310,16 +297,16 @@ export function TokensPanel({
                     <StatusBadge status={status} />
                   </div>
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <TokenField label="Owner" value={token.clientLabel || token.ownerNote || "—"} />
-                    <TokenField label="Created" value={<RelativeTime value={token.createdAt} />} />
+                    <TokenField label={t("pages.inviteLanding.roles.owner")} value={token.clientLabel || token.ownerNote || "—"} />
+                    <TokenField label={t("localizationApps.created212")} value={<RelativeTime value={token.createdAt} />} />
                     <TokenField
-                      label="Last used"
+                      label={t("pages.apps.connections.columnLastUsed")}
                       value={token.lastUsedAt ? <RelativeTime value={token.lastUsedAt} /> : "—"}
                     />
                     <TokenField
-                      label="Expires"
+                      label={t("localizationIssueDetail.ui_Expires")}
                       value={
-                        token.revokedAt ? "—" : token.expiresAt ? <RelativeTime value={token.expiresAt} /> : "no expiry"
+                        token.revokedAt ? "—" : token.expiresAt ? <RelativeTime value={token.expiresAt} /> : t("localizationTools.noExpiry334")
                       }
                     />
                   </dl>
@@ -332,9 +319,7 @@ export function TokensPanel({
                         setConfirmToken({ id: token.id, name: token.name });
                         setRevokeName("");
                       }}
-                    >
-                      Revoke
-                    </Button>
+                    >{t("pages.agentDetail.revoke")}</Button>
                   ) : null}
                 </div>
               );
@@ -344,25 +329,22 @@ export function TokensPanel({
       )}
 
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <KeyRound className="h-3.5 w-3.5" />
-        Every mint, reveal, and revoke is recorded in Activity.
-      </p>
+        <KeyRound className="h-3.5 w-3.5" />{t("stableApps.tokens.activityHint")}</p>
 
       {confirmToken ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-5 shadow-lg">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Revoke this token?</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("localizationApps.revokeThisToken221")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Any client using <span className="font-medium text-foreground">{confirmToken.name}</span> goes
-                silent immediately. This can’t be undone. Type the token name to confirm.
+                <Trans t={t} i18nKey="localizationApps.revokeTokenWarning" values={{ name: confirmToken.name }} components={{ name: <span className="font-medium text-foreground" /> }} />
               </p>
             </div>
             <Input
               value={revokeName}
               onChange={(e) => setRevokeName(e.target.value)}
               placeholder={confirmToken.name}
-              aria-label="Type the token name to confirm"
+              aria-label={t("localizationApps.typeTheTokenNameToConfirm224")}
               autoFocus
             />
             <div className="flex justify-end gap-2">
@@ -373,16 +355,14 @@ export function TokensPanel({
                   setConfirmToken(null);
                   setRevokeName("");
                 }}
-              >
-                Cancel
-              </Button>
+              >{t("pages.apps.common.cancel")}</Button>
               <Button
                 variant="destructive"
                 size="sm"
                 disabled={revokeName.trim() !== confirmToken.name || revokeMutation.isPending}
                 onClick={() => revokeMutation.mutate(confirmToken.id)}
               >
-                {revokeMutation.isPending ? "Revoking…" : "Revoke token"}
+                {revokeMutation.isPending ? t("localizationApps.revoking225") : t("localizationApps.revokeToken226")}
               </Button>
             </div>
           </div>

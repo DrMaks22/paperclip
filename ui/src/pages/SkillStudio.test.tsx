@@ -11,6 +11,7 @@ import type {
 } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SkillStudio } from "./SkillStudio";
+import { i18n } from "@/i18n";
 
 const routeState = vi.hoisted(() => ({
   pathname: "/skills/studio/new",
@@ -557,6 +558,53 @@ describe("SkillStudio landing", () => {
     const node = await renderStudio();
 
     await waitFor(() => expect(node.textContent).toContain("Loading skills..."));
+  });
+});
+
+describe("SkillStudio version diff localization", () => {
+  it("preserves removed and added diff kinds, selected versions and raw contents across locales", async () => {
+    routeState.pathname = "/skills/studio/source-skill";
+    routeState.skillId = "source-skill";
+    const versions = [
+      { id: "version-raw-a", revisionNumber: 1, label: "Raw version A", createdAt: new Date("2026-01-01T00:00:00Z"), fileInventory: [{ path: "RAW.md", content: "KEEP_RAW\nREMOVE_RAW" }] },
+      { id: "version-raw-b", revisionNumber: 2, label: "Raw version B", createdAt: new Date("2026-01-02T00:00:00Z"), fileInventory: [{ path: "RAW.md", content: "KEEP_RAW\nADD_RAW" }] },
+    ];
+    const original = structuredClone(versions);
+    mockCompanySkillsApi.versions.mockResolvedValue(versions);
+    const node = await renderStudio();
+    await waitFor(() => expect(buttonsNamed(node, "Version history")).toHaveLength(1));
+    await click(buttonsNamed(node, "Version history")[0]);
+    await waitFor(() => expect(document.querySelector('[title="Raw version A"]')).not.toBeNull());
+    for (const label of ["Raw version A", "Raw version B"]) {
+      await act(async () => {
+        document.querySelector(`[title="${label}"]`)!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    }
+    const diffRows = Array.from(document.querySelectorAll("pre > div"));
+    const removed = diffRows.find((row) => row.textContent === "-REMOVE_RAW");
+    const added = diffRows.find((row) => row.textContent === "+ADD_RAW");
+    expect(removed).toBeDefined();
+    expect(added).toBeDefined();
+    const reads = mockCompanySkillsApi.versions.mock.calls.length;
+    try {
+      for (const locale of ["ru", "en", "ru"]) {
+        await act(async () => { await i18n.changeLanguage(locale); });
+        expect(Array.from(document.querySelectorAll("pre > div"))).toEqual(diffRows);
+        expect(removed?.textContent).toBe("-REMOVE_RAW");
+        expect(removed?.className).toContain("text-red-700");
+        expect(added?.textContent).toBe("+ADD_RAW");
+        expect(added?.className).toContain("text-green-700");
+        expect(diffRows.some((row) => row.textContent === " KEEP_RAW")).toBe(true);
+        expect(document.querySelector('[title="Raw version A"]')).not.toBeNull();
+        expect(document.querySelector('[title="Raw version B"]')).not.toBeNull();
+        expect(mockCompanySkillsApi.versions).toHaveBeenCalledTimes(reads);
+        expect(mockCompanySkillsApi.updateFile).not.toHaveBeenCalled();
+        expect(mockCompanySkillsApi.createVersion).not.toHaveBeenCalled();
+        expect(versions).toEqual(original);
+      }
+    } finally {
+      await act(async () => { await i18n.changeLanguage("en"); });
+    }
   });
 });
 

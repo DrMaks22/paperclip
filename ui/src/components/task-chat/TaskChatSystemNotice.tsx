@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import {
   ChevronDown,
@@ -13,7 +14,7 @@ import {
   SystemNoticeMetadataSections,
   type SystemNoticeTone,
 } from "@/components/SystemNotice";
-import { humanizeSystemNotice } from "@/lib/system-notice-humanizer";
+import { humanizeSystemNoticeDisplay as humanizeSystemNotice } from "@/lib/system-notice-humanizer";
 import { mapCommentMetadataToSystemNoticeSections } from "@/lib/system-notice-comment";
 import { timeAgo } from "@/lib/timeAgo";
 import type { TaskChatMessageItem } from "./task-chat-model";
@@ -43,6 +44,7 @@ const TONE_ICON_CLASS: Record<SystemNoticeTone, string> = {
  * suppressed, only folded.
  */
 export function TaskChatSystemNotice({ item }: { item: TaskChatMessageItem }) {
+  useTranslation();
   const [open, setOpen] = useState(Boolean(item.presentation?.detailsDefaultOpen));
   const detailsId = useId();
   const { title, tone, detail } = humanizeSystemNotice({

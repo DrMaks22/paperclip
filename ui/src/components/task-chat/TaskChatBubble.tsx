@@ -1,4 +1,7 @@
 import { useState, type ReactNode } from "react";
+import { taskChatSourceTimestamp } from "./task-chat-adapter";
+import { taskChatTimestampDisplay } from "./task-chat-display";
+import { t, useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { MarkdownBody } from "@/components/MarkdownBody";
 import { ImageGalleryModal, type GalleryMediaItem } from "@/components/ImageGalleryModal";
@@ -14,7 +17,7 @@ import {
   AttachmentTitle,
   AttachmentTrigger,
 } from "@/components/ui/attachment";
-import { extractAttachmentRefs, extractImageRefs, fileKindForName } from "./task-chat-attachments";
+import { extractAttachmentRefs, extractImageRefs, fileKindForNameDisplay as fileKindForName } from "./task-chat-attachments";
 import { TaskChatSystemNotice } from "./TaskChatSystemNotice";
 import type { TaskChatMessageItem } from "./task-chat-model";
 
@@ -59,11 +62,12 @@ function galleryItemForImage(src: string, name?: string): GalleryMediaItem {
     // The modal only inspects contentType/filename to spot videos; embedded
     // markdown images are always images, so an empty type is safe here.
     contentType: "",
-    originalFilename: name?.trim() ? name : "image",
+    originalFilename: name?.trim() ? name : t("localizationTaskRuntime.ui_Image_ophmze"),
   };
 }
 
 export function TaskChatBubble({ item, queuedAction, attachedTurn, actions }: TaskChatBubbleProps) {
+  useTranslation();
   // Clicking an embedded image opens the full-screen lightbox (with download);
   // arrow keys walk across the other images in the same bubble.
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -164,7 +168,7 @@ export function TaskChatBubble({ item, queuedAction, attachedTurn, actions }: Ta
                   <AttachmentDescription className="max-w-48">{kind.label}</AttachmentDescription>
                 </AttachmentContent>
                 <AttachmentTrigger
-                  aria-label={`Open ${ref.name}`}
+                  aria-label={t("localizationTaskRuntime.openImage", { name: ref.name })}
                   render={<a href={ref.url} target="_blank" rel="noreferrer" />}
                 />
               </Attachment>
@@ -174,7 +178,7 @@ export function TaskChatBubble({ item, queuedAction, attachedTurn, actions }: Ta
       ) : null}
       {item.optimistic ? (
         <span className="flex items-center gap-1 px-1 text-(length:--text-micro) text-muted-foreground">
-          <span>{item.optimistic === "queued" ? "Queued" : "Sending…"}</span>
+          <span>{item.optimistic === "queued" ? t("status.queued") : t("localizationIssueDetail.ui_Sending")}</span>
           {item.optimistic === "queued" ? queuedAction : null}
         </span>
       ) : attachedTurn ? (
@@ -193,14 +197,14 @@ export function TaskChatBubble({ item, queuedAction, attachedTurn, actions }: Ta
           {actions}
           {item.timestamp ? (
             <span className="px-1 text-(length:--text-micro) text-muted-foreground">
-              {item.timestamp}
+              {taskChatTimestampDisplay(taskChatSourceTimestamp(item)) ?? item.timestamp}
             </span>
           ) : null}
         </div>
       ) : item.timestamp ? (
         // Timestamps are always visible (round 9) — no longer hover-revealed.
         <span className="px-1 text-(length:--text-micro) text-muted-foreground">
-          {item.timestamp}
+          {taskChatTimestampDisplay(taskChatSourceTimestamp(item)) ?? item.timestamp}
         </span>
       ) : null}
       {lightboxSrc !== null && lightboxIndex >= 0 ? (

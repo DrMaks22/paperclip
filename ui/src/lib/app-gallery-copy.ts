@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+import { appDefinitionText } from "@/pages/apps/app-definition-display";
 /**
  * Prosumer copy for the Apps surface (PAP-10856).
  *
@@ -51,58 +53,58 @@ export interface AppCopy {
  */
 const APP_COPY: Record<string, AppCopy> = {
   zapier: {
-    tagline: "Reach 9,000+ apps your team already uses.",
-    short: "Reach 9,000+ apps from your agents.",
+    get tagline() { return t("localizationApps.reach9000AppsYourTeamAlreadyUses762"); },
+    get short() { return t("localizationApps.reach9000AppsFromYourAgents763"); },
   },
   github: {
-    tagline: "Read code and pull requests, comment on issues.",
-    short: "Read code and pull requests, comment on issues.",
+    get tagline() { return t("localizationApps.readCodeAndPullRequestsCommentOnIssues764"); },
+    get short() { return t("localizationApps.readCodeAndPullRequestsCommentOnIssues764"); },
   },
   slack: {
-    tagline: "Send and read messages in your team's channels.",
-    short: "Send and read messages in your channels.",
+    get tagline() { return t("localizationApps.sendAndReadMessagesInYourTeamSChannels765"); },
+    get short() { return t("localizationApps.sendAndReadMessagesInYourChannels766"); },
   },
   notion: {
-    tagline: "Read and update pages in your workspace.",
-    short: "Read and update pages in your workspace.",
+    get tagline() { return t("localizationApps.readAndUpdatePagesInYourWorkspace767"); },
+    get short() { return t("localizationApps.readAndUpdatePagesInYourWorkspace767"); },
   },
   linear: {
-    tagline: "Create, update and read tickets.",
-    short: "Create, update and read tickets.",
+    get tagline() { return t("localizationApps.createUpdateAndReadTickets770"); },
+    get short() { return t("localizationApps.createUpdateAndReadTickets770"); },
   },
   "google-sheets": {
-    tagline: "Read and update selected spreadsheets.",
-    short: "Share each sheet with the robot email, then paste the links.",
+    get tagline() { return t("localizationApps.readAndUpdateSelectedSpreadsheets771"); },
+    get short() { return t("stableCore.sheetShareRobot"); },
   },
   gmail: {
-    tagline: "Read mail and send drafts for your review.",
-    short: "Read mail and send drafts for your review.",
+    get tagline() { return t("stableCore.gmailDrafts"); },
+    get short() { return t("stableCore.gmailDrafts"); },
   },
   hubspot: {
-    tagline: "Look up contacts and update deal stages.",
-    short: "Look up contacts and update deal stages.",
+    get tagline() { return t("localizationApps.lookUpContactsAndUpdateDealStages781"); },
+    get short() { return t("localizationApps.lookUpContactsAndUpdateDealStages781"); },
   },
   intercom: {
-    tagline: "Read and reply to customer conversations.",
-    short: "Read and reply to customer conversations.",
+    get tagline() { return t("localizationApps.readAndReplyToCustomerConversations782"); },
+    get short() { return t("localizationApps.readAndReplyToCustomerConversations782"); },
   },
   figma: {
-    tagline: "Read files and post comments on frames.",
-    short: "Read files and post comments on frames.",
+    get tagline() { return t("localizationApps.readFilesAndPostCommentsOnFrames783"); },
+    get short() { return t("localizationApps.readFilesAndPostCommentsOnFrames783"); },
   },
   stripe: {
-    tagline: "Read customers, invoices, and payouts.",
-    short: "Read customers, invoices, and payouts.",
+    get tagline() { return t("localizationApps.readCustomersInvoicesAndPayouts784"); },
+    get short() { return t("localizationApps.readCustomersInvoicesAndPayouts784"); },
   },
   context7: {
-    tagline: "Look up up-to-date docs for your libraries.",
-    short: "Look up up-to-date docs for your libraries.",
+    get tagline() { return t("localizationApps.lookUpUpToDateDocsForYourLibraries785"); },
+    get short() { return t("localizationApps.lookUpUpToDateDocsForYourLibraries785"); },
   },
 };
 
 const GENERIC: AppCopy = {
-  tagline: "Give your agents access to this app.",
-  short: "Give your agents access to this app.",
+  get tagline() { return t("localizationApps.giveYourAgentsAccessToThisApp786"); },
+  get short() { return t("localizationApps.giveYourAgentsAccessToThisApp786"); },
 };
 
 /** Curated, gate-safe copy for a gallery app. */
@@ -110,7 +112,7 @@ export function appCopyFor(key: string, fallbackTagline?: string | null): AppCop
   const curated = APP_COPY[key];
   if (curated) return curated;
   if (fallbackTagline) {
-    const cleaned = sanitizeProsumerCopy(fallbackTagline);
+    const cleaned = sanitizeProsumerCopy(appDefinitionText(key, fallbackTagline));
     if (cleaned) return { tagline: cleaned, short: cleaned };
   }
   return GENERIC;
@@ -127,7 +129,7 @@ export function credentialFieldLabel(
   rawLabel: string,
   fieldCount: number,
 ): string {
-  if (fieldCount <= 1) return `Your ${appName} key`;
+  if (fieldCount <= 1) return t("localizationApps.yourAppKey", { app: appName });
   const cleaned = sanitizeProsumerCopy(rawLabel);
-  return cleaned || `Your ${appName} key`;
+  return cleaned || t("localizationApps.yourAppKey", { app: appName });
 }

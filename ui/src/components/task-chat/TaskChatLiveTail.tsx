@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import type { ReactElement } from "react";
 import { MarkdownBody } from "@/components/MarkdownBody";
 import type { TaskChatItem } from "./task-chat-model";
@@ -32,6 +33,7 @@ export function TaskChatLiveTail({
   /** Shown when nothing renderable has streamed yet (queued / pre-first-token). */
   emptyMessage?: string;
 }) {
+  useTranslation();
   const rows = buildActivityPhases(items, true)
     .map((item) => renderTailRow(item))
     .filter((row): row is ReactElement => row != null);

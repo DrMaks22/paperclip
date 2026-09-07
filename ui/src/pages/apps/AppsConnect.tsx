@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/i18n";
+import { appDefinitionText } from "./app-definition-display";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -68,7 +70,7 @@ type AppAccessSelection = "all_agents" | { agentIds: string[] };
 type InstallMode = "none" | "specific" | "all";
 const LINK_CREDENTIAL_CONFIG_PATH = "credentials.authorization";
 
-const STEP_LABELS = ["Pick app", "Add your key", "Choose actions", "Choose access", "Install tools"];
+const stepLabels = () => ["pickApp", "addKey", "chooseActions", "chooseAccess", "installTools"].map((key) => t(`pages.apps.connect.steps.${key}`));
 const STEP_INDEX: Record<Exclude<Step, "success">, number> = {
   gallery: 0,
   key: 1,
@@ -82,7 +84,7 @@ const ZAPIER_STEP_INDEX: Record<Exclude<Step, "gallery" | "success">, number> = 
   who: 2,
   install: 3,
 };
-const ZAPIER_STEP_LABELS = ["Add MCP URL", "Choose actions", "Choose access", "Install tools"];
+const zapierStepLabels = () => ["addMcpUrl", "chooseActions", "chooseAccess", "installTools"].map((key) => t(`pages.apps.connect.steps.${key}`));
 
 function askFirstLevelsFrom(result: ConnectToolAppResult): string[] {
   const raw = (result.suggestedDefaults as { askFirstRiskLevels?: unknown })?.askFirstRiskLevels;
@@ -133,6 +135,7 @@ function reusableOAuthConnection(
 }
 
 export function AppsConnect() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const routeParams = useParams<{ appKey?: string }>();
   const { selectedCompany, selectedCompanyId } = useCompany();
@@ -197,12 +200,12 @@ export function AppsConnect() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: selectedCompany?.name ?? "Organization", href: "/dashboard" },
-      { label: "Apps", href: "/apps" },
-      { label: "Connect an app" },
+      { label: selectedCompany?.name ?? t("nav.company"), href: "/dashboard" },
+      { label: t("nav.apps"), href: "/apps" },
+      { label: t("pages.apps.connections.connectApp") },
     ]);
     return () => setBreadcrumbs([]);
-  }, [setBreadcrumbs, selectedCompany?.name]);
+  }, [setBreadcrumbs, selectedCompany?.name, t]);
 
   const galleryQuery = useQuery({
     queryKey: queryKeys.apps.gallery(selectedCompanyId ?? "__none__"),
@@ -257,10 +260,10 @@ export function AppsConnect() {
       setOAuthPhase("error");
       setOAuthError(
         details?.code === "invalid_grant"
-          ? "Your authorization expired or was revoked. Reconnect to continue."
+          ? t("pages.apps.connect.authorizationExpired")
           : error instanceof Error
             ? error.message
-            : "Paperclip couldn’t start secure sign-in. Try again.",
+            : t("pages.apps.connect.secureSignInError"),
       );
     },
   });
@@ -319,21 +322,21 @@ export function AppsConnect() {
         setOAuthPhase("error");
         setOAuthError(
           details?.code === "invalid_grant"
-            ? "Your authorization expired or was revoked. Reconnect to continue."
+            ? t("pages.apps.connect.authorizationExpired")
             : error instanceof Error
               ? error.message
-              : "Paperclip couldn’t start secure sign-in. Try again.",
+              : t("pages.apps.connect.secureSignInError"),
         );
         return;
       }
       const oauthRequired = details?.code === "oauth_challenge";
       pushToast({
-        title: oauthRequired ? "Sign-in required" : "Couldn’t connect",
+        title: oauthRequired ? t("pages.apps.connect.signInRequiredTitle") : t("pages.apps.connect.connectErrorTitle"),
         body: oauthRequired
-          ? "This app needs you to sign in - coming soon."
+          ? t("pages.apps.connect.signInComingSoonBody")
           : error instanceof Error
             ? error.message
-            : "Please check your key and try again.",
+            : t("pages.apps.connect.checkKeyError"),
         tone: "error",
       });
     },
@@ -377,7 +380,7 @@ export function AppsConnect() {
     if (directOAuth && directOAuthRetryingRef.current) return;
     if (directOAuth && (applicationsQuery.isError || connectionsQuery.isError)) {
       setOAuthPhase("error");
-      setOAuthError("Paperclip couldn’t check for an existing connection. Try again.");
+      setOAuthError(t("pages.apps.connect.existingConnectionError"));
       return;
     }
 
@@ -435,15 +438,15 @@ export function AppsConnect() {
     onSuccess: () => setAppStep("success"),
     onError: (error) => {
       pushToast({
-        title: "Couldn’t finish setup",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("pages.apps.connect.finishErrorTitle"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       });
     },
   });
 
   if (!selectedCompanyId) {
-    return <div className="p-6 text-sm text-muted-foreground">Select an organization to connect apps.</div>;
+    return <div className="p-6 text-sm text-muted-foreground">{t("pages.apps.connect.selectOrganization")}</div>;
   }
 
   if (directOAuthEntry && step === "key") {
@@ -473,7 +476,7 @@ export function AppsConnect() {
             ]);
             if (applicationsResult.isError || connectionsResult.isError) {
               setOAuthPhase("error");
-              setOAuthError("Paperclip couldn’t check for an existing connection. Try again.");
+              setOAuthError(t("pages.apps.connect.existingConnectionError"));
               return;
             }
             const refreshedConnection = reusableOAuthConnection(
@@ -501,19 +504,19 @@ export function AppsConnect() {
   const appName =
     connectResult?.application.name ??
     entry?.name ??
-    (linkName.trim() || defaultLinkName(linkUrl) || "this app");
+    (linkName.trim() || defaultLinkName(linkUrl) || t("pages.apps.connect.thisApp"));
   const zapierEntry = zapierSource
     ? galleryQuery.data?.apps.find((app) => app.slug === "zapier") ?? null
     : null;
-  const stepLabels = zapierSource
-    ? ZAPIER_STEP_LABELS
+  const labels = zapierSource
+    ? zapierStepLabels()
     : isGoogleSheetsEntry(entry)
-      ? ["Pick app", "Share sheet", "Choose actions", "Choose access", "Install tools"]
-      : STEP_LABELS;
+      ? ["pickApp", "shareSheet", "chooseActions", "chooseAccess", "installTools"].map((key) => t(`pages.apps.connect.steps.${key}`))
+      : stepLabels();
   const stepIndex = zapierSource && step !== "gallery" && step !== "success"
     ? ZAPIER_STEP_INDEX[step]
     : step === "success"
-      ? stepLabels.length
+      ? labels.length
       : STEP_INDEX[step];
 
   return (
@@ -522,12 +525,12 @@ export function AppsConnect() {
         <StepHeader
           subtitle={
             step === "gallery"
-              ? "Pick the app you want your agents to use."
-              : `Step ${stepIndex + 1} of ${stepLabels.length}`
+              ? t("pages.apps.connect.pickAppSubtitle")
+              : t("pages.apps.connect.stepProgress", { current: stepIndex + 1, total: labels.length })
           }
           step={step}
           activeIndex={stepIndex}
-          labels={stepLabels}
+          labels={labels}
           appIdentity={
             zapierSource
               ? { name: "Zapier", logoUrl: zapierEntry?.branding.logoUrl ?? null }
@@ -605,11 +608,11 @@ export function AppsConnect() {
             if (isGoogleSheetsEntry(entry)) {
               const parsed = parseGoogleSheetIds(googleSheetsLinks);
               if (parsed.invalidCount > 0) {
-                setGoogleSheetsError("That doesn't look like a Google Sheets link.");
+                setGoogleSheetsError(t("pages.apps.connect.googleSheets.invalidLink"));
                 return;
               }
               if (parsed.ids.length === 0) {
-                setGoogleSheetsError("Paste at least one Google Sheets link.");
+                setGoogleSheetsError(t("pages.apps.connect.googleSheets.atLeastOneLink"));
                 return;
               }
             }
@@ -723,6 +726,7 @@ function StepHeader({
   appIdentity?: { name: string; logoUrl: string | null };
   onCancel: () => void;
 }) {
+  useTranslation();
   return (
     <div className="mb-6">
       <div className="flex items-start justify-between gap-4">
@@ -732,14 +736,12 @@ function StepHeader({
           ) : null}
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {appIdentity ? `Connect ${appIdentity.name}` : "Connect an app"}
+              {appIdentity ? t("pages.apps.connect.connectNamedApp", { app: appIdentity.name }) : t("pages.apps.connections.connectApp")}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>{t("pages.apps.common.cancel")}</Button>
       </div>
       {step !== "gallery" && (
         <div className="mt-4">
@@ -771,33 +773,34 @@ export function OAuthConnectStateScreen({
   onRetry: () => void;
   onCancel: () => void;
 }) {
+  useTranslation();
   const status = phase === "entry"
     ? {
-        title: `Connect ${entry.name} to Paperclip`,
-        body: `Paperclip will open ${entry.name} so you can choose a workspace and approve access.`,
+        title: t("pages.apps.connect.oauth.entryTitle", { app: entry.name }),
+        body: t("pages.apps.connect.oauth.entryBody", { app: entry.name }),
       }
     : phase === "starting"
       ? {
-          title: "Preparing secure sign-in",
-          body: `Paperclip is creating a secure ${entry.name} connection.`,
+          title: t("pages.apps.connect.oauth.startingTitle"),
+          body: t("pages.apps.connect.oauth.startingBody", { app: entry.name }),
         }
       : phase === "redirecting"
         ? {
-            title: `Opening ${entry.name}`,
-            body: `Continue in ${entry.name} to choose a workspace and approve access.`,
+            title: t("pages.apps.connect.oauth.redirectingTitle", { app: entry.name }),
+            body: t("pages.apps.connect.oauth.redirectingBody", { app: entry.name }),
           }
         : {
-            title: `${entry.name} couldn’t connect`,
-            body: error ?? "Paperclip couldn’t start secure sign-in. Try again.",
+            title: t("pages.apps.connect.oauth.errorTitle", { app: entry.name }),
+            body: error ?? t("pages.apps.connect.secureSignInError"),
           };
 
   return (
     <div className="max-w-5xl">
       <StepHeader
-        subtitle="Secure MCP sign-in"
+        subtitle={t("pages.apps.connect.oauth.subtitle")}
         step="key"
         activeIndex={0}
-        labels={["Connect", "Review actions", "Choose access", "Install tools"]}
+        labels={["connect", "reviewActions", "chooseAccess", "installTools"].map((key) => t(`pages.apps.connect.steps.${key}`))}
         appIdentity={{ name: entry.name, logoUrl: entry.branding.logoUrl }}
         onCancel={onCancel}
       />
@@ -820,18 +823,16 @@ export function OAuthConnectStateScreen({
 
         <div className="mt-6 flex items-center gap-2">
           {phase === "error" ? (
-            <Button type="button" onClick={onRetry}>Try again</Button>
+            <Button type="button" onClick={onRetry}>{t("pages.apps.common.retry")}</Button>
           ) : (
             <Button type="button" disabled>
-              {phase === "redirecting" ? `Opening ${entry.name}…` : "Preparing…"}
+              {phase === "redirecting" ? t("pages.apps.connect.oauth.opening", { app: entry.name }) : t("pages.apps.connect.oauth.preparing")}
             </Button>
           )}
-          <Button type="button" variant="ghost" onClick={onCancel}>Back to apps</Button>
+          <Button type="button" variant="ghost" onClick={onCancel}>{t("pages.apps.common.backToApps")}</Button>
         </div>
         <p className="mt-5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Lock className="h-3.5 w-3.5" />
-          Your authorization stays in Paperclip’s encrypted secret store.
-        </p>
+          <Lock className="h-3.5 w-3.5" />{t("pages.apps.connect.oauth.securityNote")}</p>
       </div>
     </div>
   );
@@ -850,6 +851,7 @@ function ZapierConnectStep({
   onBack: () => void;
   onConnect: () => void;
 }) {
+  useTranslation();
   const normalizedLink = normalizeAppLink(link);
   const zapierHostname = normalizedLink ? new URL(normalizedLink).hostname : "";
   const isZapierLink = zapierHostname === "zapier.com" || zapierHostname.endsWith(".zapier.com");
@@ -861,15 +863,13 @@ function ZapierConnectStep({
           <Link2 className="h-5 w-5 text-muted-foreground" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-xl font-bold tracking-tight">Connect Zapier</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Paste the complete MCP URL Zapier gives you, including its token.
-          </p>
+          <h2 className="text-xl font-bold tracking-tight">{t("pages.apps.connect.zapier.title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("pages.apps.connect.zapier.instructions")}</p>
         </div>
       </div>
 
       <div className="mt-8">
-        <label className="text-sm font-medium text-foreground">Zapier MCP URL</label>
+        <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.zapier.urlLabel")}</label>
         <Input
           value={link}
           onChange={(event) => onLinkChange(event.target.value)}
@@ -880,21 +880,17 @@ function ZapierConnectStep({
           className="mt-2 h-11"
           autoFocus
         />
-        <p className="mt-2 text-xs text-muted-foreground">
-          The token is part of the URL. Paperclip stores it securely and checks the connection before enabling actions.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{t("pages.apps.connect.zapier.securityNote")}</p>
         {link.trim() && !isZapierLink && (
-          <p className="mt-2 text-xs text-destructive">Paste a valid Zapier URL to continue.</p>
+          <p className="mt-2 text-xs text-destructive">{t("pages.apps.connect.zapier.invalidUrl")}</p>
         )}
       </div>
 
       <div className="mt-8 flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} disabled={submitting}>
-          Back
-        </Button>
+        <Button variant="ghost" onClick={onBack} disabled={submitting}>{t("pages.apps.common.back")}</Button>
         <Button onClick={onConnect} disabled={submitting || !isZapierLink}>
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {submitting ? "Checking…" : "Check link"}
+          {submitting ? t("pages.apps.connect.checking") : t("pages.apps.connect.checkLink")}
         </Button>
       </div>
     </div>
@@ -921,6 +917,7 @@ function GalleryStep({
   onRunYourOwn: () => void;
   onPasteConfig: () => void;
 }) {
+  useTranslation();
   const [search, setSearch] = useState("");
   const [linkInput, setLinkInput] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -946,7 +943,7 @@ function GalleryStep({
   const continueWithLink = () => {
     const next = normalizeAppLink(linkInput);
     if (!next) {
-      setLinkError("Paste a full http or https link.");
+      setLinkError(t("pages.apps.connect.gallery.fullHttpLinkError"));
       return;
     }
     setLinkError(null);
@@ -970,7 +967,7 @@ function GalleryStep({
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search apps…"
+          placeholder={t("pages.apps.browse.searchPlaceholder")}
           className="h-11 pl-9"
         />
       </div>
@@ -988,7 +985,7 @@ function GalleryStep({
               disabled={oauthBlocked || unavailable}
               title={
                 unavailable
-                  ? `${app.name} isn't configured on this instance yet. Ask your Paperclip admin.`
+                  ? t("pages.apps.connect.gallery.notConfiguredTitle", { app: app.name })
                   : undefined
               }
               onClick={() => onPick(app)}
@@ -1002,11 +999,11 @@ function GalleryStep({
               <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{copy.tagline}</div>
               <div className="mt-3 text-xs font-semibold text-foreground">
                 {unavailable ? (
-                  <span className="text-muted-foreground">Not available on this instance - ask your admin.</span>
+                  <span className="text-muted-foreground">{t("pages.apps.connect.gallery.notAvailableBody")}</span>
                 ) : oauthBlocked ? (
-                  <span className="text-muted-foreground">Sign-in coming soon</span>
+                  <span className="text-muted-foreground">{t("pages.apps.connect.gallery.signInComingSoon")}</span>
                 ) : (
-                  <span>Connect →</span>
+                  <span>{t("pages.apps.browse.connectAction")}</span>
                 )}
               </div>
             </button>
@@ -1015,7 +1012,7 @@ function GalleryStep({
       </div>
 
       {filtered.length === 0 && (
-        <div className="py-10 text-center text-sm text-muted-foreground">No apps match “{search}”.</div>
+        <div className="py-10 text-center text-sm text-muted-foreground">{t("pages.apps.connect.gallery.noMatches", { query: search })}</div>
       )}
 
       <div
@@ -1028,18 +1025,17 @@ function GalleryStep({
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Link2 className="h-4 w-4 text-muted-foreground" />
-            {zapierSource ? "Connect Zapier" : byo ? "Connect your own MCP server" : "Connect with a link"}
+            {zapierSource ? t("pages.apps.connect.zapier.title") : byo ? t("pages.apps.connect.gallery.connectOwnServer") : t("pages.apps.connect.gallery.connectWithLink")}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {zapierSource
-              ? "Paste the complete MCP URL Zapier gives you, including its token."
+              ? t("pages.apps.connect.zapier.instructions")
               : byo
-              ? "Paste your MCP server’s URL and we’ll walk you through permissions and review."
-              : "Paste a setup link from an app that is not listed here."}
+              ? t("pages.apps.connect.gallery.ownServerInstructions")
+              : t("pages.apps.connect.gallery.linkInstructions")}
           </p>
           {!zapierSource && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Any remote tool URL works here — including a local MCP server like{" "}
+            <p className="mt-1 text-xs text-muted-foreground">{t("pages.apps.connect.gallery.remoteUrlPrefix")}{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">http://127.0.0.1:8848/mcp</code>.
             </p>
           )}
@@ -1047,7 +1043,7 @@ function GalleryStep({
             <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
               <div className="flex min-w-0 items-center gap-2 text-sm">
                 <AppLogo name={matchedEntry.name} logoUrl={matchedEntry.branding.logoUrl} size={24} />
-                <span className="truncate">This looks like {matchedEntry.name}.</span>
+                <span className="truncate">{t("pages.apps.connect.gallery.detectedApp", { app: matchedEntry.name })}</span>
               </div>
               <Button
                 type="button"
@@ -1064,10 +1060,10 @@ function GalleryStep({
                 }}
               >
                 {matchedEntry.availability?.available === false
-                  ? "Not available"
+                  ? t("pages.apps.connect.gallery.notAvailable")
                   : matchedEntry.slug === "zapier"
-                    ? "Continue"
-                    : `Use ${matchedEntry.name}`}
+                    ? t("pages.apps.common.continue")
+                    : t("pages.apps.connect.gallery.useApp", { app: matchedEntry.name })}
               </Button>
             </div>
           )}
@@ -1087,30 +1083,26 @@ function GalleryStep({
               placeholder={zapierSource ? "https://mcp.zapier.com/api/v1/connect?token=…" : "https://example.com/actions"}
               className="h-10"
             />
-            <Button type="button" variant="outline" onClick={continueWithLink}>
-              Continue
-            </Button>
+            <Button type="button" variant="outline" onClick={continueWithLink}>{t("pages.apps.common.continue")}</Button>
           </div>
           {linkError && <div className="text-xs text-destructive">{linkError}</div>}
         </div>
       </div>
 
       <div className="border-t border-border pt-5">
-        <div className="text-sm font-semibold text-foreground">More ways to connect</div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          For tools that aren’t in the gallery. You’ll need details from the tool’s docs.
-        </p>
+        <div className="text-sm font-semibold text-foreground">{t("pages.apps.connect.gallery.moreWays")}</div>
+        <p className="mt-1 text-xs text-muted-foreground">{t("pages.apps.connect.gallery.moreWaysBody")}</p>
         <div className="mt-3 flex flex-col gap-2">
           <ConnectMethodRow
             icon={TerminalSquare}
-            title="Run your own"
-            description="Register a command Paperclip runs in your workspace for a tool that isn’t listed."
+            title={t("pages.apps.connect.gallery.runYourOwn")}
+            description={t("pages.apps.connect.gallery.runYourOwnBody")}
             onClick={onRunYourOwn}
           />
           <ConnectMethodRow
             icon={ClipboardPaste}
-            title="Paste a config"
-            description="Already have a setup snippet from a README? Paste it and we’ll connect it."
+            title={t("pages.apps.connect.gallery.pasteConfig")}
+            description={t("pages.apps.connect.gallery.pasteConfigBody")}
             onClick={onPasteConfig}
           />
         </div>
@@ -1130,6 +1122,7 @@ function ConnectMethodRow({
   description: string;
   onClick: () => void;
 }) {
+  useTranslation();
   return (
     <button
       type="button"
@@ -1189,6 +1182,7 @@ function LinkConnectStep({
   onBack: () => void;
   onConnect: () => void;
 }) {
+  useTranslation();
   return (
     <div className="mx-auto max-w-xl rounded-2xl border border-border bg-card p-8">
       <div className="flex items-start gap-3">
@@ -1196,50 +1190,48 @@ function LinkConnectStep({
           <Link2 className="h-5 w-5 text-muted-foreground" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-xl font-bold tracking-tight">Connect with a link</h2>
+          <h2 className="text-xl font-bold tracking-tight">{t("pages.apps.connect.gallery.connectWithLink")}</h2>
           <p className="mt-1 truncate text-sm text-muted-foreground">{link}</p>
         </div>
       </div>
 
       <div className="mt-8 space-y-6">
         <div>
-          <label className="text-sm font-medium text-foreground">Name</label>
+          <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.nameLabel")}</label>
           <Input
             value={name}
             onChange={(e) => onNameChange(e.target.value)}
-            placeholder="My app"
+            placeholder={t("pages.apps.connect.namePlaceholder")}
             className="mt-2 h-11"
           />
-          <p className="mt-2 text-xs text-muted-foreground">
-            We filled this in from the link. Change it if you’d like.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{t("pages.apps.connect.nameFromLinkHint")}</p>
         </div>
 
         <div>
-          <label className="text-sm font-medium text-foreground">Does it need a key?</label>
+          <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.needsKeyLabel")}</label>
           <div className="mt-2 inline-flex rounded-lg border border-border bg-muted/50 p-1">
             <SegmentedOption
-              label="No"
+              label={t("pages.apps.common.no")}
               selected={!needsKey}
               onClick={() => onNeedsKeyChange(false)}
             />
             <SegmentedOption
-              label="Yes"
+              label={t("pages.apps.common.yes")}
               selected={needsKey}
               onClick={() => onNeedsKeyChange(true)}
             />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {needsKey
-              ? "Paste the key this app gave you."
-              : "Most apps just work from the link — pick Yes only if the app gave you a key."}
+              ? t("pages.apps.connect.pasteKeyHint")
+              : t("pages.apps.connect.noKeyHint")}
           </p>
         </div>
 
         {needsKey && (
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-foreground">App key</label>
+              <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.appKeyLabel")}</label>
               <Input
                 type="password"
                 autoComplete="off"
@@ -1253,10 +1245,8 @@ function LinkConnectStep({
             <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
               <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <div>
-                <div className="text-sm font-medium text-foreground">Your key is stored securely.</div>
-                <div className="text-xs text-muted-foreground">
-                  You can replace it anytime from this app’s page.
-                </div>
+                <div className="text-sm font-medium text-foreground">{t("pages.apps.connect.keyStored")}</div>
+                <div className="text-xs text-muted-foreground">{t("pages.apps.connect.keyReplaceHint")}</div>
               </div>
             </div>
           </div>
@@ -1264,16 +1254,12 @@ function LinkConnectStep({
       </div>
 
       <div className="mt-8 flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} disabled={submitting}>
-          Back
-        </Button>
+        <Button variant="ghost" onClick={onBack} disabled={submitting}>{t("pages.apps.common.back")}</Button>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            We’ll check the link before turning anything on.
-          </span>
+          <span className="hidden text-xs text-muted-foreground sm:inline">{t("pages.apps.connect.checkLinkHint")}</span>
           <Button onClick={onConnect} disabled={submitting || (needsKey && keyValue.trim().length === 0)}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {submitting ? "Checking…" : "Check link"}
+            {submitting ? t("pages.apps.connect.checking") : t("pages.apps.connect.checkLink")}
           </Button>
         </div>
       </div>
@@ -1290,6 +1276,7 @@ function SegmentedOption({
   selected: boolean;
   onClick: () => void;
 }) {
+  useTranslation();
   return (
     <button
       type="button"
@@ -1314,18 +1301,17 @@ function ConnectionNameField({
   name: string;
   onNameChange: (next: string) => void;
 }) {
+  useTranslation();
   return (
     <div>
-      <label className="text-sm font-medium text-foreground">Name</label>
+      <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.nameLabel")}</label>
       <Input
         value={name}
         onChange={(e) => onNameChange(e.target.value)}
-        placeholder="My app"
+        placeholder={t("pages.apps.connect.namePlaceholder")}
         className="mt-2 h-11"
       />
-      <p className="mt-2 text-xs text-muted-foreground">
-        We filled this in from the app. Change it to tell connections apart.
-      </p>
+      <p className="mt-2 text-xs text-muted-foreground">{t("pages.apps.connect.nameFromAppHint")}</p>
     </div>
   );
 }
@@ -1355,6 +1341,7 @@ function KeyStep({
   onBack: () => void;
   onConnect: () => void;
 }) {
+  useTranslation();
   const copy = appCopyFor(entry.slug, entry.description);
   const method = getAvailableConnectionMethod(entry);
   const fields = (method?.credentialFields ?? []).map((field) => ({
@@ -1376,7 +1363,7 @@ function KeyStep({
         <div className="flex items-center gap-3">
           <AppLogo name={entry.name} logoUrl={entry.branding.logoUrl} size={48} />
           <div>
-            <h2 className="text-lg font-bold tracking-tight sm:text-xl">Connect Google Sheets</h2>
+            <h2 className="text-lg font-bold tracking-tight sm:text-xl">{t("pages.apps.connect.connectNamedApp", { app: "Google Sheets" })}</h2>
             <p className="text-sm text-muted-foreground">{copy.short}</p>
           </div>
         </div>
@@ -1386,7 +1373,7 @@ function KeyStep({
 
           {robotEmail ? (
             <div>
-              <label className="text-sm font-medium text-foreground">Share each sheet with this email</label>
+              <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.googleSheets.shareEmail")}</label>
               <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row">
                 <div
                   title={robotEmail}
@@ -1400,22 +1387,16 @@ function KeyStep({
                   className="shrink-0"
                   onClick={() => void copyTextToClipboard(robotEmail).catch(() => {})}
                 >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy
-                </Button>
+                  <Copy className="mr-2 h-4 w-4" />{t("pages.apps.common.copy")}</Button>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                In Google Sheets, click Share and add this email as an Editor. Then paste the sheet links below.
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("pages.apps.connect.googleSheets.shareInstructions")}</p>
             </div>
           ) : (
-            <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-              Google Sheets is not available on this instance yet.
-            </div>
+            <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">{t("pages.apps.connect.googleSheets.unavailable")}</div>
           )}
 
           <div>
-            <label className="text-sm font-medium text-foreground">Paste links to the sheets you shared</label>
+            <label className="text-sm font-medium text-foreground">{t("pages.apps.connect.googleSheets.linksLabel")}</label>
             <Textarea
               value={googleSheetsLinks}
               onChange={(e) => onGoogleSheetsLinksChange(e.target.value)}
@@ -1424,20 +1405,18 @@ function KeyStep({
             />
             <div className="mt-2 text-xs text-muted-foreground">
               {parsed.ids.length > 0
-                ? `${parsed.ids.length} ${parsed.ids.length === 1 ? "sheet" : "sheets"} ready to connect.`
-                : "Paste one link per line. Both .../edit and .../edit#gid=... links work."}
+                ? t("pages.apps.connect.googleSheets.ready", { count: parsed.ids.length })
+                : t("pages.apps.connect.googleSheets.linksHint")}
             </div>
             {googleSheetsError && <div className="mt-2 text-xs text-destructive">{googleSheetsError}</div>}
           </div>
         </div>
 
         <div className="mt-8 flex items-center justify-between">
-          <Button variant="ghost" onClick={onBack} disabled={submitting}>
-            Back
-          </Button>
+          <Button variant="ghost" onClick={onBack} disabled={submitting}>{t("pages.apps.common.back")}</Button>
           <Button onClick={onConnect} disabled={submitting || !canConnect}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {submitting ? "Checking…" : "Connect"}
+            {submitting ? t("pages.apps.connect.checking") : t("pages.apps.connections.connect")}
           </Button>
         </div>
       </div>
@@ -1449,7 +1428,7 @@ function KeyStep({
       <div className="flex items-center gap-3">
         <AppLogo name={entry.name} logoUrl={entry.branding.logoUrl} size={48} />
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Connect {entry.name}</h2>
+          <h2 className="text-xl font-bold tracking-tight">{t("pages.apps.connect.connectNamedApp", { app: entry.name })}</h2>
           <p className="text-sm text-muted-foreground">{copy.short}</p>
         </div>
       </div>
@@ -1458,14 +1437,12 @@ function KeyStep({
         <ConnectionNameField name={name} onNameChange={onNameChange} />
 
         {fields.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            This app doesn’t need a key. Just connect to continue.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("pages.apps.connect.keyNotRequired")}</p>
         ) : (
           fields.map((field) => (
             <div key={field.configPath}>
               <label className="text-sm font-medium text-foreground">
-                {credentialFieldLabel(entry.name, field.label, fields.length)}
+                {credentialFieldLabel(entry.name, appDefinitionText(entry, field.label), fields.length)}
               </label>
               <Input
                 type="password"
@@ -1481,9 +1458,7 @@ function KeyStep({
                   target="_blank"
                   rel="noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground underline underline-offset-2"
-                >
-                  Where do I find this?
-                  <ArrowUpRight className="h-3 w-3" />
+                >{t("pages.apps.connect.whereFindKey")}<ArrowUpRight className="h-3 w-3" />
                 </a>
               )}
             </div>
@@ -1493,25 +1468,19 @@ function KeyStep({
         <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
           <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div>
-            <div className="text-sm font-medium text-foreground">Your key is stored securely.</div>
-            <div className="text-xs text-muted-foreground">
-              You can replace it anytime from this app’s page.
-            </div>
+            <div className="text-sm font-medium text-foreground">{t("pages.apps.connect.keyStored")}</div>
+            <div className="text-xs text-muted-foreground">{t("pages.apps.connect.keyReplaceHint")}</div>
           </div>
         </div>
       </div>
 
       <div className="mt-8 flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} disabled={submitting}>
-          Back
-        </Button>
+        <Button variant="ghost" onClick={onBack} disabled={submitting}>{t("pages.apps.common.back")}</Button>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            We’ll check the key before turning anything on.
-          </span>
+          <span className="hidden text-xs text-muted-foreground sm:inline">{t("pages.apps.connect.checkKeyHint")}</span>
           <Button onClick={onConnect} disabled={submitting || !allFilled}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {submitting ? "Checking…" : "Connect"}
+            {submitting ? t("pages.apps.connect.checking") : t("pages.apps.connections.connect")}
           </Button>
         </div>
       </div>
@@ -1538,6 +1507,7 @@ function ActionGroup({
   onBulk: () => void;
   askFirstLevels: string[];
 }) {
+  useTranslation();
   if (actions.length === 0) return null;
   return (
     <div className="rounded-xl border border-border bg-card">
@@ -1569,9 +1539,7 @@ function ActionGroup({
                 )}
               </div>
               {showAskFirst && (
-                <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                  Ask first
-                </span>
+                <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">{t("pages.apps.connect.actions.askFirst")}</span>
               )}
               <ToggleSwitch checked={on} onCheckedChange={(next) => onToggle(action.catalogEntryId, next)} />
             </div>
@@ -1599,6 +1567,7 @@ function ActionsStep({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  useTranslation();
   const askFirstLevels = askFirstLevelsFrom(result);
   const { readOnly, canMakeChanges } = result.actions;
   const total = readOnly.length + canMakeChanges.length;
@@ -1612,47 +1581,42 @@ function ActionsStep({
         </span>
         <div>
           <div className="text-lg font-bold text-foreground">
-            Connected to {appName} — it offers {total} {total === 1 ? "action" : "actions"}.
+            {t("pages.apps.connect.actions.connected", { app: appName, count: total })}
           </div>
-          <div className="text-sm text-muted-foreground">
-            Read-only actions are on. Anything that can change something starts off — turn on the ones you want.
-          </div>
+          <div className="text-sm text-muted-foreground">{t("pages.apps.connect.actions.explanation")}</div>
         </div>
       </div>
 
       <ActionGroup
-        title="Read only"
-        hint="these can look but not change anything"
+        title={t("pages.apps.connect.actions.readOnly")}
+        hint={t("pages.apps.connect.actions.readOnlyHint")}
         actions={readOnly}
         enabled={enabled}
         onToggle={onToggle}
-        bulkLabel="Turn all off"
+        bulkLabel={t("pages.apps.connect.actions.turnAllOff")}
         onBulk={() => onBulk(readOnly.map((a) => a.catalogEntryId), false)}
         askFirstLevels={askFirstLevels}
       />
 
       <ActionGroup
-        title="Can make changes"
-        hint="these change something in another app"
+        title={t("pages.apps.connect.actions.canChange")}
+        hint={t("pages.apps.connect.actions.canChangeHint")}
         actions={canMakeChanges}
         enabled={enabled}
         onToggle={onToggle}
-        bulkLabel="Turn all on"
+        bulkLabel={t("pages.apps.connect.actions.turnAllOn")}
         onBulk={() => onBulk(canMakeChanges.map((a) => a.catalogEntryId), true)}
         askFirstLevels={askFirstLevels}
       />
 
       <div className="flex items-center justify-between pt-1">
-        <Button variant="ghost" onClick={onBack}>
-          Back
-        </Button>
+        <Button variant="ghost" onClick={onBack}>{t("pages.apps.common.back")}</Button>
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-muted-foreground sm:inline">
-            If {appName} adds new actions later, they start off until you review them.
+            {t("pages.apps.connect.actions.futureActions", { app: appName })}
           </span>
           <Button onClick={onContinue} disabled={enabledCount === 0}>
-            Continue with {enabledCount} {enabledCount === 1 ? "action" : "actions"} on
-          </Button>
+            {t("pages.apps.connect.actions.continue", { count: enabledCount })}</Button>
         </div>
       </div>
     </div>
@@ -1678,6 +1642,7 @@ function WhoStep({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  useTranslation();
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents.list(companyId),
     queryFn: () => agentsApi.list(companyId),
@@ -1689,8 +1654,8 @@ function WhoStep({
   return (
     <div className="mx-auto max-w-xl">
       <div className="rounded-2xl border border-border bg-card p-8">
-        <h2 className="text-xl font-bold tracking-tight">Who can use {appName}?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">You can change this later from the app’s page.</p>
+        <h2 className="text-xl font-bold tracking-tight">{t("pages.apps.connect.access.title", { app: appName })}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("pages.apps.connect.access.changeLater")}</p>
 
         <div className="mt-6 space-y-3">
           <button
@@ -1704,13 +1669,11 @@ function WhoStep({
             <Radio selected={access === "all"} />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground">All agents</span>
-                <span className="rounded-full bg-foreground px-2 py-0.5 text-(length:--text-nano) font-bold text-background">
-                  Recommended
-                </span>
+                <span className="font-bold text-foreground">{t("pages.apps.connect.access.allAgents")}</span>
+                <span className="rounded-full bg-foreground px-2 py-0.5 text-(length:--text-nano) font-bold text-background">{t("pages.apps.connect.access.recommended")}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Anyone you’ve added to Paperclip can use {appName} in their tasks. This is what most teams want.
+                {t("pages.apps.connect.access.allAgentsBody", { app: appName })}
               </p>
             </div>
           </button>
@@ -1725,8 +1688,8 @@ function WhoStep({
           >
             <Radio selected={access === "specific"} />
             <div className="flex-1">
-              <span className="font-semibold text-foreground">Only specific agents</span>
-              <p className="mt-1 text-xs text-muted-foreground">Tick the agents who can use {appName}.</p>
+              <span className="font-semibold text-foreground">{t("pages.apps.connect.access.specificAgents")}</span>
+              <p className="mt-1 text-xs text-muted-foreground">{t("pages.apps.connect.access.specificAgentsBody", { app: appName })}</p>
             </div>
           </button>
 
@@ -1743,12 +1706,8 @@ function WhoStep({
       </div>
 
       <div className="mt-6 flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack}>
-          Back
-        </Button>
-        <Button onClick={onContinue} disabled={!canFinish}>
-          Continue to install
-        </Button>
+        <Button variant="ghost" onClick={onBack}>{t("pages.apps.common.back")}</Button>
+        <Button onClick={onContinue} disabled={!canFinish}>{t("pages.apps.connect.access.continueToInstall")}</Button>
       </div>
     </div>
   );
@@ -1779,6 +1738,7 @@ export function InstallStep({
   onBack: () => void;
   onFinish: () => void;
 }) {
+  useTranslation();
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents.list(companyId),
     queryFn: () => agentsApi.list(companyId),
@@ -1795,16 +1755,14 @@ export function InstallStep({
       : [...installAgentIds].filter((id) => !accessAgentIds.has(id));
   const canFinish = installMode !== "specific" || installAgentIds.size > 0;
   const extendingLabel = extendingAgentIds.length === 1
-    ? agents.find((agent) => agent.id === extendingAgentIds[0])?.name ?? "1 agent"
-    : `${extendingAgentIds.length} agents`;
+    ? agents.find((agent) => agent.id === extendingAgentIds[0])?.name ?? t("pages.apps.connect.install.agentCount", { count: 1 })
+    : t("pages.apps.connect.install.agentCount", { count: extendingAgentIds.length });
 
   return (
     <div className="mx-auto max-w-xl">
       <div className="rounded-2xl border border-border bg-card p-8">
-        <h2 className="text-xl font-bold tracking-tight">Install {appName} tools?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Access is permission. Install decides whose runs actually carry these tools.
-        </p>
+        <h2 className="text-xl font-bold tracking-tight">{t("pages.apps.connect.install.title", { app: appName })}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("pages.apps.connect.install.explanation")}</p>
 
         <div className="mt-5">
           <InlineBanner tone="info" compact>
@@ -1823,9 +1781,9 @@ export function InstallStep({
           >
             <Radio selected={installMode === "none"} />
             <div>
-              <span className="font-semibold text-foreground">Not yet</span>
+              <span className="font-semibold text-foreground">{t("pages.apps.connect.install.notYet")}</span>
               <p className="mt-1 text-xs text-muted-foreground">
-                Keep {appName} permitted only. You can install it later from the app or agent page.
+                {t("pages.apps.connect.install.notYetBody", { app: appName })}
               </p>
             </div>
           </button>
@@ -1840,8 +1798,8 @@ export function InstallStep({
           >
             <Radio selected={installMode === "specific"} />
             <div className="flex-1">
-              <span className="font-semibold text-foreground">Specific agents</span>
-              <p className="mt-1 text-xs text-muted-foreground">Tick the agents that should load {appName} every run.</p>
+              <span className="font-semibold text-foreground">{t("pages.apps.connect.install.specificAgents")}</span>
+              <p className="mt-1 text-xs text-muted-foreground">{t("pages.apps.connect.install.specificAgentsBody", { app: appName })}</p>
             </div>
           </button>
 
@@ -1867,7 +1825,7 @@ export function InstallStep({
           >
             <Radio selected={installMode === "all"} />
             <div>
-              <span className="font-semibold text-foreground">All agents</span>
+              <span className="font-semibold text-foreground">{t("pages.apps.connect.access.allAgents")}</span>
               <p className="mt-1 text-xs text-muted-foreground">{INSTALL_ALL_WARNING}</p>
             </div>
           </button>
@@ -1881,12 +1839,10 @@ export function InstallStep({
       </div>
 
       <div className="mt-6 flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} disabled={submitting}>
-          Back
-        </Button>
+        <Button variant="ghost" onClick={onBack} disabled={submitting}>{t("pages.apps.common.back")}</Button>
         <Button onClick={onFinish} disabled={submitting || !canFinish}>
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {submitting ? "Finishing..." : "Finish setup"}
+          {submitting ? t("pages.apps.connect.install.finishing") : t("pages.apps.connect.install.finish")}
         </Button>
       </div>
     </div>
@@ -1894,6 +1850,7 @@ export function InstallStep({
 }
 
 function Radio({ selected }: { selected: boolean }) {
+  useTranslation();
   return (
     <span
       className={cn(
@@ -1923,11 +1880,12 @@ function SuccessStep({
   installCount: number;
   onDone: () => void;
 }) {
+  useTranslation();
   const installSummary = installMode === "all"
-    ? "Installed on all agents"
+    ? t("pages.apps.connect.success.installedAll")
     : installMode === "specific"
-      ? `${installCount} ${installCount === 1 ? "agent" : "agents"} installed`
-      : "Permitted only";
+      ? t("pages.apps.connect.success.installedCount", { count: installCount })
+      : t("pages.apps.connect.success.permittedOnly");
   return (
     <div className="mx-auto max-w-md py-10 text-center">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-emerald-500 bg-emerald-500/10">
@@ -1935,21 +1893,19 @@ function SuccessStep({
       </div>
       <div className="mt-6 flex items-center justify-center gap-2">
         <AppLogo name={appName} logoUrl={logoUrl} size={28} />
-        <h2 className="text-2xl font-bold tracking-tight">{appName} is ready.</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{t("pages.apps.connect.success.ready", { app: appName })}</h2>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
         {installMode === "none"
-          ? "Agents can use it after you install it on their Tools tab."
-          : "Installed agents will load it on their next run."}
+          ? t("pages.apps.connect.success.installLater")
+          : t("pages.apps.connect.success.installedNextRun")}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
-        {enabledCount} {enabledCount === 1 ? "action" : "actions"} on ·{" "}
-        {access === "all" ? "All agents can use it" : "Specific agents can use it"} · {installSummary}
+        {t("pages.apps.connect.success.actionsOn", { count: enabledCount })} ·{" "}
+        {access === "all" ? t("pages.apps.connect.success.allAgentsCanUse") : t("pages.apps.connect.success.specificAgentsCanUse")} · {installSummary}
       </p>
       <div className="mt-8">
-        <Button size="lg" className="px-10" onClick={onDone}>
-          Done
-        </Button>
+        <Button size="lg" className="px-10" onClick={onDone}>{t("pages.apps.common.done")}</Button>
       </div>
     </div>
   );

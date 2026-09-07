@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { flushSync } from "react-dom";
+import { act as reactAct } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
@@ -11,6 +12,7 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InstanceExperimentalSettings } from "./InstanceExperimentalSettings";
 import { queryKeys } from "../lib/queryKeys";
+import { i18n } from "../i18n";
 
 const mockInstanceSettingsApi = vi.hoisted(() => ({
   getExperimental: vi.fn(),
@@ -982,5 +984,132 @@ describe("InstanceExperimentalSettings — operator-hidden cards", () => {
 
     expect(container.textContent).toContain("Enable Environments");
     expect(container.textContent).toContain("Beta skills");
+  });
+});
+
+describe("InstanceExperimentalSettings — stable recovery live localization", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let queryClient: QueryClient;
+  let settings: InstanceExperimentalSettingsPayload;
+
+  beforeEach(async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    await i18n.changeLanguage("en");
+    vi.clearAllMocks();
+    settings = defaultExperimentalSettings();
+    mockInstanceSettingsApi.getExperimental.mockImplementation(async () => ({ ...settings }));
+    mockInstanceSettingsApi.updateExperimental.mockImplementation(async (patch) => {
+      settings = { ...settings, ...patch };
+      return { ...settings };
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  });
+  afterEach(async () => {
+    await reactAct(async () => root.unmount());
+    queryClient.clear();
+    container.remove();
+    await i18n.changeLanguage("en");
+    vi.clearAllMocks();
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: false });
+  });
+  async function renderPage() {
+    await reactAct(async () => root.render(<QueryClientProvider client={queryClient}><InstanceExperimentalSettings /></QueryClientProvider>));
+    await reactAct(async () => { await flushReact(); });
+  }
+  async function locale(language: string) {
+    await reactAct(async () => { await i18n.changeLanguage(language); });
+  }
+  async function setHours(input: HTMLInputElement, hours: string) {
+    await reactAct(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, hours);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  it.each([
+    [1, "1 задача для восстановления", "1 час"],
+    [2, "2 задачи для восстановления", "2 часа"],
+    [5, "5 задач для восстановления", "5 часов"],
+    [21, "21 задача для восстановления", "21 час"],
+  ] as const)("keeps the period draft and open preview through RU-EN-RU for %i tasks without implicit writes", async (count, tasks, period) => {
+    const preview: IssueGraphLivenessAutoRecoveryPreview = {
+      ...emptyRecoveryPreview(), lookbackHours: count, findings: count, recoverableFindings: count, skippedOutsideLookback: count,
+      items: Array.from({ length: count }, (_, index) => ({
+        issueId: "issue-raw-" + index, identifier: "PAP-" + (index + 1), title: "Keep original task title " + index,
+        state: "blocked_by_cancelled_issue", severity: "high", reason: "PAP-1 is still blocked by cancelled issue BLOCK-99_raw.",
+        recoveryIssueId: "recovery-raw-" + index, recoveryIdentifier: "REC-" + (index + 1), recoveryTitle: "Keep recovery title",
+        recommendedOwnerAgentId: "agent-raw", incidentKey: "incident-raw-" + index,
+        latestDependencyUpdatedAt: "2026-07-13T15:00:00.000Z", dependencyPath: [],
+      })),
+    };
+    const originalPreview = JSON.stringify(preview);
+    mockInstanceSettingsApi.previewIssueGraphLivenessAutoRecovery.mockResolvedValue(preview);
+    await renderPage();
+    const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await setHours(input, String(count));
+    for (const language of ["ru", "en", "ru"]) {
+      await locale(language);
+      expect(container.querySelector('input[type="number"]')).toBe(input);
+      expect(input.value).toBe(String(count));
+      expect(mockInstanceSettingsApi.previewIssueGraphLivenessAutoRecovery).not.toHaveBeenCalled();
+      expect(mockInstanceSettingsApi.updateExperimental).not.toHaveBeenCalled();
+      expect(mockInstanceSettingsApi.runIssueGraphLivenessAutoRecovery).not.toHaveBeenCalled();
+    }
+    const toggle = container.querySelector<HTMLButtonElement>(`button[aria-label="${i18n.t("stableRecovery.toggle")}"]`)!;
+    await reactAct(async () => toggle.click());
+    await reactAct(async () => { await flushReact(); });
+    const dialog = document.body.querySelector('[data-slot="dialog-content"]')!;
+    const link = dialog.querySelector('a[href="/PAP/issues/PAP-1"]')!;
+    expect(dialog).toBeTruthy();
+    expect(link).toBeTruthy();
+    for (const language of ["ru", "en", "ru"]) {
+      await locale(language);
+      expect(document.body.querySelector('[data-slot="dialog-content"]')).toBe(dialog);
+      expect(dialog.querySelector('a[href="/PAP/issues/PAP-1"]')).toBe(link);
+      expect(container.querySelector('input[type="number"]')).toBe(input);
+      expect(input.value).toBe(String(count));
+      expect(dialog.textContent).toContain(language === "ru" ? tasks : count + (count === 1 ? " recovery task" : " recovery tasks"));
+      expect(dialog.textContent).toContain(language === "ru" ? period : "last " + count + (count === 1 ? " hour" : " hours"));
+      expect(dialog.textContent).toContain(i18n.t("stableRecovery.skipped", { count }));
+      expect(dialog.textContent).toContain(i18n.t("stableRecovery.enableCreate", { count }));
+      expect(dialog.textContent).toContain("Keep original task title 0");
+      expect(dialog.textContent).toContain("BLOCK-99_raw");
+      expect(dialog.querySelector('a[href="/REC/issues/REC-1"]')).toBeTruthy();
+      expect(JSON.stringify(preview)).toBe(originalPreview);
+      expect(mockInstanceSettingsApi.previewIssueGraphLivenessAutoRecovery).toHaveBeenCalledExactlyOnceWith({ lookbackHours: count });
+      expect(mockInstanceSettingsApi.updateExperimental).not.toHaveBeenCalled();
+      expect(mockInstanceSettingsApi.runIssueGraphLivenessAutoRecovery).not.toHaveBeenCalled();
+    }
+    const enableOnly = [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === i18n.t("stableRecovery.enableOnly"))!;
+    await reactAct(async () => enableOnly.click());
+    await reactAct(async () => { await flushReact(); });
+    expect(mockInstanceSettingsApi.updateExperimental).toHaveBeenCalledExactlyOnceWith({
+      enableIssueGraphLivenessAutoRecovery: true, issueGraphLivenessAutoRecoveryLookbackHours: count,
+    });
+    expect(mockInstanceSettingsApi.runIssueGraphLivenessAutoRecovery).not.toHaveBeenCalled();
+    expect(document.body.querySelector('[data-slot="dialog-content"]')).toBeNull();
+  });
+
+  it("keeps an invalid period and its display error through locale changes without preview or settings writes", async () => {
+    await renderPage();
+    const input = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await setHours(input, "721");
+    const toggle = container.querySelector<HTMLButtonElement>(AUTO_RECOVERY_TOGGLE_SELECTOR)!;
+    await reactAct(async () => toggle.click());
+    for (const language of ["ru", "en", "ru"]) {
+      await locale(language);
+      expect(container.querySelector('input[type="number"]')).toBe(input);
+      expect(input.value).toBe("721");
+      expect(input.getAttribute("aria-invalid")).toBe("true");
+      expect(container.textContent).toContain(i18n.t("stableRecovery.invalidHours"));
+      expect(document.body.querySelector('[data-slot="dialog-content"]')).toBeNull();
+      expect(mockInstanceSettingsApi.previewIssueGraphLivenessAutoRecovery).not.toHaveBeenCalled();
+      expect(mockInstanceSettingsApi.updateExperimental).not.toHaveBeenCalled();
+      expect(mockInstanceSettingsApi.runIssueGraphLivenessAutoRecovery).not.toHaveBeenCalled();
+    }
   });
 });

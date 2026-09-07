@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/i18n";
+import { taskChatDisplayLabel } from "./task-chat-display";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +27,7 @@ const STATUS_ICON = {
  * diffs render as an inset panel below the row.
  */
 export function TaskChatToolCard({ item }: { item: TaskChatToolItem }) {
+  useTranslation();
   const { Icon, spin, tone } = STATUS_ICON[item.status];
   const RowIcon = toolTaxonomy(item.rawName ?? item.name).icon;
   const [showDetail, setShowDetail] = useState(false);
@@ -42,7 +45,7 @@ export function TaskChatToolCard({ item }: { item: TaskChatToolItem }) {
         )}
       >
         <RowIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span className="shrink-0 font-medium">{item.name}</span>
+        <span className="shrink-0 font-medium">{taskChatDisplayLabel(item.name)}</span>
         {item.target ? (
           <span className="min-w-0 truncate font-mono text-(length:--text-micro)">{item.target}</span>
         ) : null}
@@ -55,7 +58,7 @@ export function TaskChatToolCard({ item }: { item: TaskChatToolItem }) {
               )}
             >
               {item.decision === "allowed" ? <ShieldCheck className="h-3 w-3" /> : <ShieldX className="h-3 w-3" />}
-              {item.decision}
+              {t(`localizationTaskRuntime.permission_${item.decision}`)}
             </span>
           ) : null}
           {expandable ? (

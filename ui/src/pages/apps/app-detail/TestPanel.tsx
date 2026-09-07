@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/i18n";
+import { Trans } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -48,7 +50,7 @@ import { appTabHref } from "../app-tabs";
 
 /** "1.2s" / "0.4s" — the copy-spec always shows seconds with one decimal. */
 function seconds(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
+  return t("localizationApps.durationSeconds", { seconds: (ms / 1000).toFixed(1) });
 }
 
 /** relativeTime() returns "just now"; the spec capitalizes it ("Just now"). */
@@ -72,20 +74,21 @@ type DecisionMeta = { label: string; className: string };
 
 const DECISION_META: Record<ToolConnectionTestDecision, DecisionMeta> = {
   allowed: {
-    label: "Allowed",
+    get label() { return t("localizationApps.allowed166"); },
     className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   },
   ask_first: {
-    label: "Ask first",
+    get label() { return t("pages.apps.connect.actions.askFirst"); },
     className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   },
   off: {
-    label: "Off",
+    get label() { return t("pages.instanceSettings.off"); },
     className: "border-border bg-muted text-muted-foreground",
   },
 };
 
 function DecisionBadge({ decision }: { decision: ToolConnectionTestDecision }) {
+  useTranslation();
   const meta = DECISION_META[decision];
   return (
     <span
@@ -100,15 +103,15 @@ function DecisionBadge({ decision }: { decision: ToolConnectionTestDecision }) {
 }
 
 /** "Allowed for 1 action · Ask first for 2 · Off for 1" — singular gets " action". */
-function summaryCount(label: string, n: number): string {
-  return `${label} ${n}${n === 1 ? " action" : ""}`;
+function summaryCount(label: "allowed" | "ask" | "off", n: number): string {
+  return t(`localizationApps.summary${label}`, { count: n });
 }
 
 function accessSummaryLine(summary: ToolConnectionAccessSummary): string {
   return [
-    summaryCount("Allowed for", summary.allowedCount),
-    summaryCount("Ask first for", summary.askFirstCount),
-    summaryCount("Off for", summary.offCount),
+    summaryCount("allowed", summary.allowedCount),
+    summaryCount("ask", summary.askFirstCount),
+    summaryCount("off", summary.offCount),
   ].join(" · ");
 }
 
@@ -129,6 +132,7 @@ export function TestPanel({
   /** New, not-yet-reviewed actions — shown as Off so they're reachable to test. */
   quarantined?: ToolCatalogEntry[];
 }) {
+  const { t } = useTranslation();
   const testAgentsQuery = useQuery({
     queryKey: queryKeys.tools.testAgents(connectionId),
     queryFn: () => toolsApi.listTestAgents(connectionId),
@@ -213,13 +217,9 @@ export function TestPanel({
   if (agents.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-6 text-center">
-        <p className="text-sm font-medium text-foreground">No agents to test as</p>
+        <p className="text-sm font-medium text-foreground">{t("localizationApps.noAgentsToTestAs490")}</p>
         <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          Only agents you can assign tasks to can preview {appName}. Give an agent access in{" "}
-          <Link className="font-medium text-primary hover:underline" to={appTabHref(connectionId, "permissions")}>
-            Permissions
-          </Link>{" "}
-          to test it here.
+          <Trans t={t} i18nKey="localizationApps.noAgentsPreviewHint" values={{ app: appName }} components={{ permissions: <Link className="font-medium text-primary hover:underline" to={appTabHref(connectionId, "permissions")} /> }} />
         </p>
       </div>
     );
@@ -251,29 +251,29 @@ export function TestPanel({
           <div className="relative min-w-(--sz-12rem) flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label="Find an action"
-              placeholder="Find an action…"
+              aria-label={t("localizationApps.findAnAction429")}
+              placeholder={t("localizationApps.findAnAction430")}
               className="pl-9"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <FilterChip label={`All ${active.length + quarantinedActions.length}`} active={kindFilter === "all"} onClick={() => setKindFilter("all")} />
-          <FilterChip label={`Read ${readActions.length}`} active={kindFilter === "read"} onClick={() => setKindFilter("read")} />
-          <FilterChip label={`Write ${writeActions.length}`} active={kindFilter === "write"} onClick={() => setKindFilter("write")} />
+          <FilterChip label={t("localizationApps.allActionsCount", { count: active.length + quarantinedActions.length })} active={kindFilter === "all"} onClick={() => setKindFilter("all")} />
+          <FilterChip label={t("localizationApps.readActionsCount", { count: readActions.length })} active={kindFilter === "read"} onClick={() => setKindFilter("read")} />
+          <FilterChip label={t("localizationApps.writeActionsCount", { count: writeActions.length })} active={kindFilter === "write"} onClick={() => setKindFilter("write")} />
         </div>
-        <p className="text-xs text-muted-foreground">{visibleCount} matches · sorted A–Z</p>
+        <p className="text-xs text-muted-foreground">{t("localizationApps.matchesSorted", { count: visibleCount })}</p>
       </div>
 
       {visibleCount === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No actions match “{query}”. Clear the search to see them all.
+          {t("localizationApps.noActionsMatch", { query })}
         </div>
       ) : (
         <div className="space-y-6">
           {visibleRead.length > 0 && selectedAgent && (
             <ActionGroup
-              heading={`Read (${visibleRead.length})`}
+              heading={t("localizationApps.readActionsParenthesized", { count: visibleRead.length })}
               entries={visibleRead}
               decisionFor={decisionFor}
               agent={selectedAgent}
@@ -282,7 +282,7 @@ export function TestPanel({
           )}
           {visibleWrite.length > 0 && selectedAgent && (
             <ActionGroup
-              heading={`Write (${visibleWrite.length})`}
+              heading={t("localizationApps.writeActionsParenthesized", { count: visibleWrite.length })}
               entries={visibleWrite}
               decisionFor={decisionFor}
               agent={selectedAgent}
@@ -291,8 +291,8 @@ export function TestPanel({
           )}
           {visibleQuarantined.length > 0 && selectedAgent && (
             <ActionGroup
-              heading={`New (${visibleQuarantined.length})`}
-              subheading="New actions wait, switched off, until you turn them on."
+              heading={t("localizationApps.newActionsCount", { count: visibleQuarantined.length })}
+              subheading={t("localizationApps.newActionsWaitSwitchedOffUntilYouTurnThemOn498")}
               entries={visibleQuarantined}
               decisionFor={() => "off" as const}
               agent={selectedAgent}
@@ -310,14 +310,15 @@ export function TestPanel({
 // ---------------------------------------------------------------------------
 
 function EmptyState({ connectionId, appName }: { connectionId: string; appName: string }) {
+  useTranslation();
   return (
     <div className="rounded-lg border border-border bg-card p-8 text-center">
-      <p className="text-base font-bold text-foreground">Nothing to test yet</p>
+      <p className="text-base font-bold text-foreground">{t("localizationApps.nothingToTestYet499")}</p>
       <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
-        Once {appName} is connected, the actions it offers will show up here so you can try them out.
+        {t("localizationApps.actionsAfterConnecting", { app: appName })}
       </p>
       <Button asChild className="mt-4" variant="outline">
-        <Link to={appTabHref(connectionId, "setup")}>Go to Setup</Link>
+        <Link to={appTabHref(connectionId, "setup")}>{t("stableApps.test.goToSetup")}</Link>
       </Button>
     </div>
   );
@@ -342,11 +343,11 @@ function TestAsHeader({
   connectionId: string;
   compact: boolean;
 }) {
+  useTranslation();
   if (compact) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <p className="text-sm text-muted-foreground">
-          Testing as{" "}
+        <p className="text-sm text-muted-foreground">{t("stableApps.test.testingAs")}{" "}
           <AgentPicker
             agents={agents}
             selectedAgent={selectedAgent}
@@ -364,7 +365,7 @@ function TestAsHeader({
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Test as</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("stableApps.test.testAs")}</p>
           <AgentPicker
             agents={agents}
             selectedAgent={selectedAgent}
@@ -376,7 +377,7 @@ function TestAsHeader({
         <p className="text-sm text-muted-foreground">{accessSummaryLine(selectedAgent.effectiveAccess)}</p>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Runs real actions in {appName}, exactly as this agent would.
+        {t("stableApps.test.realActions", { app: appName })}
       </p>
     </div>
   );
@@ -397,6 +398,7 @@ function AgentPicker({
   appName: string;
   inline?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -413,7 +415,7 @@ function AgentPicker({
             "items-center gap-1.5 text-foreground outline-none hover:text-primary focus-visible:text-primary",
             inline ? "inline-flex font-semibold underline-offset-2 hover:underline" : "mt-0.5 flex text-lg font-bold",
           )}
-          aria-label="Choose which agent to test as"
+          aria-label={t("localizationApps.chooseWhichAgentToTestAs507")}
         >
           {selectedAgent.name}
           <ChevronsUpDown className={cn("text-muted-foreground", inline ? "h-3.5 w-3.5" : "h-4 w-4")} />
@@ -424,8 +426,8 @@ function AgentPicker({
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label="Search agents"
-              placeholder="Search agents…"
+              aria-label={t("localizationApps.searchAgents508")}
+              placeholder={t("localizationSkills.searchAgents581")}
               className="h-8 pl-8 text-sm"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -435,7 +437,7 @@ function AgentPicker({
         </div>
         <div className="max-h-60 overflow-y-auto p-1">
           {filtered.length === 0 ? (
-            <p className="px-3 py-4 text-center text-xs text-muted-foreground">No agents match.</p>
+            <p className="px-3 py-4 text-center text-xs text-muted-foreground">{t("localizationApps.noAgentsMatch509")}</p>
           ) : (
             filtered.map((agent) => {
               const summary = agent.effectiveAccess;
@@ -464,8 +466,8 @@ function AgentPicker({
                     <span className="block truncate text-sm font-medium text-foreground">{agent.name}</span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {noAccess
-                        ? "No access — not allowed for any action"
-                        : `Allowed ${summary.allowedCount} · Ask first ${summary.askFirstCount} · Off ${summary.offCount}`}
+                        ? t("stableApps.test.noAccess")
+                        : t("stableApps.test.compactSummary", { allowed: summary.allowedCount, ask: summary.askFirstCount, off: summary.offCount })}
                     </span>
                   </span>
                 </button>
@@ -474,24 +476,19 @@ function AgentPicker({
           )}
         </div>
         <div className="border-t border-border px-3 py-2 text-(length:--text-micro) text-muted-foreground">
-          <p>Only agents you can assign tasks to are listed.</p>
-          <p>Pick one to preview what they'd see in {appName}.</p>
+          <p>{t("localizationApps.onlyAgentsYouCanAssignTasksToAreListed511")}</p>
+          <p>{t("localizationApps.pickAgentPreview", { app: appName })}</p>
         </div>
         <div className="border-t border-border p-3">
-          <p className="text-xs font-semibold text-foreground">What the badges mean</p>
+          <p className="text-xs font-semibold text-foreground">{t("localizationApps.whatTheBadgesMean513")}</p>
           <ul className="mt-1.5 space-y-1 text-xs text-muted-foreground">
-            <li><span className="font-medium text-foreground">Allowed</span> — runs immediately when you press Run.</li>
-            <li><span className="font-medium text-foreground">Ask first</span> — Run is parked in Review for your OK.</li>
+            <li><Trans t={t} i18nKey="localizationApps.allowedBadgeHint" components={{ badge: <span className="font-medium text-foreground" /> }} /></li>
+            <li><Trans t={t} i18nKey="localizationApps.askBadgeHint" components={{ badge: <span className="font-medium text-foreground" /> }} /></li>
             <li>
-              <span className="font-medium text-foreground">Off</span> — won't run. Change it in{" "}
-              <Link className="text-primary hover:underline" to={appTabHref(connectionId, "permissions")}>
-                Permissions
-              </Link>.
+              <Trans t={t} i18nKey="localizationApps.offBadgeHint" components={{ badge: <span className="font-medium text-foreground" />, permissions: <Link className="text-primary hover:underline" to={appTabHref(connectionId, "permissions")} /> }} />
             </li>
           </ul>
-          <p className="mt-2 text-(length:--text-micro) text-muted-foreground">
-            Badges reflect this agent's current settings, not yours. Swap agents to see how an action would behave for each.
-          </p>
+          <p className="mt-2 text-(length:--text-micro) text-muted-foreground">{t("localizationApps.badgesReflectThisAgentSCurrentSettingsNotYour517")}</p>
         </div>
       </PopoverContent>
     </Popover>
@@ -499,6 +496,7 @@ function AgentPicker({
 }
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  useTranslation();
   return (
     <button
       type="button"
@@ -542,6 +540,7 @@ function ActionGroup({
   decisionFor: (entry: ToolCatalogEntry) => ToolConnectionTestDecision;
   agent: ToolConnectionTestAgent;
 } & RowSharedProps) {
+  useTranslation();
   return (
     <section>
       <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</h3>
@@ -571,6 +570,7 @@ function ActionRow({
   decision: ToolConnectionTestDecision;
   agent: ToolConnectionTestAgent;
 } & RowSharedProps) {
+  useTranslation();
   const [open, setOpen] = useState(() => Boolean(loadStoredAskFirstOutcome(shared.connectionId, entry, agent)));
   const title = entry.title ?? entry.toolName;
   const sub = actionSubLine(entry);
@@ -674,9 +674,9 @@ function splitRequiredOptional(schema: JsonSchemaNode): JsonSchemaNode {
 }
 
 const GUT_CHECK: Record<ToolConnectionTestDecision, (app: string, agent: string) => string> = {
-  allowed: (app, agent) => `This runs a real call against ${app} as ${agent}.`,
-  ask_first: () => `Waiting for your OK before this call leaves Paperclip.`,
-  off: (_app, agent) => `No call will be made — this action is off for ${agent}.`,
+  allowed: (app, agent) => t("localizationApps.realCallAsAgent", { app, agent }),
+  ask_first: () => t("localizationApps.waitingForOkBeforeCall"),
+  off: (_app, agent) => t("localizationApps.noCallActionOff", { agent }),
 };
 
 function ActionTester({
@@ -693,6 +693,7 @@ function ActionTester({
   decision: ToolConnectionTestDecision;
   agent: ToolConnectionTestAgent;
 } & RowSharedProps) {
+  useTranslation();
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
   const rawSchema = (entry.inputSchema ?? { type: "object", properties: {} }) as JsonSchemaNode;
@@ -802,10 +803,10 @@ function ActionTester({
           onChange={setValues}
           errors={errors}
           disabled={running}
-          advancedLabel="More options"
+          advancedLabel={t("localizationApps.moreOptions521")}
         />
       ) : (
-        <p className="text-xs text-muted-foreground">This action takes no inputs.</p>
+        <p className="text-xs text-muted-foreground">{t("localizationApps.thisActionTakesNoInputs522")}</p>
       )}
 
       <p className="text-xs text-muted-foreground">{GUT_CHECK[decision](appName, agent.name)}</p>
@@ -814,17 +815,14 @@ function ActionTester({
         <Button onClick={onRun} disabled={running} size="sm">
           {running ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Running…
-            </>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />{t("localizationIssueDetail.ui_Running")}</>
           ) : (
             <>
-              <Play className="h-3.5 w-3.5" /> {outcome ? "Run again" : "Run"}
+              <Play className="h-3.5 w-3.5" /> {outcome ? t("localizationApps.runAgain523") : t("localizationApps.run524")}
             </>
           )}
         </Button>
-        <Button onClick={onReset} disabled={running} size="sm" variant="ghost">
-          Reset
-        </Button>
+        <Button onClick={onReset} disabled={running} size="sm" variant="ghost">{t("workspaces.actions.reset")}</Button>
       </div>
 
       {running && (
@@ -833,7 +831,7 @@ function ActionTester({
 
       {run.isError && !running && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          Couldn't reach {agent.name}. {run.error instanceof Error ? run.error.message : "Please try again."}
+          {t("localizationApps.couldNotReachAgent", { agent: agent.name, error: run.error instanceof Error ? run.error.message : t("pages.apps.common.tryAgain") })}
         </div>
       )}
 
@@ -861,21 +859,24 @@ function RunningCard({
   elapsedMs: number;
   onCancel: () => void;
 }) {
-  const verb = entry.isReadOnly ? "Reading from" : entry.isWrite ? "Writing to" : "Calling";
+  const { t } = useTranslation();
+  const runningMessage = entry.isReadOnly
+    ? t("localizationApps.readingAsAgent", { app: appName, agent: agentName })
+    : entry.isWrite
+      ? t("localizationApps.writingAsAgent", { app: appName, agent: agentName })
+      : t("localizationApps.callingAsAgent", { app: appName, agent: agentName });
   return (
     <div className="rounded-md border border-border bg-muted/30 p-4">
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">Running…</span>
+        <span className="text-sm font-medium text-foreground">{t("localizationIssueDetail.ui_Running")}</span>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        {verb} {appName} as {agentName}.
+        {runningMessage}
       </p>
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Started {seconds(elapsedMs)} ago · Press cancel to stop</span>
-        <Button onClick={onCancel} size="sm" variant="outline">
-          Cancel
-        </Button>
+        <span className="text-xs text-muted-foreground">{t("localizationApps.runningElapsed", { duration: seconds(elapsedMs) })}</span>
+        <Button onClick={onCancel} size="sm" variant="outline">{t("pages.apps.common.cancel")}</Button>
       </div>
     </div>
   );
@@ -896,6 +897,7 @@ function ResultPanel({
   appName: string;
   connectionId: string;
 }) {
+  const { t } = useTranslation();
   const { result } = outcome;
   if (result.decision === "ask_first") {
     return <AskFirstResult outcome={outcome} entry={entry} appName={appName} connectionId={connectionId} />;
@@ -903,7 +905,7 @@ function ResultPanel({
   if (result.decision === "off") {
     return (
       <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-        {result.error?.message ?? "This action is off and won't run."}
+        {result.error?.message ?? t("localizationApps.thisActionIsOffAndWonTRun533")}
       </div>
     );
   }
@@ -934,7 +936,7 @@ function mcpToolError(value: unknown): { message: string; reasonCode: string | n
   const message =
     (typeof envelope.content === "string" && envelope.content.trim() !== "" && envelope.content)
     || (typeof envelope.error === "string" && envelope.error.trim() !== "" && envelope.error)
-    || "The app returned an error result.";
+    || t("localizationApps.theAppReturnedAnErrorResult534");
   return { message, reasonCode: "tool_error" };
 }
 
@@ -972,11 +974,15 @@ function writeVerb(entry: ToolCatalogEntry): string | null {
 
 function successHeadline(value: unknown, entry: ToolCatalogEntry, appName: string): string {
   const verb = writeVerb(entry);
-  if (!entry.isReadOnly && verb) return `Worked. Row ${verb}.`;
+  if (!entry.isReadOnly && verb) return verb === "added"
+    ? t("localizationApps.rowAdded")
+    : verb === "updated"
+      ? t("localizationApps.rowUpdated")
+      : t("localizationApps.rowRemoved");
   const rows = asRows(value);
-  if (rows) return `Worked. ${rows.length} ${rows.length === 1 ? "row" : "rows"} came back.`;
-  if (isEmptyResult(value)) return "Worked. No data to show.";
-  return `Worked. ${appName} sent back the result.`;
+  if (rows) return t("localizationApps.rowsReturned", { count: rows.length });
+  if (isEmptyResult(value)) return t("localizationApps.workedNoDataToShow538");
+  return t("localizationApps.resultReturned", { app: appName });
 }
 
 function AllowedResult({
@@ -990,6 +996,7 @@ function AllowedResult({
   appName: string;
   connectionId: string;
 }) {
+  const { t } = useTranslation();
   const value = outcome.result.result;
   return (
     <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-4">
@@ -999,12 +1006,12 @@ function AllowedResult({
       </div>
       <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        Ran as {outcome.agentName} · {seconds(outcome.durationMs)} · {relTime(outcome.ranAt)}
+        {t("localizationApps.ranAsAgent", { agent: outcome.agentName, duration: seconds(outcome.durationMs), time: relTime(outcome.ranAt) })}
       </p>
 
       {!isEmptyResult(value) && (
         <div className="mt-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.pipelines.preview")}</p>
           <div className="mt-1.5">
             <PrettyPreview value={value} />
           </div>
@@ -1014,19 +1021,16 @@ function AllowedResult({
       <RawResponseDisclosure value={value} />
 
       <p className="mt-3 text-xs text-muted-foreground">
-        This call is in the{" "}
-        <Link className="text-primary hover:underline" to={appTabHref(connectionId, "activity")}>
-          Activity tab
-        </Link>
-        .
+        <Trans i18nKey="stableApps.test.callActivity" components={{ activity: <Link className="text-primary hover:underline" to={appTabHref(connectionId, "activity")} /> }} />
       </p>
-      <p className="mt-1 text-xs text-muted-foreground">Last run finished in {seconds(outcome.durationMs)}.</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("localizationApps.lastRunDuration", { duration: seconds(outcome.durationMs) })}</p>
     </div>
   );
 }
 
 /** Pretty preview: table for row arrays, depth-limited JSON otherwise, plain text for strings. */
 function PrettyPreview({ value }: { value: unknown }) {
+  useTranslation();
   const rows = asRows(value);
   if (rows) {
     const columns = Array.from(new Set(rows.flatMap((r) => Object.keys(r)))).slice(0, 6);
@@ -1052,7 +1056,7 @@ function PrettyPreview({ value }: { value: unknown }) {
           </tbody>
         </table>
         {rows.length > shown.length && (
-          <p className="px-2.5 py-1.5 text-(length:--text-micro) text-muted-foreground">… {rows.length - shown.length} more rows</p>
+          <p className="px-2.5 py-1.5 text-(length:--text-micro) text-muted-foreground">{t("localizationApps.moreRows", { count: rows.length - shown.length })}</p>
         )}
       </div>
     );
@@ -1086,6 +1090,7 @@ function collapseDeep(value: unknown, maxDepth: number, depth = 0): unknown {
 }
 
 function RawResponseDisclosure({ value }: { value: unknown }) {
+  const { t } = useTranslation();
   const [showRaw, setShowRaw] = useState(false);
   if (value === undefined || value === null) return null;
   return (
@@ -1095,7 +1100,7 @@ function RawResponseDisclosure({ value }: { value: unknown }) {
         onClick={() => setShowRaw((prev) => !prev)}
         className="text-xs font-semibold uppercase tracking-wide text-primary hover:underline"
       >
-        {showRaw ? "Hide raw response" : "Show raw response"}
+        {showRaw ? t("localizationApps.hideRawResponse545") : t("localizationApps.showRawResponse546")}
       </button>
       {showRaw && (
         <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-background p-3 text-xs text-foreground">
@@ -1119,37 +1124,34 @@ function ErrorResult({
   connectionId: string;
   error: { message: string; reasonCode: string | null };
 }) {
+  useTranslation();
   const hints = errorHints(error.message, error.reasonCode);
   return (
     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4">
       <div className="flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-        <span className="text-sm font-medium text-foreground">It didn't work.</span>
+        <span className="text-sm font-medium text-foreground">{t("localizationApps.itDidnTWork547")}</span>
       </div>
       <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        Tried as {outcome.agentName} · {seconds(outcome.durationMs)} · {relTime(outcome.ranAt)}
+        {t("localizationApps.triedAsAgent", { agent: outcome.agentName, duration: seconds(outcome.durationMs), time: relTime(outcome.ranAt) })}
       </p>
       <div className="mt-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What {appName} said</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("localizationApps.appResponse", { app: appName })}</p>
         <p className="mt-1 break-words text-sm text-foreground">{error.message}</p>
-        {error.reasonCode && <p className="mt-0.5 text-xs text-muted-foreground">code: {error.reasonCode}</p>}
+        {error.reasonCode && <p className="mt-0.5 text-xs text-muted-foreground">{t("localizationApps.errorCode", { code: error.reasonCode })}</p>}
       </div>
       <div className="mt-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What to try</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("localizationApps.whatToTry552")}</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-foreground">
           {hints.map((hint) => (
             <li key={hint}>{hint}</li>
           ))}
         </ul>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Adjust the input above and try again.</p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("localizationApps.adjustTheInputAboveAndTryAgain553")}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Also visible in the{" "}
-        <Link className="text-primary hover:underline" to={appTabHref(connectionId, "activity")}>
-          Activity tab
-        </Link>
-        .
+        <Trans i18nKey="stableApps.test.errorActivity" components={{ activity: <Link className="text-primary hover:underline" to={appTabHref(connectionId, "activity")} /> }} />
       </p>
     </div>
   );
@@ -1189,6 +1191,7 @@ function AskFirstResult({
   appName: string;
   connectionId: string;
 }) {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const actionRequestId = outcome.result.actionRequestId;
@@ -1245,37 +1248,37 @@ function AskFirstResult({
   const where = formatWhere(status?.parameters);
   const statusLabel =
     phase === "running"
-      ? "Approved · running"
+      ? t("localizationApps.approvedRunning556")
       : phase === "denied"
-        ? "Denied — see Review for why"
+        ? t("localizationApps.deniedSeeReviewForWhy557")
         : phase === "cancelled"
-          ? "Cancelled"
+          ? t("status.cancelled")
           : phase === "expired"
-            ? "Expired — send it again"
-            : `Waiting · ${relTime(requestedAt)}`;
+            ? t("localizationApps.expiredSendItAgain559")
+            : t("localizationApps.waitingSince", { time: relTime(requestedAt) });
   const settled = phase === "denied" || phase === "cancelled" || phase === "expired";
 
   return (
     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4">
       <div className="flex items-center gap-2">
         <ShieldQuestion className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-        <span className="text-sm font-medium text-foreground">Sent for your OK.</span>
+        <span className="text-sm font-medium text-foreground">{t("localizationApps.sentForYourOK561")}</span>
       </div>
-      <p className="mt-0.5 text-xs text-muted-foreground">{outcome.agentName} needs your approval before this runs.</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{t("localizationApps.agentNeedsApproval", { agent: outcome.agentName })}</p>
 
       <dl className="mt-3 space-y-1.5 text-sm">
         <div className="flex gap-3">
-          <dt className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Action</dt>
+          <dt className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("localizationSettings.action")}</dt>
           <dd className="text-foreground">{entry.title ?? entry.toolName}</dd>
         </div>
         {where && (
           <div className="flex gap-3">
-            <dt className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Where</dt>
+            <dt className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("localizationApps.where564")}</dt>
             <dd className="break-words text-foreground">{where}</dd>
           </div>
         )}
         <div className="flex gap-3">
-          <dt className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</dt>
+          <dt className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("nav.status")}</dt>
           <dd className={cn("flex items-center gap-1.5 text-foreground", settled && "text-muted-foreground")}>
             {phase === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
             {statusLabel}
@@ -1285,21 +1288,17 @@ function AskFirstResult({
 
       {!settled && (
         <p className="mt-3 text-sm text-foreground">
-          Approve it in the{" "}
-          <Link className="font-medium text-primary hover:underline" to={appTabHref(connectionId, "review")}>
-            Review tab
-          </Link>{" "}
-          to finish the test. You can also cancel the request.
+          <Trans t={t} i18nKey="localizationApps.approveTestInReview" components={{ review: <Link className="font-medium text-primary hover:underline" to={appTabHref(connectionId, "review")} /> }} />
         </p>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button asChild size="sm" variant="outline">
-          <Link to={appTabHref(connectionId, "review")}>Open Review tab</Link>
+          <Link to={appTabHref(connectionId, "review")}>{t("localizationApps.openReviewTab568")}</Link>
         </Button>
         {phase === "waiting" && actionRequestId && selectedCompanyId && (
           <Button size="sm" variant="ghost" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-            {cancel.isPending ? "Cancelling…" : "Cancel this request"}
+            {cancel.isPending ? t("pages.agentDetail.cancelling") : t("localizationApps.cancelThisRequest569")}
           </Button>
         )}
       </div>
@@ -1324,6 +1323,7 @@ function OffExplanation({
   allAgents: ToolConnectionTestAgent[];
   onSelectAgent: (agentId: string) => void;
 }) {
+  const { t } = useTranslation();
   const title = entry.title ?? entry.toolName;
   const permHref = `${appTabHref(connectionId, "permissions")}?focus=${encodeURIComponent(entry.id)}`;
 
@@ -1338,10 +1338,10 @@ function OffExplanation({
   const allOff = allAgents.every((a) => decisionOf(a) === "off");
 
   const whyBody = entry.status === "quarantined"
-    ? "This action is new and hasn't been turned on yet."
+    ? t("localizationApps.thisActionIsNewAndHasnTBeenTurnedOnYet571")
     : allOff
-      ? "An admin set it to Off for all agents using this app."
-      : `${agent.name}'s access profile sets this action to Off.`;
+      ? t("stableApps.test.adminOff")
+      : t("localizationApps.agentProfileActionOff", { agent: agent.name });
 
   // "Last changed by {Actor} · {relativeTime}" — only the access config carries
   // this; a quarantined action has never been configured, so there's nothing to
@@ -1349,7 +1349,9 @@ function OffExplanation({
   const { lastChangedAt, lastChangedByName } = agent.effectiveAccess;
   const auditHint =
     entry.status !== "quarantined" && lastChangedAt
-      ? `Last changed${lastChangedByName ? ` by ${lastChangedByName}` : ""} · ${relTime(new Date(lastChangedAt))}`
+      ? lastChangedByName
+        ? t("localizationApps.lastChangedBy", { name: lastChangedByName, time: relTime(new Date(lastChangedAt)) })
+        : t("localizationApps.lastChangedAt", { time: relTime(new Date(lastChangedAt)) })
       : null;
 
   const otherSettings = others.map((a) => ({ name: a.name, decision: decisionOf(a) }));
@@ -1361,30 +1363,26 @@ function OffExplanation({
         <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3">
           <Ban className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">{title} is off for {agent.name}.</p>
-            <p className="mt-0.5">It won't run here, and it won't run from a task either.</p>
+            <p className="font-medium text-foreground">{t("localizationApps.actionOffForAgent", { action: title, agent: agent.name })}</p>
+            <p className="mt-0.5">{t("localizationApps.itWonTRunHereAndItWonTRunFromATaskEither576")}</p>
             <p className="mt-2">
-              Want to test it? Turn it on for {agent.name} in{" "}
-              <Link className="font-medium text-primary hover:underline" to={appTabHref(connectionId, "permissions")}>
-                Permissions
-              </Link>{" "}
-              — set it to Allowed or Ask first.
+              <Trans t={t} i18nKey="localizationApps.enableToTest" values={{ agent: agent.name }} components={{ permissions: <Link className="font-medium text-primary hover:underline" to={appTabHref(connectionId, "permissions")} /> }} />
             </p>
           </div>
         </div>
         <Button asChild size="sm">
-          <Link to={permHref}>Open Permissions →</Link>
+          <Link to={permHref}>{t("localizationApps.openPermissions579")}</Link>
         </Button>
-        <p className="text-xs text-muted-foreground">No call will be made — this action is off for {agent.name}.</p>
+        <p className="text-xs text-muted-foreground">{t("localizationApps.noCallActionOff", { agent: agent.name })}</p>
       </div>
 
       <aside className="rounded-md border border-border bg-card p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Why this is off</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("localizationApps.whyThisIsOff581")}</p>
         <p className="mt-1.5 text-xs text-muted-foreground">{whyBody}</p>
         {auditHint && <p className="mt-1.5 text-(length:--text-micro) text-muted-foreground">{auditHint}</p>}
         {otherSettings.length > 0 && (
           <div className="mt-3">
-            <p className="text-(length:--text-micro) font-medium text-muted-foreground">Other agents using {appName}:</p>
+            <p className="text-(length:--text-micro) font-medium text-muted-foreground">{t("stableApps.test.otherAgents", { app: appName })}:</p>
             <ul className="mt-1 space-y-0.5 text-(length:--text-micro) text-muted-foreground">
               {otherSettings.map((s) => (
                 <li key={s.name}>
@@ -1396,7 +1394,7 @@ function OffExplanation({
         )}
         {tryAgents.length > 0 && (
           <div className="mt-3">
-            <p className="text-(length:--text-micro) font-medium text-muted-foreground">Try as a different agent:</p>
+            <p className="text-(length:--text-micro) font-medium text-muted-foreground">{t("localizationApps.tryAsADifferentAgent582")}</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {tryAgents.slice(0, 4).map((other) => (
                 <button
@@ -1437,25 +1435,25 @@ export function errorHints(message: string, reasonCode: string | null | undefine
   const haystack = `${reasonCode ?? ""} ${message}`.toUpperCase();
   if (haystack.includes("NOT_FOUND")) {
     return [
-      "Double-check the ID or name you entered — pick it from a dropdown if one is offered.",
-      "Make sure this agent has access to that resource in the connected account.",
+      t("localizationApps.doubleCheckTheIDOrNameYouEnteredPickItFromADr585"),
+      t("localizationApps.makeSureThisAgentHasAccessToThatResourceInThe586"),
     ];
   }
   if (haystack.includes("PERMISSION") || haystack.includes("FORBIDDEN") || haystack.includes("UNAUTHORIZED")) {
     return [
-      "The connected account may not have permission for this action.",
-      "Reconnect the app from Setup if its access was recently changed.",
+      t("localizationApps.theConnectedAccountMayNotHavePermissionForThi590"),
+      t("localizationApps.reconnectTheAppFromSetupIfItsAccessWasRecentl591"),
     ];
   }
   if (haystack.includes("INVALID_ARGUMENT") || haystack.includes("INVALID") || haystack.includes("BAD_REQUEST")) {
     return [
-      "Check the field formats above — a value may be the wrong type or shape.",
-      "Open “More options” to confirm any advanced fields are filled in correctly.",
+      t("localizationApps.checkTheFieldFormatsAboveAValueMayBeTheWrongT595"),
+      t("localizationApps.openMoreOptionsToConfirmAnyAdvancedFieldsAreF596"),
     ];
   }
   if (haystack.includes("RATE_LIMIT") || haystack.includes("RESOURCE_EXHAUSTED") || haystack.includes("429")) {
-    return ["The app is rate-limiting calls right now — wait a moment and run it again."];
+    return [t("localizationApps.theAppIsRateLimitingCallsRightNowWaitAMomentA599")];
   }
   // Locked generic fallback (copy-spec decision #2).
-  return ["Check the inputs above and try again."];
+  return [t("localizationApps.checkTheInputsAboveAndTryAgain600")];
 }

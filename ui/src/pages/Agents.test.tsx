@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@/i18n";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -358,6 +359,7 @@ describe("Agents", () => {
     container.remove();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("shows the configured model beside the adapter on the all agents page", async () => {

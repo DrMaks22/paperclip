@@ -5,6 +5,8 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CONNECTABLE_APP_DEFINITIONS } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act as reactAct } from "react";
+import { i18n } from "@/i18n";
 import { queryKeys } from "@/lib/queryKeys";
 import { AppsConnect } from "./AppsConnect";
 
@@ -131,6 +133,7 @@ async function gotoLinkFrame(container: HTMLDivElement, url: string) {
 
 describe("AppsConnect — Connect with a link (M4 frame)", () => {
   let container: HTMLDivElement;
+  let mountedRoot: ReturnType<typeof createRoot> | undefined;
 
   beforeEach(() => {
     mockSearch.value = "";
@@ -165,14 +168,18 @@ describe("AppsConnect — Connect with a link (M4 frame)", () => {
     ]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    flushSync(() => mountedRoot?.unmount());
+    mountedRoot = undefined;
     document.body.removeChild(container);
     document.body.innerHTML = "";
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
   });
 
   async function render(queryClient?: QueryClient) {
     const root = createRoot(container);
+    mountedRoot = root;
     const client = queryClient ?? new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {
       root.render(
@@ -185,6 +192,34 @@ describe("AppsConnect — Connect with a link (M4 frame)", () => {
     await flushReact();
     return root;
   }
+
+  it("keeps link, name and credential drafts mounted across EN → RU → EN", async () => {
+    await render();
+    await gotoLinkFrame(container, "https://www.example.com/actions");
+    await reactAct(async () => buttonByText("Yes")!.click());
+    const name = container.querySelector<HTMLInputElement>('input[placeholder="My app"]')!;
+    const key = container.querySelector<HTMLInputElement>('input[type="password"]')!;
+    await reactAct(async () => {
+      setInputValue(name, "My unchanged app / Черновик");
+      setInputValue(key, "test-only-credential");
+    });
+    for (const locale of ["ru", "en"]) {
+      await reactAct(async () => { await i18n.changeLanguage(locale); });
+      expect(container.querySelector('input[type="password"]')).toBe(key);
+      expect(container.contains(name)).toBe(true);
+      expect(name.value).toBe("My unchanged app / Черновик");
+      expect(key.value).toBe("test-only-credential");
+      expect(container.textContent).toContain(i18n.t("pages.apps.connect.gallery.connectWithLink"));
+      expect(connectAppMock).not.toHaveBeenCalled();
+    }
+    await reactAct(async () => buttonByText("Check link")!.click());
+    await flushReact();
+    expect(connectAppMock).toHaveBeenCalledWith("company-1", expect.objectContaining({
+      link: "https://www.example.com/actions",
+      name: "My unchanged app / Черновик",
+      credentialValues: { "credentials.authorization": "test-only-credential" },
+    }));
+  });
 
   it("an unrecognized URL routes to a frame with the URL, defaulted Name, and a Yes/No toggle", async () => {
     await render();

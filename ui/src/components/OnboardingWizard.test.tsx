@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setLocale } from "@/i18n";
 
 // --- Mocks (hoisted so vi.mock factories can close over them) ----------------
 
@@ -256,6 +257,49 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
       });
       await flushReact();
     }
+
+    it("switches languages without losing the organization or agent draft or creating twice", async () => {
+      const { root } = await openStepOne("create");
+      try {
+        await act(async () => setLocale("ru"));
+        expect(document.body.textContent).toContain("Как называется ваша организация?");
+        expect((document.body.querySelector("input") as HTMLInputElement).value).toBe("Initech");
+        expect(mockCompaniesApi.create).not.toHaveBeenCalled();
+
+        await clickByText((text) => text.startsWith("Продолжить"));
+        const agentField = document.body.querySelector("#onboarding-agent-name") as HTMLInputElement;
+        await act(async () => setControlledValue(agentField, "Reviewer QA"));
+        await act(async () => setLocale("en"));
+        expect(document.body.textContent).toContain("Create your first agent");
+        expect(agentField.value).toBe("Reviewer QA");
+        await act(async () => setLocale("ru"));
+        expect(document.body.textContent).toContain("Создайте первого агента");
+        expect(agentField.value).toBe("Reviewer QA");
+        expect(mockCompaniesApi.create).toHaveBeenCalledTimes(1);
+        expect(mockCompaniesApi.create).toHaveBeenCalledWith({ name: "Initech" });
+        expect(mockAgentsApi.hire).not.toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        await act(async () => setLocale("en"));
+      }
+    });
+
+    it("retranslates an existing error without retrying the failed operation", async () => {
+      mockCompaniesApi.create.mockRejectedValue({ unavailable: true });
+      const { root } = await openStepOne("create");
+      try {
+        await clickByText((text) => text.startsWith("Continue"));
+        expect(document.body.textContent).toContain("Failed to create organization");
+        await act(async () => setLocale("ru"));
+        expect(document.body.textContent).toContain("Не удалось создать организацию");
+        expect(document.body.textContent).not.toContain("Failed to create organization");
+        expect(mockCompaniesApi.create).toHaveBeenCalledTimes(1);
+        expect((document.body.querySelector("input") as HTMLInputElement).value).toBe("Initech");
+      } finally {
+        await act(async () => root.unmount());
+        await act(async () => setLocale("en"));
+      }
+    });
 
     it("keeps the grow path's questionnaire", async () => {
       const { root } = await openStepOne("grow");

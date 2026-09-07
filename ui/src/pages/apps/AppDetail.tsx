@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, Pencil } from "lucide-react";
@@ -52,6 +53,7 @@ import type { AccessDraft } from "./app-detail/types";
 export { DangerZone, connectionAddress, connectionTransportLabel };
 
 export function AppDetail() {
+  const { t } = useTranslation();
   const { connectionId = "", tab } = useParams<{ connectionId: string; tab?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -119,13 +121,13 @@ export function AppDetail() {
   useEffect(() => {
     if (!activeTab) return;
     setBreadcrumbs([
-      { label: selectedCompany?.name ?? "Organization", href: "/dashboard" },
-      { label: "Apps", href: "/apps" },
+      { label: selectedCompany?.name ?? t("nav.company"), href: "/dashboard" },
+      { label: t("nav.apps"), href: "/apps" },
       { label: appName, href: appTabHref(connectionId, "setup") },
       { label: appTabLabel(activeTab) },
     ]);
     return () => setBreadcrumbs([]);
-  }, [setBreadcrumbs, selectedCompany?.name, appName, connectionId, activeTab]);
+  }, [setBreadcrumbs, selectedCompany?.name, appName, connectionId, activeTab, t]);
 
   const catalog = catalogQuery.data?.catalog ?? [];
   const profile = useMemo(
@@ -182,8 +184,8 @@ export function AppDetail() {
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't save that",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("localizationApps.couldnTSaveThat11"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
     onSettled: () => setPending(false),
@@ -201,8 +203,8 @@ export function AppDetail() {
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't save installs",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("pages.apps.detail.saveInstallsErrorTitle"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -219,8 +221,8 @@ export function AppDetail() {
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't rename the app",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("localizationApps.couldnTRenameTheApp13"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -237,8 +239,8 @@ export function AppDetail() {
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't save that",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("localizationApps.couldnTSaveThat11"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -250,8 +252,8 @@ export function AppDetail() {
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't start sign-in",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("localizationApps.couldnTStartSignIn14"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -263,16 +265,16 @@ export function AppDetail() {
       queryClient.invalidateQueries({ queryKey: queryKeys.tools.applications(selectedCompanyId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.apps.attention(selectedCompanyId!) });
       pushToast({
-        title: "App removed",
-        body: `${appName} no longer has access. You can connect it again any time.`,
+        title: t("pages.apps.notConnected.removedTitle"),
+        body: t("pages.apps.detail.removedBody", { app: appName }),
         tone: "success",
       });
       navigate("/apps/connections");
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't remove the app",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("pages.apps.notConnected.removeErrorTitle"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -285,17 +287,17 @@ export function AppDetail() {
       queryClient.invalidateQueries({ queryKey: queryKeys.tools.applications(selectedCompanyId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.apps.attention(selectedCompanyId!) });
       pushToast({
-        title: updated.enabled ? "App resumed" : "App paused",
+        title: updated.enabled ? t("pages.apps.detail.resumedTitle") : t("pages.apps.detail.pausedTitle"),
         body: updated.enabled
-          ? `${humanizeConnectionDisplayName(updated)} is available to agents again.`
-          : `${humanizeConnectionDisplayName(updated)} is paused for agents.`,
+          ? t("pages.apps.detail.resumedBody", { app: humanizeConnectionDisplayName(updated) })
+          : t("pages.apps.detail.pausedBody", { app: humanizeConnectionDisplayName(updated) }),
         tone: "success",
       });
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't update the app",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("pages.apps.detail.updateErrorTitle"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -308,17 +310,17 @@ export function AppDetail() {
       queryClient.invalidateQueries({ queryKey: queryKeys.tools.connections(selectedCompanyId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.apps.attention(selectedCompanyId!) });
       pushToast({
-        title: `Found ${result.discoveredCount} ${result.discoveredCount === 1 ? "action" : "actions"}`,
+        title: t("localizationApps.actionsFound", { count: result.discoveredCount }),
         body: result.quarantinedCount > 0
-          ? `${result.quarantinedCount} new ${result.quarantinedCount === 1 ? "action needs" : "actions need"} your OK.`
+          ? t("localizationApps.newActionsNeedOk", { count: result.quarantinedCount })
           : undefined,
         tone: "success",
       });
     },
     onError: (error) =>
       pushToast({
-        title: "Couldn't refresh actions",
-        body: error instanceof Error ? error.message : "Please try again.",
+        title: t("localizationApps.couldnTRefreshActions24"),
+        body: error instanceof Error ? error.message : t("pages.apps.common.tryAgain"),
         tone: "error",
       }),
   });
@@ -348,7 +350,7 @@ export function AppDetail() {
   }
 
   if (!selectedCompanyId) {
-    return <div className="p-6 text-sm text-muted-foreground">Select an organization to manage apps.</div>;
+    return <div className="p-6 text-sm text-muted-foreground">{t("pages.apps.common.selectOrganization")}</div>;
   }
   if (connectionQuery.isLoading || catalogQuery.isLoading) {
     return (
@@ -362,10 +364,8 @@ export function AppDetail() {
   if (!connection) {
     return (
       <div className="max-w-3xl p-6">
-        <p className="text-sm text-muted-foreground">We couldn't find that app.</p>
-        <Button className="mt-4" variant="outline" onClick={() => navigate("/apps/connections")}>
-          Back to apps
-        </Button>
+        <p className="text-sm text-muted-foreground">{t("localizationApps.weCouldnTFindThatApp29")}</p>
+        <Button className="mt-4" variant="outline" onClick={() => navigate("/apps/connections")}>{t("pages.apps.common.backToApps")}</Button>
       </div>
     );
   }
@@ -515,6 +515,7 @@ function AppDetailHeader({
   onRenameCancel: () => void;
   onRenameSubmit: (value: string) => void;
 }) {
+  useTranslation();
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -529,18 +530,16 @@ function AppDetailHeader({
               }}
             >
               <Input
-                aria-label="App name"
+                aria-label={t("pages.apps.detail.appNameAria")}
                 value={nameDraft}
                 onChange={(event) => onNameDraftChange(event.target.value)}
                 className="h-9 w-64 text-lg font-bold"
                 autoFocus
               />
               <Button type="submit" size="sm" disabled={renamePending || !nameDraft.trim()}>
-                {renamePending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                {renamePending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("pages.apps.common.save")}
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={onRenameCancel} disabled={renamePending}>
-                Cancel
-              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={onRenameCancel} disabled={renamePending}>{t("pages.apps.common.cancel")}</Button>
             </form>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -549,7 +548,7 @@ function AppDetailHeader({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-muted-foreground"
-                aria-label="Rename app"
+                aria-label={t("pages.apps.detail.renameAria")}
                 onClick={onRenameStart}
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -562,7 +561,7 @@ function AppDetailHeader({
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge status={status} />
             <span className="text-xs text-muted-foreground">
-              {actionCount} {actionCount === 1 ? "action" : "actions"} available
+              {t("pages.apps.detail.actionsAvailable", { count: actionCount })}
             </span>
           </div>
         </div>
@@ -575,15 +574,16 @@ type StatusInfo = { label: string; tone: "connected" | "attention" | "paused" };
 
 function statusFor(connection: ToolConnection): StatusInfo {
   if (connection.enabled === false || connection.status === "disabled") {
-    return { label: "Paused", tone: "paused" };
+    return { label: t("pages.apps.connections.statusPaused"), tone: "paused" };
   }
   if (isAttentionHealthStatus(connection.healthStatus)) {
-    return { label: "Needs attention", tone: "attention" };
+    return { label: t("pages.apps.connections.statusNeedsAttention"), tone: "attention" };
   }
-  return { label: "Connected", tone: "connected" };
+  return { label: t("pages.apps.notConnected.statusConnected"), tone: "connected" };
 }
 
 function StatusBadge({ status }: { status: StatusInfo }) {
+  useTranslation();
   const klass: Record<StatusInfo["tone"], string> = {
     connected: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     attention: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",

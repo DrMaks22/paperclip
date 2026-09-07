@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
+import { act as reactAct } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InviteLandingPage } from "./InviteLanding";
+import { i18n } from "../i18n";
 import { queryKeys } from "../lib/queryKeys";
 
 const getInviteMock = vi.hoisted(() => vi.fn());
@@ -123,10 +125,11 @@ describe("InviteLandingPage", () => {
     setSelectedCompanyIdMock.mockReset();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     container.remove();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("defaults invite auth to account creation and guides existing users back to sign in", async () => {

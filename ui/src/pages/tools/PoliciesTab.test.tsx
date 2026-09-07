@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { createElement, type ReactNode } from "react";
+import { act, createElement, type ReactNode } from "react";
+import { i18n } from "@/i18n";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -159,10 +160,11 @@ describe("PoliciesTab", () => {
     toolsApiMock.revokeTrustRule.mockResolvedValue(policy({ id: "trust-1", policyType: "trust_rule" }));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     flushSync(() => root.unmount());
     container.remove();
     document.body.innerHTML = "";
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
   });
 
@@ -178,6 +180,29 @@ describe("PoliciesTab", () => {
     });
     await flushReact();
   }
+
+  it("updates rule vocabulary without resetting drafts or changing selectors", async () => {
+    await render([policy({ id: "rule-1", name: "Original name", policyType: "block", selectors: { toolName: "gmail.delete" } })]);
+    await act(async () => container.querySelector<HTMLButtonElement>("tbody td button")!.click());
+    const name = container.querySelector<HTMLInputElement>("#rule-name")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "My rule / Черновик");
+      name.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    for (const locale of ["ru", "en"]) {
+      await act(async () => { await i18n.changeLanguage(locale); });
+      expect(container.querySelector("#rule-name")).toBe(name);
+      expect(name.value).toBe("My rule / Черновик");
+      expect(container.textContent).toContain(i18n.t("stableTools.copy1"));
+      expect(container.textContent).toContain("Delete email");
+      expect(toolsApiMock.updatePolicy).not.toHaveBeenCalled();
+    }
+    await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Save rule")!.click());
+    await flushReact();
+    expect(toolsApiMock.updatePolicy).toHaveBeenCalledWith("company-1", "rule-1", expect.objectContaining({
+      name: "My rule / Черновик", policyType: "block", selectors: { toolName: "gmail.delete" },
+    }));
+  });
 
   it("renders ordered sentence rows without exposing priority numbers", async () => {
     await render([

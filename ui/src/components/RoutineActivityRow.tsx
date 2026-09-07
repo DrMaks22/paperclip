@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { i18n, useTranslation } from "@/i18n";
 import { ChevronRight } from "lucide-react";
 import type { ActivityEvent } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ export type RoutineActivityEvent = Pick<ActivityEvent, "id" | "action" | "detail
 
 function formatTime(value: string | Date): string {
   try {
-    return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(value).toLocaleTimeString(i18n.resolvedLanguage, { hour: "2-digit", minute: "2-digit" });
   } catch {
     return String(value);
   }
@@ -36,6 +37,7 @@ function formatDetailValue(value: unknown): string {
 
 /** Activity log row with an expandable JSON payload (§3.7). */
 export function RoutineActivityRow({ event }: { event: RoutineActivityEvent }) {
+  useTranslation();
   const [expanded, setExpanded] = useState(false);
   const hasPayload = event.details != null && Object.keys(event.details).length > 0;
 

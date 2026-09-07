@@ -1,3 +1,6 @@
+import { t, useTranslation } from "@/i18n";
+import { Trans } from "react-i18next";
+import { toolEntityLabel } from "./shared";
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ScrollText } from "lucide-react";
@@ -30,28 +33,28 @@ const ALL = "__all";
 
 /** Outcome chip vocabulary (spec §4C / §5): Allowed · Blocked · Asked first · Failed · Waiting. */
 const OUTCOME_META: Record<ToolAuditOutcome, { label: string; status: string }> = {
-  allowed: { label: "Allowed", status: "allowed" },
-  blocked: { label: "Blocked", status: "denied" },
-  asked_first: { label: "Asked first", status: "require-approval" },
-  waiting: { label: "Waiting", status: "deferred" },
-  failed: { label: "Failed", status: "failed" },
-  unknown: { label: "Recorded", status: "unchecked" },
+  allowed: { get label() { return t("localizationApps.allowed166"); }, status: "allowed" },
+  blocked: { get label() { return t("status.blocked"); }, status: "denied" },
+  asked_first: { get label() { return t("localizationApps.askedFirst168"); }, status: "require-approval" },
+  waiting: { get label() { return t("status.waiting"); }, status: "deferred" },
+  failed: { get label() { return t("status.failed"); }, status: "failed" },
+  unknown: { get label() { return t("localizationApps.recorded171"); }, status: "unchecked" },
 };
 
 const OUTCOME_FILTERS: { value: string; label: string }[] = [
-  { value: ALL, label: "All outcomes" },
-  { value: "allowed", label: "Allowed" },
-  { value: "blocked", label: "Blocked" },
-  { value: "asked_first", label: "Asked first" },
-  { value: "waiting", label: "Waiting" },
-  { value: "failed", label: "Failed" },
+  { value: ALL, get label() { return t("localizationTools.allOutcomes496"); } },
+  { value: "allowed", get label() { return t("localizationApps.allowed166"); } },
+  { value: "blocked", get label() { return t("status.blocked"); } },
+  { value: "asked_first", get label() { return t("localizationApps.askedFirst168"); } },
+  { value: "waiting", get label() { return t("status.waiting"); } },
+  { value: "failed", get label() { return t("status.failed"); } },
 ];
 
 const WINDOW_FILTERS: { value: ToolAuditWindow; label: string }[] = [
-  { value: "1h", label: "Last 1 hour" },
-  { value: "24h", label: "Last 24 hours" },
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
+  { value: "1h", get label() { return t("localizationTools.last1Hour498"); } },
+  { value: "24h", get label() { return t("localizationFilters.updated24h"); } },
+  { value: "7d", get label() { return t("localizationFilters.updated7d"); } },
+  { value: "30d", get label() { return t("localizationFilters.updated30d"); } },
 ];
 
 function detailString(details: Record<string, unknown> | null, key: string): string | undefined {
@@ -90,28 +93,29 @@ function formattedArguments(details: Record<string, unknown> | null): string | u
 function plainReason(event: ToolGatewayActivityEvent): string {
   const code = detailString(event.details, "reasonCode");
   if (code === "permitted_connections_not_installed") {
-    return "Permitted connections were not installed, so their tools were not added to this run.";
+    return t("localizationTools.permittedConnectionsWereNotInstalledSoTheirTo518");
   }
   switch (event.normalizedOutcome) {
     case "allowed":
-      return "Allowed by your rules.";
+      return t("localizationTools.allowedByYourRules519");
     case "blocked":
-      if (code === "rate_limited") return "Blocked because it ran too many times in a short window.";
-      if (code?.includes("secret")) return "Blocked to keep a sensitive value from leaving.";
-      return "Blocked by a rule.";
+      if (code === "rate_limited") return t("localizationTools.blockedBecauseItRanTooManyTimesInAShortWindow520");
+      if (code?.includes("secret")) return t("localizationTools.blockedToKeepASensitiveValueFromLeaving521");
+      return t("localizationTools.blockedByARule522");
     case "asked_first":
-      return "Held for someone to approve before it could run.";
+      return t("localizationTools.heldForSomeoneToApproveBeforeItCouldRun523");
     case "waiting":
-      return "Waiting — the app it needs wasn't ready yet.";
+      return t("localizationTools.waitingTheAppItNeedsWasnTReadyYet524");
     case "failed":
-      return "The app was allowed to run it, but returned an error.";
+      return t("localizationTools.theAppWasAllowedToRunItButReturnedAnError525");
     default:
-      return "Recorded by Paperclip.";
+      return t("localizationTools.recordedByPaperclip526");
   }
 }
 
 /** Compact monospace fact row inside the Details collapse. */
 function DetailFact({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  useTranslation();
   return (
     <div className="flex gap-2">
       <span className="w-28 shrink-0 text-muted-foreground">{label}</span>
@@ -121,6 +125,7 @@ function DetailFact({ label, value, mono }: { label: string; value: string; mono
 }
 
 function OutcomeChip({ outcome }: { outcome: ToolAuditOutcome }) {
+  useTranslation();
   const meta = OUTCOME_META[outcome] ?? OUTCOME_META.unknown;
   return <StatusBadge status={meta.status} label={meta.label} />;
 }
@@ -132,11 +137,12 @@ function ActivityRow({
   event: ToolGatewayActivityEvent;
   ruleNamesById: Map<string, string>;
 }) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const who = event.agentDisplayName ?? "An agent";
-  const action = event.toolDisplayName ?? "an action";
+  const who = event.agentDisplayName ?? t("pages.tasks.anAgent");
+  const action = event.toolDisplayName ?? t("localizationApps.anAction643");
   const app = event.appDisplayName ?? event.connectionDisplayName ?? event.applicationDisplayName ?? null;
   const rawTool = detailString(event.details, "tool") ?? detailString(event.details, "toolName");
 
@@ -182,19 +188,11 @@ function ActivityRow({
         <span className="min-w-0 flex-1">
           {isRuntimeMcpDeliveryDiagnostic ? (
             <span className="block text-foreground">
-              <span className="font-medium">{who}</span>'s run received 0 MCP servers —{" "}
-              <span className="font-medium">{permittedNotInstalledCount ?? permittedNotInstalledConnections.length}</span>{" "}
-              permitted {(permittedNotInstalledCount ?? permittedNotInstalledConnections.length) === 1 ? "connection" : "connections"} not installed
+              <Trans i18nKey="localizationTools.runtimeMcpNotInstalled" count={permittedNotInstalledCount ?? permittedNotInstalledConnections.length} values={{ who }} components={{ actor: <span className="font-medium" />, number: <span className="font-medium" /> }} />
             </span>
           ) : (
             <span className="block text-foreground">
-              <span className="font-medium">{who}</span> used <span className="font-medium">{action}</span>
-              {app ? (
-                <>
-                  {" "}
-                  in <span className="font-medium">{app}</span>
-                </>
-              ) : null}
+              <Trans i18nKey={app ? "localizationTools.actorUsedAppAction" : "localizationTools.actorUsedAction"} values={{ who, action, app }} components={{ actor: <span className="font-medium" />, action: <span className="font-medium" />, app: <span className="font-medium" /> }} />
             </span>
           )}
         </span>
@@ -222,14 +220,10 @@ function ActivityRow({
 
           <div className="flex flex-wrap gap-3 text-xs">
             {issueId ? (
-              <Link to={`/issues/${issueId}`} className="text-primary hover:underline">
-                View task
-              </Link>
+              <Link to={`/issues/${issueId}`} className="text-primary hover:underline">{t("localizationIssueDetail.ui_View_task")}</Link>
             ) : null}
             {runId && agentId ? (
-              <Link to={`/agents/${agentId}/runs/${runId}`} className="text-primary hover:underline">
-                View run
-              </Link>
+              <Link to={`/agents/${agentId}/runs/${runId}`} className="text-primary hover:underline">{t("localizationActivity.viewRun")}</Link>
             ) : null}
           </div>
 
@@ -239,33 +233,31 @@ function ActivityRow({
               onClick={() => setDetailsOpen((v) => !v)}
               className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              {detailsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-              Details
-            </button>
+              {detailsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}{t("pages.pipelines.details")}</button>
             {detailsOpen ? (
               <div className="mt-2 space-y-1.5 text-xs">
-                {rawTool ? <DetailFact label="Action name" value={rawTool} mono /> : null}
-                <DetailFact label="Reason code" value={reasonCode} mono />
-                <DetailFact label="Actor type" value={event.actorType ?? "—"} />
-                {runId ? <DetailFact label="Run ID" value={runId} mono /> : null}
-                {transport ? <DetailFact label="Transport" value={transport} mono /> : null}
-                {requestMethod && endpoint ? <DetailFact label="HTTP request" value={`${requestMethod} ${endpoint}`} mono /> : null}
-                {mcpMethod ? <DetailFact label="MCP method" value={mcpMethod} mono /> : null}
-                {requestId ? <DetailFact label="Request ID" value={requestId} mono /> : null}
-                {request ? <DetailFact label="Dispatched" value={request.dispatched === true ? "Yes" : "No"} /> : null}
-                {httpStatus !== undefined ? <DetailFact label="HTTP status" value={String(httpStatus)} mono /> : null}
-                {contentType ? <DetailFact label="Content type" value={contentType} mono /> : null}
-                {responseBytes !== undefined ? <DetailFact label="Response size" value={`${responseBytes} bytes`} /> : null}
-                {upstreamRequestId ? <DetailFact label="Upstream ID" value={upstreamRequestId} mono /> : null}
+                {rawTool ? <DetailFact label={t("localizationTools.actionName548")} value={rawTool} mono /> : null}
+                <DetailFact label={t("localizationTools.reasonCode549")} value={reasonCode} mono />
+                <DetailFact label={t("localizationTools.actorType550")} value={toolEntityLabel(event.actorType ?? "—")} />
+                {runId ? <DetailFact label={t("localizationTools.runID551")} value={runId} mono /> : null}
+                {transport ? <DetailFact label={t("localizationApps.transport263")} value={transport} mono /> : null}
+                {requestMethod && endpoint ? <DetailFact label={t("localizationTools.hTTPRequest552")} value={`${requestMethod} ${endpoint}`} mono /> : null}
+                {mcpMethod ? <DetailFact label={t("localizationTools.mCPMethod554")} value={mcpMethod} mono /> : null}
+                {requestId ? <DetailFact label={t("localizationTools.requestID555")} value={requestId} mono /> : null}
+                {request ? <DetailFact label={t("localizationTools.dispatched556")} value={request.dispatched === true ? t("pages.apps.common.yes") : t("pages.apps.common.no")} /> : null}
+                {httpStatus !== undefined ? <DetailFact label={t("localizationTools.hTTPStatus559")} value={String(httpStatus)} mono /> : null}
+                {contentType ? <DetailFact label={t("localizationTools.contentType560")} value={contentType} mono /> : null}
+                {responseBytes !== undefined ? <DetailFact label={t("localizationTools.responseSize561")} value={t("localizationTools.byteCount", { count: responseBytes })} /> : null}
+                {upstreamRequestId ? <DetailFact label={t("localizationTools.upstreamID563")} value={upstreamRequestId} mono /> : null}
                 {isRuntimeMcpDeliveryDiagnostic ? (
                   <>
-                    <DetailFact label="Delivered MCP servers" value="0" mono />
+                    <DetailFact label={t("localizationTools.deliveredMCPServers564")} value="0" mono />
                     {permittedNotInstalledConnections.map((connection) => {
                       const connectionId = detailString(connection, "id");
-                      const connectionName = detailString(connection, "name") ?? "Unnamed connection";
+                      const connectionName = detailString(connection, "name") ?? t("localizationTools.unnamedConnection565");
                       return connectionId ? (
                         <div key={connectionId} className="flex gap-2">
-                          <span className="shrink-0 text-muted-foreground">Not installed</span>
+                          <span className="shrink-0 text-muted-foreground">{t("localizationTools.notInstalled566")}</span>
                           <Link to={`/apps/${connectionId}/permissions`} className="font-medium text-primary hover:underline">
                             {connectionName}
                           </Link>
@@ -276,7 +268,7 @@ function ActivityRow({
                 ) : null}
                 {argumentsText ? (
                   <div className="space-y-1">
-                    <span className="text-muted-foreground">Parameters (redacted)</span>
+                    <span className="text-muted-foreground">{t("localizationTools.parametersRedacted567")}</span>
                     <pre className="whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-mono text-xs text-foreground">
                       {argumentsText}
                     </pre>
@@ -292,6 +284,7 @@ function ActivityRow({
 }
 
 export function AuditTab({ companyId }: { companyId: string }) {
+  const { t } = useTranslation();
   const [app, setApp] = useState<string>(ALL);
   const [agent, setAgent] = useState<string>(ALL);
   const [outcome, setOutcome] = useState<string>(ALL);
@@ -364,17 +357,17 @@ export function AuditTab({ companyId }: { companyId: string }) {
   return (
     <div className="space-y-4">
       <ToolsPageHeader
-        title="Activity"
-        description="What your agents actually did with your apps, newest first. Each line is one decision — allowed, blocked, asked first, waiting, or failed."
+        title={t("pages.apps.tabs.activity")}
+        description={t("localizationTools.whatYourAgentsActuallyDidWithYourAppsNewestFi569")}
       />
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={app} onValueChange={setApp}>
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="App" />
+            <SelectValue placeholder={t("pages.apps.common.app")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All apps</SelectItem>
+            <SelectItem value={ALL}>{t("pages.apps.browse.allApps")}</SelectItem>
             {(apps.data?.applications ?? []).map((a) => (
               <SelectItem key={a.id} value={a.id}>
                 {a.name}
@@ -384,10 +377,10 @@ export function AuditTab({ companyId }: { companyId: string }) {
         </Select>
         <Select value={agent} onValueChange={setAgent}>
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="Agent" />
+            <SelectValue placeholder={t("pages.agentDetail.agentFallback")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All agents</SelectItem>
+            <SelectItem value={ALL}>{t("pages.apps.connect.access.allAgents")}</SelectItem>
             {(agents.data ?? []).map((a) => (
               <SelectItem key={a.id} value={a.id}>
                 {a.name}
@@ -420,15 +413,13 @@ export function AuditTab({ companyId }: { companyId: string }) {
           </SelectContent>
         </Select>
         <Input
-          placeholder="Search activity…"
+          placeholder={t("localizationTools.searchActivity571")}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="max-w-xs"
         />
         {hasActiveFilters ? (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            Clear filters
-          </Button>
+          <Button variant="ghost" size="sm" onClick={clearFilters}>{t("pages.cases.clearFilters")}</Button>
         ) : null}
       </div>
 
@@ -442,14 +433,10 @@ export function AuditTab({ companyId }: { companyId: string }) {
             <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
               <ScrollText className="h-10 w-10 text-muted-foreground/40" />
               <div>
-                <p className="text-sm font-medium text-foreground">No activity matches these filters</p>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Try a wider time window or different filters.
-                </p>
+                <p className="text-sm font-medium text-foreground">{t("localizationTools.noActivityMatchesTheseFilters573")}</p>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("localizationTools.tryAWiderTimeWindowOrDifferentFilters574")}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={clearFilters}>
-                Clear filters
-              </Button>
+              <Button variant="outline" size="sm" onClick={clearFilters}>{t("pages.cases.clearFilters")}</Button>
             </CardContent>
           </Card>
         ) : (
@@ -457,10 +444,8 @@ export function AuditTab({ companyId }: { companyId: string }) {
             <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
               <ScrollText className="h-10 w-10 text-muted-foreground/40" />
               <div>
-                <p className="text-sm font-medium text-foreground">Nothing here yet</p>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  As soon as your agents start using connected apps, what they do shows up here.
-                </p>
+                <p className="text-sm font-medium text-foreground">{t("localizationActivity.nothingYet")}</p>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("localizationTools.asSoonAsYourAgentsStartUsingConnectedAppsWhat575")}</p>
               </div>
             </CardContent>
           </Card>
@@ -485,14 +470,12 @@ export function AuditTab({ companyId }: { companyId: string }) {
             onClick={() => activity.fetchNextPage()}
             disabled={activity.isFetchingNextPage}
           >
-            {activity.isFetchingNextPage ? "Loading…" : "Load more"}
+            {activity.isFetchingNextPage ? t("pages.secrets.status.loading") : t("pages.workspaces.loadMore")}
           </Button>
         </div>
       ) : null}
 
-      <p className="text-xs text-muted-foreground">
-        Recorded by Paperclip — entries can't be edited. Sensitive values are never stored.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("localizationActivity.auditFootnote")}</p>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/i18n";
+import { taskChatDurationLabel, taskChatTokenLabel } from "./task-chat-display";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Check, ChevronRight, X } from "lucide-react";
@@ -25,17 +27,17 @@ interface TaskChatTurnProps {
 /** Metric segments after the label: "38s · 3 tools · +34 −3 · 12.3k tokens". */
 export function turnSummaryMetrics(summary: TaskChatTurnItem["summary"]): string {
   const parts: string[] = [];
-  if (summary.durationLabel) parts.push(summary.durationLabel);
-  if (summary.toolCount > 0) parts.push(`${summary.toolCount} tool${summary.toolCount === 1 ? "" : "s"}`);
+  if (summary.durationLabel) parts.push(taskChatDurationLabel(summary.durationLabel));
+  if (summary.toolCount > 0) parts.push(t("localizationTaskRuntime.toolCount", { count: summary.toolCount }));
   if (summary.added > 0 || summary.removed > 0) parts.push(`+${summary.added} −${summary.removed}`);
-  if (summary.tokensLabel) parts.push(summary.tokensLabel);
+  if (summary.tokensLabel) parts.push(taskChatTokenLabel(summary.tokensLabel));
   return parts.join(" · ");
 }
 
 /** "✓ Worked · 38s · 3 tools · +34 −3 · 12.3k tokens" (parts omitted when unknown). */
 export function turnSummaryText(summary: TaskChatTurnItem["summary"]): string {
   const metrics = turnSummaryMetrics(summary);
-  const label = summary.failed ? "Stopped" : "Worked";
+  const label = summary.failed ? t("localizationTaskRuntime.ui_Stopped_118y86m") : t("localizationTaskRuntime.worked");
   return metrics ? `${label} · ${metrics}` : label;
 }
 
@@ -58,6 +60,7 @@ export function turnSummaryText(summary: TaskChatTurnItem["summary"]): string {
  * and folds when it settles.
  */
 export function TaskChatTurn({ item, renderChild, timestampPrefix, leading }: TaskChatTurnProps) {
+  useTranslation();
   const parentRow = !item.settled && item.liveStatus != null;
   // Parent-row live turns and settled turns start as their one-line header;
   // only the headerless legacy live turn starts expanded.
@@ -96,7 +99,7 @@ export function TaskChatTurn({ item, renderChild, timestampPrefix, leading }: Ta
         </>
       ) : null}
       <SummaryIcon className="h-3.5 w-3.5 shrink-0" />
-      <span>{item.summary.failed ? "Stopped" : "Worked"}</span>
+      <span>{t(item.summary.failed ? "localizationTaskRuntime.ui_Stopped_118y86m" : "localizationTaskRuntime.worked")}</span>
       {turnSummaryMetrics(item.summary) ? (
         // Time/tools/tokens is demoted, not deleted (PAP-502): it stays in the
         // DOM (and the accessible tree) but fades in only on hover/focus so the

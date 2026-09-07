@@ -8,6 +8,7 @@ import { NavigationType } from "react-router-dom";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { i18n } from "../i18n";
 import {
   canBoardManageRuntime,
   canBoardResolveRecoveryAction,
@@ -1026,7 +1027,8 @@ describe("IssueDetail", () => {
   let queryClient: QueryClient;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     mockPanelState.panelVisible = true;
     mockSidebarState.isMobile = false;
     container = document.createElement("div");
@@ -3026,7 +3028,7 @@ describe("IssueDetail", () => {
     expect(container.textContent).toContain("Cancelled child");
 
     const restoreApplyButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Restore 1 tasks");
+      .find((button) => button.textContent?.trim() === "Restore 1 task");
     expect(restoreApplyButton).toBeTruthy();
 
     await act(async () => {
@@ -3040,6 +3042,88 @@ describe("IssueDetail", () => {
       releasePolicy: { strategy: "manual" },
       metadata: { wakeAgents: false },
     });
+  });
+
+  it("keeps assignee option IDs and raw mention data stable while refreshing display labels", async () => {
+    mockIssuesApi.get.mockResolvedValue(createIssue());
+    mockAuthApi.getSession.mockResolvedValue({ session: { userId: "user-1" }, user: { id: "user-1" } });
+    mockAccessApi.listUserDirectory.mockResolvedValue({ users: [
+      { principalId: "local-board", status: "active", user: { id: "local-board", name: null, email: null } },
+      { principalId: "named-board", status: "active", user: { id: "named-board", name: "Board", email: null } },
+    ] });
+    await act(async () => {
+      root.render(<QueryClientProvider client={queryClient}><IssueDetail /></QueryClientProvider>);
+    });
+    await flushReact();
+    await flushReact();
+    const initial = mockIssueChatThreadRender.mock.calls.at(-1)![0];
+    const options = initial.reassignOptions as Array<{ id: string; label: string }>;
+    const optionIds = options.map((option) => option.id);
+    const mentions = initial.mentions;
+    const rawMentions = JSON.stringify(mentions);
+    expect(options.find((option) => option.id === "user:user-1")?.label).toBe("Me");
+    for (const language of ["ru", "en", "ru"]) {
+      await act(async () => { await i18n.changeLanguage(language); });
+      await flushReact();
+      const current = mockIssueChatThreadRender.mock.calls.at(-1)![0];
+      expect(current.reassignOptions).toBe(options);
+      expect(options.map((option) => option.id)).toEqual(optionIds);
+      expect(options.find((option) => option.id === "user:user-1")?.label).toBe(language === "ru" ? "Я" : "Me");
+      expect(options.find((option) => option.id === "user:local-board")?.label).toBe(language === "ru" ? "Руководство" : "Board");
+      expect(options.find((option) => option.id === "user:named-board")?.label).toBe("Board");
+      expect(current.mentions).toBe(mentions);
+      expect(JSON.stringify(current.mentions)).toBe(rawMentions);
+    }
+  });
+
+  it.each([
+    [1, "Отменить 1 задачу", "Я понимаю, что будет отменена 1 задача."],
+    [2, "Отменить 2 задачи", "Я понимаю, что будут отменены 2 задачи."],
+    [5, "Отменить 5 задач", "Я понимаю, что будет отменено 5 задач."],
+  ])("keeps the subtree reason and confirmation across en → ru → en for %i tasks", async (count, russianAction, russianConfirmation) => {
+    const childIssue = createIssue({ id: "child-1", parentId: "issue-1", identifier: "PAP-2" });
+    mockIssuesApi.get.mockResolvedValue(createIssue());
+    mockIssuesApi.list.mockImplementation((_companyId, filters?: { descendantOf?: string }) =>
+      Promise.resolve(filters?.descendantOf === "issue-1" ? [childIssue] : []),
+    );
+    mockIssuesApi.previewTreeControl.mockResolvedValue(createCancelPreview(count));
+    mockAuthApi.getSession.mockResolvedValue({ session: { userId: "user-1" }, user: { id: "user-1" } });
+    await act(async () => {
+      root.render(<QueryClientProvider client={queryClient}><IssueDetail /></QueryClientProvider>);
+    });
+    await flushReact();
+    await flushReact();
+    const cancelMenuButton = Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent?.trim() === "Cancel subtree...");
+    expect(cancelMenuButton).toBeTruthy();
+    await act(async () => { cancelMenuButton!.click(); });
+    await flushReact();
+    await flushReact();
+
+    const dialog = container.querySelector('[data-slot="dialog-content"]')!;
+    const reason = dialog.querySelector("textarea")!;
+    const confirmation = dialog.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, "Сохранить введённую причину");
+      reason.dispatchEvent(new Event("input", { bubbles: true }));
+      confirmation.click();
+    });
+    const previewCalls = mockIssuesApi.previewTreeControl.mock.calls.length;
+    await act(async () => { await i18n.changeLanguage("ru"); });
+    await flushReact();
+    expect(dialog.textContent).toContain(russianConfirmation);
+    expect(Array.from(dialog.querySelectorAll("button")).some((button) => button.textContent?.trim() === russianAction)).toBe(true);
+    expect(reason.value).toBe("Сохранить введённую причину");
+    expect(confirmation.checked).toBe(true);
+    expect(reason.placeholder).toBe(i18n.t("localizationIssueDetail.ui_Explain_why_this_subtree_control_is_being_applied"));
+    expect(mockIssuesApi.previewTreeControl.mock.calls.length).toBe(previewCalls);
+
+    await act(async () => { await i18n.changeLanguage("en"); });
+    await flushReact();
+    expect(dialog.textContent).toContain(`Cancel ${count} ${count === 1 ? "task" : "tasks"}`);
+    expect(dialog.querySelector("textarea")).toBe(reason);
+    expect(reason.value).toBe("Сохранить введённую причину");
+    expect(confirmation.checked).toBe(true);
   });
 
   it("bounds the subtree control dialog with an internal scroll body", async () => {

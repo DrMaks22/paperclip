@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useTranslation } from "@/i18n";
+import { taskChatDisplayLabel } from "@/components/task-chat/task-chat-display";
 import { IssueChatThread, IssueAssigneePausedNotice } from "@/components/IssueChatThread";
 import {
   useLiveRunTranscripts,
@@ -67,6 +69,21 @@ const EMPTY_LIVE_ISSUE_IDS: ReadonlySet<string> = new Set<string>();
 
 export type TaskChatThreadProps = ComponentProps<typeof IssueChatThread>;
 
+function QueuedInterruptButton({ isInterrupting, runId, onInterrupt }: {
+  isInterrupting: boolean;
+  runId: string;
+  onInterrupt: NonNullable<TaskChatThreadProps["onInterruptQueued"]>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Button type="button" variant="link" className="h-auto p-0 text-(length:--text-micro)"
+      disabled={isInterrupting} onClick={() => void onInterrupt(runId)}
+    >
+      {t(isInterrupting ? "localizationTaskThread.interrupting" : "localizationTaskThread.interrupt")}
+    </Button>
+  );
+}
+
 /**
  * Chat-style task thread — the default task detail experience.
  *
@@ -90,6 +107,7 @@ export type TaskChatThreadProps = ComponentProps<typeof IssueChatThread>;
  * folded row. flag-OFF remains byte-for-byte IssueChatThread.
  */
 export function TaskChatThread(props: TaskChatThreadProps) {
+  const { t } = useTranslation();
   const {
     comments,
     interactions,
@@ -105,7 +123,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
     footer,
     showComposer = true,
     composerDisabledReason,
-    emptyMessage = "No messages yet.",
+    emptyMessage = t("localizationTaskThread.empty"),
     companyId,
     linkedRuns,
     liveRuns,
@@ -530,7 +548,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
     () => (tailRunId ? toolCountSummaryFromEntries(tailEntries) : null),
     // tailEntries is a fresh array each render; tailContentKey tracks its content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tailRunId, tailContentKey],
+    [tailRunId, tailContentKey, t],
   );
 
   // The tail's clean rows (PAP-463 C1): the streaming transcript parsed through
@@ -600,15 +618,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
 
       const isInterrupting = interruptingQueuedRunId === runId;
       return (
-        <Button
-          type="button"
-          variant="link"
-          className="h-auto p-0 text-(length:--text-micro)"
-          disabled={isInterrupting}
-          onClick={() => void onInterruptQueued(runId)}
-        >
-          {isInterrupting ? "Interrupting…" : "Interrupt"}
-        </Button>
+        <QueuedInterruptButton isInterrupting={isInterrupting} runId={runId} onInterrupt={onInterruptQueued} />
       );
     },
     [interruptingQueuedRunId, onInterruptQueued],
@@ -703,14 +713,14 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                       items={tailItems}
                       emptyMessage={
                         tailStatus === "queued"
-                          ? "Waiting to start..."
+                          ? t("localizationTaskThread.waitingStart")
                           : // Before the first transcript token, surface the run's
                             // live runtime status (sandbox preparation phases like
                             // "Syncing workspace to environment" emitted via
                             // onRuntimeProgress) instead of an opaque wait message.
                             (liveRun && liveRun.id === tailRunId
-                              ? liveRun.currentStatusMessage
-                              : null) || "Waiting for transcript..."
+                              ? (liveRun.currentStatusMessage ? taskChatDisplayLabel(liveRun.currentStatusMessage) : null)
+                              : null) || t("localizationTaskThread.waitingTranscript")
                       }
                     />
                   </div>

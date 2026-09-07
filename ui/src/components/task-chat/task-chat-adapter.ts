@@ -12,6 +12,13 @@ import type { IssueChatComment } from "@/lib/issue-chat-messages";
 import { resolveCommentAttribution } from "@/lib/comment-attribution";
 import type { TaskChatAuthorKind, TaskChatItem } from "./task-chat-model";
 
+// UI provenance only: preserve the canonical/serializable transcript shape and
+// original timestamp while allowing already-rendered bubbles to change locale.
+const commentTimestampSources = new WeakMap<TaskChatItem, unknown>();
+export function taskChatSourceTimestamp(item: TaskChatItem): unknown {
+  return commentTimestampSources.get(item);
+}
+
 export interface TaskChatAdapterContext {
   agentMap?: Map<string, Agent>;
   userLabelMap?: ReadonlyMap<string, string> | null;
@@ -101,6 +108,7 @@ export function commentsToTaskChatItems(
       runAgentId: kind === "system" ? comment.runAgentId ?? null : undefined,
       createdAtIso: kind === "system" ? createdAtIso : undefined,
     });
+    commentTimestampSources.set(items[items.length - 1], comment.createdAt);
   }
   return items;
 }

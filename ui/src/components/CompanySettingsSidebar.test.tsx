@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@/i18n";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -116,7 +117,7 @@ describe("CompanySettingsSidebar", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     container.remove();
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -355,10 +356,11 @@ describe("CompanySettingsSidebar operator-hidden entries", () => {
     mockUsePluginSlots.mockReturnValue({ slots: [], isLoading: false, errorMessage: null });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     container.remove();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   async function renderSidebar(hiddenSettings?: string[], cloud?: { managed: boolean }) {

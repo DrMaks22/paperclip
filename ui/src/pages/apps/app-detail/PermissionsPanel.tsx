@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, PackageCheck, RefreshCw } from "lucide-react";
 import type { Agent, ToolCatalogEntry } from "@paperclipai/shared";
@@ -51,6 +52,7 @@ export function PermissionsPanel({
   onRefreshActions: () => void;
   refreshPending: boolean;
 }) {
+  useTranslation();
   // Deep-link from the Test tab's "off" panel: ?focus={catalogEntryId} scrolls
   // to and highlights that action row.
   const [searchParams] = useSearchParams();
@@ -94,6 +96,7 @@ function AccessSection({
   disabled: boolean;
   onSave: (next: AccessDraft) => void;
 }) {
+  useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<AccessDraft>(access);
   const liveAgents = agents.filter((a) => a.status !== "terminated");
@@ -104,8 +107,8 @@ function AccessSection({
 
   const summary =
     access.mode === "all"
-      ? "Every agent can use it"
-      : `${access.agentIds.size} ${access.agentIds.size === 1 ? "agent" : "agents"} can use it`;
+      ? t("stableApps.permissions.everyAgent")
+      : t("stableApps.permissions.agentsCanUse", { count: access.agentIds.size });
 
   const canSave = draft.mode === "all" || draft.agentIds.size > 0;
 
@@ -113,13 +116,11 @@ function AccessSection({
     <section className="rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between px-5 py-4">
         <div>
-          <h2 className="text-sm font-bold text-foreground">Who can use it</h2>
+          <h2 className="text-sm font-bold text-foreground">{t("localizationApps.whoCanUseIt251")}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">{summary}</p>
         </div>
         {!editing && (
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-            Change
-          </Button>
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>{t("stableApps.permissions.change")}</Button>
         )}
       </div>
 
@@ -133,8 +134,8 @@ function AccessSection({
               onChange={() => setDraft({ mode: "all", agentIds: new Set() })}
             />
             <span>
-              <span className="text-sm font-semibold text-foreground">All agents</span>
-              <span className="block text-xs text-muted-foreground">Anyone you've added to Paperclip.</span>
+              <span className="text-sm font-semibold text-foreground">{t("pages.apps.connect.access.allAgents")}</span>
+              <span className="block text-xs text-muted-foreground">{t("stableApps.permissions.anyone")}</span>
             </span>
           </label>
           <label className="flex items-start gap-3">
@@ -145,8 +146,8 @@ function AccessSection({
               onChange={() => setDraft({ mode: "specific", agentIds: new Set(draft.agentIds) })}
             />
             <span>
-              <span className="text-sm font-semibold text-foreground">Only specific agents</span>
-              <span className="block text-xs text-muted-foreground">Pick who can use it.</span>
+              <span className="text-sm font-semibold text-foreground">{t("pages.apps.connect.access.specificAgents")}</span>
+              <span className="block text-xs text-muted-foreground">{t("stableApps.permissions.pickWho")}</span>
             </span>
           </label>
 
@@ -167,12 +168,8 @@ function AccessSection({
                 onSave(draft);
                 setEditing(false);
               }}
-            >
-              Save
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={disabled}>
-              Cancel
-            </Button>
+            >{t("pages.apps.common.save")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={disabled}>{t("pages.apps.common.cancel")}</Button>
           </div>
         </div>
       )}
@@ -195,6 +192,7 @@ function InstalledSection({
   disabled: boolean;
   onSave: (next: InstallState) => void;
 }) {
+  useTranslation();
   const liveAgents = agents.filter((a) => a.status !== "terminated");
   const hasAccess = (agentId: string) => access.mode === "all" || access.agentIds.has(agentId);
   // Agents that are installed but not (yet) in the access set — installing on
@@ -209,21 +207,19 @@ function InstalledSection({
     <section className="rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between gap-3 px-5 py-4">
         <div>
-          <h2 className="text-sm font-bold text-foreground">Installed on agents</h2>
+          <h2 className="text-sm font-bold text-foreground">{t("stableApps.permissions.installed")}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Whose harness carries {appName}'s tools on every run.
+            {t("stableApps.permissions.harnessHint", { app: appName })}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {disabled && <span className="text-xs text-muted-foreground">Saving…</span>}
+          {disabled && <span className="text-xs text-muted-foreground">{t("pages.agentDetail.saving")}</span>}
           {install.onAll ? (
-            <InstalledBadge label="Installed on all agents" />
+            <InstalledBadge label={t("pages.apps.connect.success.installedAll")} />
           ) : install.agentIds.size > 0 ? (
-            <InstalledBadge label={`${installedCount} installed`} />
+            <InstalledBadge label={t("stableApps.permissions.installedCount", { count: installedCount })} />
           ) : (
-            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              Permitted only — not installed on any agent
-            </span>
+            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t("stableApps.permissions.permittedOnly")}</span>
           )}
         </div>
       </div>
@@ -240,15 +236,13 @@ function InstalledSection({
             disabled={disabled}
             triggerLabel={
               install.agentIds.size === 0
-                ? "Choose agents to install on"
-                : `${install.agentIds.size} ${install.agentIds.size === 1 ? "agent" : "agents"} installed`
+                ? t("stableApps.permissions.chooseAgents")
+                : t("pages.apps.connect.success.installedCount", { count: install.agentIds.size })
             }
-            getDescription={(agent) => (hasAccess(agent.id) ? "has access" : "no access yet")}
+            getDescription={(agent) => (hasAccess(agent.id) ? t("stableApps.permissions.hasAccess") : t("stableApps.permissions.noAccess"))}
             renderNameSuffix={(agent) =>
               !hasAccess(agent.id) && install.agentIds.has(agent.id) ? (
-                <span className={cn("rounded border px-1 py-0 text-xs font-medium", brandChipBadge.amber)}>
-                  will grant access
-                </span>
+                <span className={cn("rounded border px-1 py-0 text-xs font-medium", brandChipBadge.amber)}>{t("stableApps.permissions.grantAccess")}</span>
               ) : null
             }
             onChange={(agentIds) => onSave({ onAll: false, agentIds })}
@@ -264,13 +258,13 @@ function InstalledSection({
           <Checkbox
             checked={install.onAll}
             disabled={disabled}
-            aria-label="Install on all agents"
+            aria-label={t("stableApps.permissions.installAll")}
             onCheckedChange={(checked) =>
               onSave(checked ? { onAll: true, agentIds: new Set() } : { onAll: false, agentIds: new Set() })
             }
           />
           <span className="text-xs text-foreground">
-            <span className="font-semibold">Install on all agents</span>
+            <span className="font-semibold">{t("stableApps.permissions.installAll")}</span>
             <span className="mt-0.5 block text-muted-foreground">
               {INSTALL_ALL_WARNING}
             </span>
@@ -282,12 +276,11 @@ function InstalledSection({
             <span>
               {autoExtendNotice(
                 extendingAgents.length === 1
-                  ? liveAgents.find((a) => a.id === extendingAgents[0])?.name ?? "1 agent"
-                  : `${extendingAgents.length} agents`,
+                  ? liveAgents.find((a) => a.id === extendingAgents[0])?.name ?? t("pages.apps.connect.install.agentCount", { count: 1 })
+                  : t("pages.apps.connect.install.agentCount", { count: extendingAgents.length }),
               )}{" "}
               <span className="font-medium">
-                Review the {extendingAgents.length} access change
-                {extendingAgents.length === 1 ? "" : "s"}
+                {t("stableApps.permissions.reviewChanges", { count: extendingAgents.length })}
               </span>
             </span>
           </InlineBanner>
@@ -298,6 +291,7 @@ function InstalledSection({
 }
 
 function InstalledBadge({ label }: { label: string }) {
+  useTranslation();
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium", brandChipBadge.green)}>
       <PackageCheck className="h-3 w-3" />
@@ -331,17 +325,16 @@ function ActionsSection({
   onReviewQuarantined: (enabledIds: string[]) => void;
   onRefreshActions: () => void;
 }) {
+  useTranslation();
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-bold text-foreground">Action permissions</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Choose what agents can do and what needs a human first.
-          </p>
+          <h2 className="text-sm font-bold text-foreground">{t("stableApps.permissions.actions")}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t("stableApps.permissions.actionsHint")}</p>
         </div>
         <div className="flex items-center gap-2">
-          {disabled && <span className="text-xs text-muted-foreground">Saving...</span>}
+          {disabled && <span className="text-xs text-muted-foreground">{t("pages.companySettings.saving")}</span>}
           <Button
             variant="outline"
             size="sm"
@@ -352,9 +345,7 @@ function ActionsSection({
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            Refresh actions
-          </Button>
+            )}{t("localizationApps.refreshActions428")}</Button>
         </div>
       </div>
 
@@ -367,8 +358,8 @@ function ActionsSection({
       )}
 
       <ActionGroup
-        title="Read only"
-        hint="Can look up context without changing anything."
+        title={t("pages.apps.connect.actions.readOnly")}
+        hint={t("stableApps.permissions.readHint")}
         actions={readOnly}
         enabledIds={enabledIds}
         askFirstIds={askFirstIds}
@@ -377,8 +368,8 @@ function ActionsSection({
         onSetPermission={onSetPermission}
       />
       <ActionGroup
-        title="Can make changes"
-        hint="Can change something in another app."
+        title={t("pages.apps.connect.actions.canChange")}
+        hint={t("stableApps.permissions.writeHint")}
         actions={canChange}
         enabledIds={enabledIds}
         askFirstIds={askFirstIds}
@@ -409,6 +400,7 @@ function ActionGroup({
   focusId?: string | null;
   onSetPermission: (id: string, next: ActionPermission) => void;
 }) {
+  useTranslation();
   const focusRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (focusId && focusRef.current) {
@@ -443,7 +435,7 @@ function ActionGroup({
                 )}
               </div>
               <select
-                aria-label={`${action.title ?? action.toolName} permission`}
+                aria-label={t("localizationApps.actionPermissionLabel", { title: action.title ?? action.toolName })}
                 className={cn(
                   "h-9 w-44 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none",
                   "focus-visible:border-ring focus-visible:ring-(length:--rad-3) focus-visible:ring-ring/50",
@@ -453,9 +445,9 @@ function ActionGroup({
                 disabled={disabled}
                 onChange={(event) => onSetPermission(action.id, event.currentTarget.value as ActionPermission)}
               >
-                <option value="off">Off</option>
-                <option value="allowed">Allowed</option>
-                <option value="ask">Ask a human first</option>
+                <option value="off">{t("pages.instanceSettings.off")}</option>
+                <option value="allowed">{t("localizationApps.allowed166")}</option>
+                <option value="ask">{t("stableApps.permissions.askHuman")}</option>
               </select>
             </div>
           );

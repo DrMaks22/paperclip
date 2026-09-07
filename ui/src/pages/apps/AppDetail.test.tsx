@@ -6,6 +6,9 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppDetail } from "./AppDetail";
+import { APP_TABS, appTabHref } from "./app-tabs";
+import { act as reactAct } from "react";
+import { i18n } from "@/i18n";
 
 const getConnectionMock = vi.hoisted(() => vi.fn());
 const getConnectionInstallsMock = vi.hoisted(() => vi.fn());
@@ -249,9 +252,10 @@ describe("AppDetail", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     flushSync(() => root?.unmount());
     container.remove();
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
   });
 
@@ -267,6 +271,27 @@ describe("AppDetail", () => {
     });
     await flushReact();
   }
+
+  it("keeps an unsaved app rename and stable tab routes across language switches", async () => {
+    await renderAppDetail();
+    const rename = container.querySelector<HTMLButtonElement>(`button[aria-label="${i18n.t("pages.apps.detail.renameAria")}"]`)!;
+    await reactAct(async () => rename.click());
+    const name = container.querySelector<HTMLInputElement>(`input[aria-label="${i18n.t("pages.apps.detail.appNameAria")}"]`)!;
+    await reactAct(async () => setInputValue(name, "Unchanged app / Черновик"));
+    for (const locale of ["ru", "en"]) {
+      await reactAct(async () => { await i18n.changeLanguage(locale); });
+      expect(container.contains(name)).toBe(true);
+      expect(name.value).toBe("Unchanged app / Черновик");
+      expect(name.getAttribute("aria-label")).toBe(i18n.t("pages.apps.detail.appNameAria"));
+      expect(APP_TABS.map(tab => tab.key)).toEqual(["setup", "review", "permissions", "activity", "test", "advanced"]);
+      expect(APP_TABS[0].label).toBe(i18n.t("pages.apps.tabs.setup"));
+      expect(appTabHref("conn-1", "setup")).toBe("/apps/conn-1/setup");
+      expect(updateConnectionMock).not.toHaveBeenCalled();
+    }
+    await reactAct(async () => { name.form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    await flushReact();
+    expect(updateConnectionMock).toHaveBeenCalledWith("conn-1", { name: "Unchanged app / Черновик" });
+  });
 
   it("pauses the app by flipping the connection enabled flag", async () => {
     await renderAppDetail();
