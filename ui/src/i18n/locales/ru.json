@@ -2467,6 +2467,8 @@
         "noExpiry": "Без срока действия"
       },
       "provider": {
+        "localEncrypted": "Локальное хранилище с шифрованием",
+        "localEncryptedDefault": "Локальное хранилище с шифрованием (по умолчанию)",
         "defaultMissingSuffix": " (настройки развёртывания не заданы)",
         "defaultNotConfigured": "Провайдер {{provider}} не настроен для развёртывания по умолчанию.",
         "externalOnlySuffix": " (только внешние ссылки)",
@@ -8137,6 +8139,14 @@
     "warnings_few": "{{count}} предупреждения",
     "warnings_many": "{{count}} предупреждений",
     "warnings_other": "{{count}} предупреждения",
+    "exportCostEventsOmitted_one": "В пакет экспорта не включена {{count}} запись о расходах.",
+    "exportCostEventsOmitted_few": "В пакет экспорта не включены {{count}} записи о расходах.",
+    "exportCostEventsOmitted_many": "В пакет экспорта не включено {{count}} записей о расходах.",
+    "exportCostEventsOmitted_other": "В пакет экспорта не включено {{count}} записи о расходах.",
+    "exportActivityEntriesOmitted_one": "В пакет экспорта не включена {{count}} запись журнала активности.",
+    "exportActivityEntriesOmitted_few": "В пакет экспорта не включены {{count}} записи журнала активности.",
+    "exportActivityEntriesOmitted_many": "В пакет экспорта не включено {{count}} записей журнала активности.",
+    "exportActivityEntriesOmitted_other": "В пакет экспорта не включено {{count}} записи журнала активности.",
     "exportFiles_one": "Экспортировать {{count}} файл",
     "exportFiles_few": "Экспортировать {{count}} файла",
     "exportFiles_many": "Экспортировать {{count}} файлов",

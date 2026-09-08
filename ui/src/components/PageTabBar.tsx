@@ -6,6 +6,8 @@ import { useSidebar } from "../context/SidebarContext";
 export interface PageTabItem {
   value: string;
   label: ReactNode;
+  /** Plain-text equivalent of a rich label for the native mobile select. */
+  mobileLabel?: string;
 }
 
 interface PageTabBarProps {
@@ -29,7 +31,7 @@ export function PageTabBar({ items, value, onValueChange, align = "center" }: Pa
       >
         {items.map((item) => (
           <option key={item.value} value={item.value}>
-            {typeof item.label === "string" ? item.label : item.value}
+            {item.mobileLabel ?? (typeof item.label === "string" ? item.label : item.value)}
           </option>
         ))}
       </select>

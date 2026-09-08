@@ -159,7 +159,7 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
             colorClass,
           )}
         >
-          {status.replace("_", " ")}
+          {PROJECT_STATUSES.find((item) => item.value === status)?.label ?? status.replace("_", " ")}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-40 p-1" align="start">

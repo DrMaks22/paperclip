@@ -2459,6 +2459,8 @@
         "noExpiry": "No expiry"
       },
       "provider": {
+        "localEncrypted": "Local encrypted",
+        "localEncryptedDefault": "Local encrypted (default)",
         "defaultMissingSuffix": " (deployment default missing)",
         "defaultNotConfigured": "Deployment default {{provider}} is not configured.",
         "externalOnlySuffix": " (external only)",
@@ -8009,6 +8011,10 @@
     "warnings_few": "{{count}} warnings",
     "warnings_many": "{{count}} warnings",
     "warnings_other": "{{count}} warnings",
+    "exportCostEventsOmitted_one": "{{count}} cost event is not included in the export bundle.",
+    "exportCostEventsOmitted_other": "{{count}} cost events are not included in the export bundle.",
+    "exportActivityEntriesOmitted_one": "{{count}} activity log entry is not included in the export bundle.",
+    "exportActivityEntriesOmitted_other": "{{count}} activity log entries are not included in the export bundle.",
     "exportFiles_one": "Export {{count}} file",
     "exportFiles_few": "Export {{count}} files",
     "exportFiles_many": "Export {{count}} files",
