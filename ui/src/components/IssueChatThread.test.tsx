@@ -429,7 +429,7 @@ describe("IssueChatThread", () => {
     });
   });
 
-  it("labels incoming iMessage bubbles without labeling board replies", () => {
+  it("localizes incoming iMessage attribution without translating content or labeling board replies", async () => {
     const root = createRoot(container);
     act(() => {
       root.render(
@@ -463,8 +463,14 @@ describe("IssueChatThread", () => {
         </MemoryRouter>,
       );
     });
-    expect(container.querySelector("#comment-comment-imessage")?.textContent).toContain("Sent from iMessage");
-    expect(container.querySelector("#comment-comment-board")?.textContent).not.toContain("Sent from iMessage");
+    for (const locale of ["en", "ru", "en"]) {
+      await act(async () => { await i18n.changeLanguage(locale); });
+      const provenance = locale === "ru" ? "Отправлено через iMessage" : "Sent from iMessage";
+      expect(container.querySelector("#comment-comment-imessage")?.textContent).toContain(provenance);
+      expect(container.querySelector("#comment-comment-board")?.textContent).not.toContain(provenance);
+      expect(container.querySelector("#comment-comment-imessage")?.textContent).toContain("Reply from imessage");
+      expect(container.querySelector("#comment-comment-board")?.textContent).toContain("Reply from board");
+    }
     act(() => root.unmount());
   });
 

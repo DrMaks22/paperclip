@@ -45,6 +45,7 @@ import { Link, Navigate, useNavigate, useParams } from "@/lib/router";
 import { chatLabel } from "./chat-copy";
 import { chatActivitySummary } from "./chat-activity-copy";
 import { chatActivityDetail } from "./chat-activity-guidance";
+import { photonHealthMessage, photonResourceType } from "./photon-copy";
 
 const tabs = ["settings", "access", "conversations", "activity"] as const;
 type ChatTab = (typeof tabs)[number];
@@ -83,8 +84,8 @@ const providerLifecycleGuidance: Record<
     get remove() { return t("chatUi.chatEndpointDetail.paperclipArchivesTheEndpointStopsNewIngressAndRetiresIts83"); },
   },
   "imessage-photon": {
-    reconnect: "Reconnect verifies the same Photon project and line allocation, then recovers eligible missed messages.",
-    remove: "Disconnect archives this channel and removes its saved secret. Your Photon project, number, subscription, and Messages history remain in Photon.",
+    get reconnect() { return t("communityPhoton.reconnectGuidance"); },
+    get remove() { return t("communityPhoton.disconnectGuidance"); },
   },
   telegram: {
     get reconnect() { return t("chatUi.chatEndpointDetail.reconnectVerifiesThisSameBotFatherBotAndAutomaticallyRefreshesIts"); },
@@ -180,7 +181,7 @@ function activityDetailLabel(item: ChatActivityItem): string {
 }
 
 export function connectionHealthPresentation(
-  endpoint: Pick<ChatEndpoint, "status" | "healthMessage" | "lastError">,
+  endpoint: Pick<ChatEndpoint, "status" | "healthMessage" | "lastError"> & Partial<Pick<ChatEndpoint, "provider">>,
 ) {
   // Health events outlive pause/removal. They are history, not lifecycle state.
   const lifecycleMessages = {
@@ -194,8 +195,8 @@ export function connectionHealthPresentation(
   const lifecycleMessage =
     endpoint.status === "active" ? null : lifecycleMessages[endpoint.status];
   return {
-    message: lifecycleMessage ?? endpoint.healthMessage ?? null,
-    previousHealth: lifecycleMessage ? (endpoint.healthMessage ?? null) : null,
+    message: lifecycleMessage ?? photonHealthMessage(endpoint.provider, endpoint.healthMessage) ?? null,
+    previousHealth: lifecycleMessage ? (photonHealthMessage(endpoint.provider, endpoint.healthMessage) ?? null) : null,
     error: endpoint.lastError ?? null,
     errorLabel: ["active", "attention", "revoked"].includes(endpoint.status)
       ? t("localizationInspector.ui_Reason")
@@ -224,7 +225,7 @@ export function ChatEndpointDetail() {
         : false,
   });
   const endpoint = endpointQuery.data;
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"copied" | "failed" | null>(null);
 
   useEffect(() => {
     if (!endpoint || !activeTab) return;
@@ -273,11 +274,11 @@ export function ChatEndpointDetail() {
           {endpoint.provider === "imessage-photon" && endpoint.botExternalId && endpoint.photonAllocation !== "shared" && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               <span>{endpoint.botExternalId}</span>
-              <Button variant="ghost" size="sm" aria-label="Copy dedicated number" onClick={async () => {
-                try { await copyTextToClipboard(endpoint.botExternalId!); setCopyStatus("Number copied"); }
-                catch { setCopyStatus("Could not copy the number. Select and copy it manually."); }
-              }}><Copy className="size-4" />Copy number</Button>
-              <span role="status" className="text-muted-foreground">{copyStatus}</span>
+              <Button variant="ghost" size="sm" aria-label={t("communityPhoton.copyDedicatedNumber")} onClick={async () => {
+                try { await copyTextToClipboard(endpoint.botExternalId!); setCopyStatus("copied"); }
+                catch { setCopyStatus("failed"); }
+              }}><Copy className="size-4" />{t("communityPhoton.copyNumber")}</Button>
+              <span role="status" className="text-muted-foreground">{copyStatus === "copied" ? t("communityPhoton.numberCopied") : copyStatus === "failed" ? t("communityPhoton.copyFailed") : null}</span>
             </div>
           )}
         </div>
@@ -379,7 +380,7 @@ function Settings({
     saveResources.mutate({ id: resource.id, enabled });
   return (
     <section className="max-w-3xl space-y-7">
-      {endpoint.provider === "imessage-photon" && <p className="text-sm text-muted-foreground">{endpoint.photonAllocation === "shared" ? "Shared Photon project · direct messages only. Enroll senders in Photon and link their Messages identities in Access. Groups cannot be enabled." : "Enable each group individually. Agent replies are visible to everyone in that group; only authorized senders can start work."}</p>}
+      {endpoint.provider === "imessage-photon" && <p className="text-sm text-muted-foreground">{endpoint.photonAllocation === "shared" ? t("communityPhoton.settingsShared") : t("communityPhoton.settingsDedicated")}</p>}
       {endpoint.provider === "slack" && endpoint.setup?.command && (
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">{t("chatUi.chatEndpointDetail.slackCommand")}</h2>
@@ -422,10 +423,10 @@ function Settings({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {resource.availability === "available"
-                      ? (resource.detail ?? resource.type)
+                      ? (resource.detail ?? (endpoint.provider === "imessage-photon" ? photonResourceType(resource.type) : resource.type))
                       : t("chatUi.chatEndpointDetail.unavailableAtTheProvider")}
                   </p>
-                  {resource.participants?.length ? <p className="mt-1 break-words text-xs text-muted-foreground">Participants: {resource.participants.join(", ")}</p> : null}
+                  {resource.participants?.length ? <p className="mt-1 break-words text-xs text-muted-foreground">{t("communityPhoton.participants", { participants: resource.participants.join(", ") })}</p> : null}
                 </div>
                 <ToggleSwitch
                   aria-label={t("chatUi.enableDestination", { name: resource.label })}

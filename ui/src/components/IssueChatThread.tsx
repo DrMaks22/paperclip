@@ -2182,7 +2182,7 @@ function IssueChatUserMessage({
 
       {sentFromIMessage && !deleted ? (
         <div className="mt-1 px-1 text-xs text-muted-foreground">
-          Sent from iMessage
+          {t("communityPhoton.sentFromIMessage")}
         </div>
       ) : null}
       {pending ? (

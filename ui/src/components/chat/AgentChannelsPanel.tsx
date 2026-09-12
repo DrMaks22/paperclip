@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { queryKeys } from "@/lib/queryKeys";
 import { Link } from "@/lib/router";
 import { useChatConnectorsEnabled } from "@/hooks/useChatConnectorsEnabled";
+import { photonBotLabel } from "@/pages/apps/chat/photon-copy";
 
 const providerNames: Record<ChatProvider, string> = {
   slack: "Slack",
@@ -76,7 +77,7 @@ export function AgentChannelsPanel({
                   {providerNames[endpoint.provider]}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {endpoint.botLabel ??
+                  {photonBotLabel(endpoint) ??
                     endpoint.providerAccountLabel ??
                     t("chatUi.agentChannelsPanel.providerIdentity")}
                 </p>

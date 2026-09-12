@@ -1,5 +1,13 @@
 /** Built-in UI copy only. Both the app slug and exact upstream text must match. */
 export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
+  "imessage-photon": {
+    "Message a Paperclip agent from Apple Messages using Photon Cloud. Pro supports DMs; dedicated lines also support groups.": "communityPhoton.metadataDescription",
+    "Chat with an agent": "communityPhoton.metadataMethod",
+    "Let people in iMessage Photon start and continue work with one Paperclip agent.": "communityPhoton.metadataWhenToUse",
+    "Project secret": "communityPhoton.projectSecret",
+    "Photon project secret": "communityPhoton.metadataSecretPlaceholder",
+    "Connect a Photon Cloud project. Pro shared lines support DMs after sender enrollment in Photon and identity linking in Paperclip. Dedicated lines also support individually enabled groups.": "communityPhoton.metadataGuidance",
+  },
   "agentmail": {
     "Give agents email inboxes and handle each conversation as a task.": "sep12Metadata.agentmailDescription",
     "Email with an agent": "sep12Metadata.agentmailMethod",

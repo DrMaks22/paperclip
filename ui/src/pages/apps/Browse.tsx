@@ -24,6 +24,7 @@ import {
 import { useNavigate } from "@/lib/router";
 import { useChatConnectorsEnabled } from "@/hooks/useChatConnectorsEnabled";
 import { appCopyFor } from "@/lib/app-gallery-copy";
+import { photonBotLabel } from "./chat/photon-copy";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useToast } from "@/context/ToastContext";
@@ -414,7 +415,7 @@ export function Browse() {
       });
     }
     const nativeChatProviders = [
-      { provider: "imessage-photon", name: "iMessage Photon", description: "Message agents and share photos from Apple Messages with a dedicated Photon number." },
+      { provider: "imessage-photon", name: "iMessage Photon", description: t("communityPhoton.catalogDescription") },
       {
         provider: "slack",
         name: "Slack",
@@ -845,7 +846,7 @@ export function ConnectorCard({
                 </button>
                 <p className="truncate text-xs text-muted-foreground">
                   {endpoint.providerAccountLabel ??
-                    endpoint.botLabel ??
+                    photonBotLabel(endpoint) ??
                     t("chatUi.agentChannelsPanel.providerIdentity")}
                 </p>
               </div>

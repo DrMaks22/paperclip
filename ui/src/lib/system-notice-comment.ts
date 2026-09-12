@@ -16,6 +16,12 @@ import type {
 // Display projection only. Recognition, deduplication keys, and stored metadata
 // retain the original strings produced by the server.
 const NOTICE_DISPLAY_KEYS: Record<string, string> = {
+  "iMessage Photon sender": "communityPhoton.senderMetadata",
+  "Reply to message": "communityPhoton.replyToMessage",
+  "Reply part": "communityPhoton.replyPart",
+  "Name": "communityPhoton.senderName",
+  "Provider ID": "communityPhoton.providerId",
+  "Authority": "communityPhoton.authority",
   "System notice": "localizationTaskRuntime.ui_System_notice_1j94h34",
   "System warning": "localizationTaskRuntime.ui_System_warning_8kjbgo",
   "System alert": "localizationTaskRuntime.ui_System_alert_nsduvm",
@@ -69,6 +75,8 @@ export function systemNoticeRunStatusDisplay(value: string): string {
 
 export function systemNoticeMetadataValueDisplay(row: SystemNoticeMetadataRow): string {
   if (row.kind !== "text") return "";
+  if (row.label === "Authority" && row.value === "Linked Paperclip user") return t("communityPhoton.linkedUser");
+  if (row.label === "Authority" && row.value === "Sponsored external guest (restricted)") return t("communityPhoton.sponsoredGuest");
   if (row.label === "Previous status") return systemNoticeRunStatusDisplay(row.value);
   if (row.label === "Recovery owner" && row.value === "board") return t("localizationTaskRuntime.ui_Board_1hpelzf");
   const values: Record<string, string> = {

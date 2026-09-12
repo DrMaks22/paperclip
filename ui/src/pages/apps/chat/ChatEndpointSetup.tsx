@@ -135,12 +135,8 @@ export function ChatEndpointSetup() {
   return params.get("provider") === "agentmail" ? <EmailEndpointSetup /> : <ChatSdkEndpointSetup />;
 }
 function ChatSdkEndpointSetup() {
-<<<<<<< HEAD
   const { i18n } = useTranslation();
-  const [params] = useSearchParams();
-=======
   const [params, setParams] = useSearchParams();
->>>>>>> origin/master
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
@@ -1280,14 +1276,14 @@ function TryStep({
     refetchInterval: 1_500,
   });
   const [numberCopied, setNumberCopied] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<ChatUiError | null>(null);
   const identities = principalsQuery.data ?? [];
   const unlinkedIdentities = identities.filter(
     (identity) => identity.status !== "linked",
   );
   const freshConversationInstruction = t(`chatUi.freshConversation.${provider}`);
   const identityGuidance = provider === "imessage-photon" && principalsQuery.isSuccess && (identities.length === 0 || unlinkedIdentities.length > 0)
-    ? { tone: "info" as const, title: "Link your Messages identity", body: "Send one message to discover your phone number or Apple account address, then link that exact identity in Access. Send a fresh request after linking; earlier messages do not start work." }
+    ? { tone: "info" as const, title: t("communityPhoton.linkIdentity"), body: t("communityPhoton.identityGuidance") }
     : principalsQuery.isError
     ? {
         tone: "warning" as const,
@@ -1335,12 +1331,15 @@ function TryStep({
   const botMention = normalizedBotUsername
     ? `@${normalizedBotUsername}`
     : (botLabel ?? agentName);
+  const photonDedicatedDestination = botUsername ?? botLabel;
   const instructions =
     provider === "imessage-photon" ? [
-      photonAllocation === "shared" ? "In your Photon project, enroll your sender in Users and find its assigned number in Get started. Send a fresh message to that number from Apple Messages." : `Open Apple Messages and send a fresh message to ${botUsername ?? botLabel ?? "the dedicated number"}.`,
-      "Link the discovered sender to a Paperclip person in Access, then send a fresh request.",
-      "Wait for the agent’s actual reply. Setup completes after that reply is delivered.",
-      ...(photonAllocation === "shared" ? ["This Pro-compatible channel supports DMs only. Group messages cannot start work."] : ["For a group: add the number in Messages, send a message, enable the discovered group in Settings, then send a fresh request."]),
+      photonAllocation === "shared" ? t("communityPhoton.tryShared")
+        : photonDedicatedDestination == null ? t("communityPhoton.tryDedicatedWithoutNumber")
+          : t("communityPhoton.tryDedicated", { number: photonDedicatedDestination }),
+      t("communityPhoton.tryLink"),
+      t("communityPhoton.tryReply"),
+      photonAllocation === "shared" ? t("communityPhoton.trySharedBoundary") : t("communityPhoton.tryGroup"),
     ] : provider === "discord"
       ? [
           t("chatUi.chatEndpointSetup.openATextChannelWhereTheBotIsInstalled"),
@@ -1400,7 +1399,17 @@ function TryStep({
           >{t("chatUi.chatEndpointSetup.reviewIdentityAccess")}</Button>
         </div>
       ) : null}
-      {provider === "imessage-photon" && botUsername && <div className="space-y-2"><Button variant="outline" onClick={() => { void copyTextToClipboard(botUsername).then(() => { setNumberCopied(true); setCopyError(null); }, () => setCopyError("Could not copy the number. Select it in the instructions below.")); }}>{numberCopied ? "Number copied" : `Copy ${botUsername}`}</Button>{copyError && <p role="alert" className="text-sm text-destructive">{copyError}</p>}</div>}
+      {provider === "imessage-photon" && botUsername && (
+        <div className="space-y-2">
+          <Button variant="outline" onClick={() => {
+            void copyTextToClipboard(botUsername).then(
+              () => { setNumberCopied(true); setCopyError(null); },
+              () => setCopyError({ key: "communityPhoton.copySetupFailed" }),
+            );
+          }}>{numberCopied ? t("communityPhoton.numberCopied") : t("communityPhoton.copySpecificNumber", { number: botUsername })}</Button>
+          {copyError && <p role="alert" className="text-sm text-destructive">{chatUiErrorMessage(copyError)}</p>}
+        </div>
+      )}
       <ol className="list-decimal space-y-2 pl-5 text-sm">
         {instructions.map((item) => (
           <li key={item}>{item}</li>
