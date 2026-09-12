@@ -15447,6 +15447,11 @@
     "selectProject": "Project"
   },
   "localizationActivityEvents": {
+    "ai_connection_default_changed": "ai connection default changed",
+    "ai_connection_connected": "ai connection connected",
+    "ai_connection_reconnected": "ai connection reconnected",
+    "ai_connection_local_login_cancelled": "ai connection local login cancelled",
+    "ai_connection_local_login_started": "ai connection local login started",
     "agent_approved": "agent approved",
     "agent_budget_updated": "agent budget updated",
     "agent_config_rolled_back": "agent config rolled back",
@@ -17103,5 +17108,20 @@
     "designIndependentSubtasks": "Subtasks and created work are independent",
     "designTaskStates": "Empty, loading and failed",
     "designRecoveryDescription": "Recovery runs in the background. Task lists keep their ordinary status without execution badges. Active transcript headers keep saying Working during automatic recovery. Recovery decisions and attempts belong in the run log; there is no execution status card or reconciliation form."
+  },
+  "sep13AiMetadata": {
+    "claudeSubscription": "Claude subscription",
+    "claudeApiKey": "Claude API key",
+    "openaiDescription": "Connect OpenAI accounts for your agents.",
+    "openaiSubscription": "OpenAI subscription",
+    "openaiApiKey": "OpenAI API key",
+    "openrouterDescription": "Connect OpenRouter accounts for your agents.",
+    "openrouterApiKey": "OpenRouter API key",
+    "grokDescription": "Connect Grok accounts for your agents.",
+    "grokSubscription": "Grok subscription",
+    "grokApiKey": "Grok API key",
+    "whenToUse": "Authenticate an agent with this account.",
+    "guidance": "Use your personal account or an explicitly shared company account.",
+    "apiKeyPlaceholder": "Enter API key"
   }
 }

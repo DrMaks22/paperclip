@@ -15715,6 +15715,11 @@
     "selectProject": "Выбрать"
   },
   "localizationActivityEvents": {
+    "ai_connection_default_changed": "изменено подключение к сервису ИИ по умолчанию",
+    "ai_connection_connected": "учётная запись сервиса ИИ подключена",
+    "ai_connection_reconnected": "учётная запись сервиса ИИ подключена повторно",
+    "ai_connection_local_login_cancelled": "локальный вход в учётную запись сервиса ИИ отменён",
+    "ai_connection_local_login_started": "начат локальный вход в учётную запись сервиса ИИ",
     "agent_approved": "агент одобрен",
     "agent_budget_updated": "бюджет агента изменён",
     "agent_config_rolled_back": "восстановлена предыдущая версия конфигурации агента",
@@ -17435,5 +17440,20 @@
     "designIndependentSubtasks": "Списки подзадач и созданных задач формируются независимо",
     "designTaskStates": "Пустое состояние, загрузка и ошибка",
     "designRecoveryDescription": "Восстановление идёт в фоновом режиме. В списках задач остаются обычные статусы без значков выполнения. Во время автоматического восстановления в заголовках активных расшифровок по-прежнему указано «В работе». Решения и попытки восстановления отображаются в журнале запуска. Карточки статуса выполнения нет, как и формы сверки результатов выполнения."
+  },
+  "sep13AiMetadata": {
+    "claudeSubscription": "Подписка Claude",
+    "claudeApiKey": "API-ключ Claude",
+    "openaiDescription": "Подключите учётные записи OpenAI для своих агентов.",
+    "openaiSubscription": "Подписка OpenAI",
+    "openaiApiKey": "API-ключ OpenAI",
+    "openrouterDescription": "Подключите учётные записи OpenRouter для своих агентов.",
+    "openrouterApiKey": "API-ключ OpenRouter",
+    "grokDescription": "Подключите учётные записи Grok для своих агентов.",
+    "grokSubscription": "Подписка Grok",
+    "grokApiKey": "API-ключ Grok",
+    "whenToUse": "Используйте эту учётную запись для аутентификации агента.",
+    "guidance": "Используйте личную учётную запись или учётную запись компании, специально предоставленную для совместного использования.",
+    "apiKeyPlaceholder": "Введите API-ключ"
   }
 }
