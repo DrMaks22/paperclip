@@ -1,9 +1,45 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
-import { buildSystemNoticeProps, mapCommentMetadataToSystemNoticeSections } from "./system-notice-comment";
+import { afterEach, describe, expect, it } from "vitest";
+import { i18n } from "@/i18n";
+import { buildSystemNoticeProps, mapCommentMetadataToSystemNoticeSections, systemNoticeMetadataLabelDisplay, systemNoticeMetadataValueDisplay } from "./system-notice-comment";
+
+afterEach(async () => { await i18n.changeLanguage("en"); });
 
 describe("mapCommentMetadataToSystemNoticeSections", () => {
+  it("renders Photon provenance labels without changing metadata keys, reply GUIDs, or user text", async () => {
+    const metadata = { version: 1 as const, sourceChannel: "imessage-photon" as const, sections: [{ title: "iMessage Photon sender", rows: [
+      { type: "key_value" as const, label: "Reply to message", value: "original-message-guid" },
+      { type: "key_value" as const, label: "Reply part", value: "p:0" },
+      { type: "key_value" as const, label: "Name", value: "Reply to message" },
+      { type: "key_value" as const, label: "Authority", value: "Linked Paperclip user" },
+      { type: "key_value" as const, label: "Authority", value: "Sponsored external guest (restricted)" },
+      { type: "key_value" as const, label: "Name", value: "Linked Paperclip user" },
+      { type: "key_value" as const, label: "Provider ID", value: "imessage:+15555550111" },
+    ] }] };
+    const original = JSON.stringify(metadata);
+    const expected = mapCommentMetadataToSystemNoticeSections(metadata);
+    for (const locale of ["en", "ru", "en"]) {
+      await i18n.changeLanguage(locale);
+      const sections = mapCommentMetadataToSystemNoticeSections(metadata);
+      expect(sections).toEqual(expected);
+      expect(systemNoticeMetadataLabelDisplay(sections[0]!.title!)).toBe(i18n.t("communityPhoton.senderMetadata"));
+      for (const [index, key] of ["replyToMessage", "replyPart"].entries()) {
+        expect(systemNoticeMetadataLabelDisplay(sections[0]!.rows[index]!.label)).toBe(i18n.t(`communityPhoton.${key}`));
+      }
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[0]!)).toBe("original-message-guid");
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[1]!)).toBe("p:0");
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[2]!)).toBe("Reply to message");
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[3]!)).toBe(i18n.t("communityPhoton.linkedUser"));
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[4]!)).toBe(i18n.t("communityPhoton.sponsoredGuest"));
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[5]!)).toBe("Linked Paperclip user");
+      expect(systemNoticeMetadataValueDisplay(sections[0]!.rows[6]!)).toBe("imessage:+15555550111");
+      expect(systemNoticeMetadataLabelDisplay("Provider ID")).toBe(i18n.t("communityPhoton.providerId"));
+      expect(systemNoticeMetadataLabelDisplay("Authority")).toBe(i18n.t("communityPhoton.authority"));
+      expect(systemNoticeMetadataLabelDisplay("Name")).toBe(i18n.t("communityPhoton.senderName"));
+      expect(JSON.stringify(metadata)).toBe(original);
+    }
+  });
   it("maps server metadata row types to SystemNotice rows", () => {
     const sections = mapCommentMetadataToSystemNoticeSections(
       {

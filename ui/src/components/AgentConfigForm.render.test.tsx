@@ -13,6 +13,7 @@ import { AgentConfigForm, AdapterLoginPanel, subtractPersistedOverlay, type Adap
 import { defaultCreateValues } from "./agent-config-defaults";
 import { buildNewAgentHirePayload } from "../lib/new-agent-hire-payload";
 import { ApiError } from "../api/client";
+import { i18n } from "../i18n";
 
 const mockAgentsApi = vi.hoisted(() => ({
   adapterModels: vi.fn(),
@@ -261,6 +262,7 @@ async function renderForm(
   agentOverrides: Partial<Agent> = {},
   options: {
     showAdapterTestEnvironmentButton?: boolean;
+    sectionLayout?: "cards";
     content?: "configuration" | "secrets";
     environmentVariablesPlacement?: "configuration" | "secrets";
     hideInlineSave?: boolean;
@@ -299,6 +301,7 @@ async function renderForm(
               onSaveActionChange={options.onSaveActionChange}
               onCancelActionChange={options.onCancelActionChange}
               showAdapterTypeField={false}
+              sectionLayout={options.sectionLayout}
               showAdapterTestEnvironmentButton={options.showAdapterTestEnvironmentButton ?? false}
             />
           </TooltipProvider>
@@ -739,6 +742,24 @@ describe("AgentConfigForm environment selector", () => {
     vi.clearAllMocks();
   });
 
+  it("updates card headings in Russian while preserving the Cursor command placeholder", async () => {
+    const originalLanguage = i18n.language;
+    const result = await renderForm([], { adapterType: "cursor" }, { sectionLayout: "cards" });
+    roots.push(result.root);
+    try {
+      await act(async () => { await i18n.changeLanguage("ru"); });
+      await flushReact();
+
+      expect(result.container.querySelector('[data-config-section="identity"] h3')?.textContent).toBe("Профиль");
+      expect(result.container.querySelector('[data-config-section="adapter"] h3')?.textContent).toBe("Адаптер");
+      await clickByText(result.container, "Дополнительно");
+      expect(result.container.querySelector('input[placeholder="agent"]')).not.toBeNull();
+      expect(result.container.querySelector('input[placeholder="агентов"]')).toBeNull();
+    } finally {
+      await act(async () => { await i18n.changeLanguage(originalLanguage); });
+    }
+  });
+
   it("promotes environment drafts through the page Save action and discards them through the page Discard action", async () => {
     const dirty = vi.fn();
     let save: (() => void) | null = null;
@@ -770,11 +791,11 @@ describe("AgentConfigForm environment selector", () => {
   it("reads and saves Pi thinking effort using the Pi runtime key", async () => {
     const result = await renderForm([], { adapterType: "pi_local", adapterConfig: { model: "openrouter/anthropic/claude-sonnet-4.6", thinking: "high" } });
     roots.push(result.root);
-    const effort = [...result.container.querySelectorAll("button")].find(button => button.textContent?.trim() === "high")!;
+    const effort = [...result.container.querySelectorAll("button")].find(button => button.textContent?.trim() === "High")!;
     expect(effort).toBeTruthy();
     await act(async () => effort.click());
     await flushReact();
-    const low = [...document.querySelectorAll("button")].find(button => button.textContent?.trim() === "lowlow")!;
+    const low = [...document.querySelectorAll("button")].find(button => button.textContent?.trim() === "Lowlow")!;
     expect(low).toBeTruthy();
     await act(async () => low.click());
     await flushReact();

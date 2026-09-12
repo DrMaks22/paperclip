@@ -4,6 +4,7 @@ import { act, type ComponentProps } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { i18n } from "@/i18n";
 import type { IssueQueuedCommentQueue } from "@paperclipai/shared";
 import {
   reorderQueuedMessageEntries,
@@ -58,9 +59,10 @@ describe("TaskChatQueuedMessages", () => {
     root = createRoot(container);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     flushSync(() => root.unmount());
     container.remove();
+    await i18n.changeLanguage("en");
   });
 
   function render(
@@ -326,5 +328,31 @@ describe("TaskChatQueuedMessages", () => {
     expect(container.textContent).toContain(
       "Interruption requested. Queued messages will continue after the active turn stops.",
     );
+  });
+
+  it("retranslates a retained interruption announcement without repeating the action or rebuilding queued rows", async () => {
+    const acknowledgement = deferred<void>();
+    const onInterrupt = vi.fn().mockReturnValue(acknowledgement.promise);
+    const props = render({ queue: { ...queue, protocol: "legacy", steeringDisposition: "unsupported" }, onInterrupt });
+    const row = container.querySelector('[data-testid="task-chat-queued-message-comment-1"]');
+    const interrupt = container.querySelector<HTMLButtonElement>('[data-testid="task-chat-queued-interrupt-comment-1"]')!;
+    await act(async () => interrupt.click());
+    await act(async () => { await i18n.changeLanguage("ru"); });
+    expect(interrupt.disabled).toBe(true);
+    expect(interrupt.title).toBe("Прервать текущий ход и отправить сообщения из очереди");
+    expect(container.querySelector(".sr-only")?.textContent).not.toBe("Interrupting the active turn.");
+    await act(async () => { acknowledgement.resolve(); await acknowledgement.promise; });
+    for (const language of ["ru", "en", "ru"]) {
+      await act(async () => { await i18n.changeLanguage(language); });
+      expect(container.querySelector('[data-testid="task-chat-queued-message-comment-1"]')).toBe(row);
+      expect(container.querySelector(".sr-only")?.textContent).toBe(language === "ru"
+        ? "Запрошено прерывание. Сообщения из очереди будут обработаны после остановки текущего хода."
+        : "Interruption requested. Queued messages will continue after the active turn stops.");
+      expect(row?.textContent).toContain("First queued message");
+      expect(onInterrupt).toHaveBeenCalledTimes(1);
+      expect(props.onReorder).not.toHaveBeenCalled();
+      expect(props.onSteer).not.toHaveBeenCalled();
+      expect(props.onDiscard).not.toHaveBeenCalled();
+    }
   });
 });

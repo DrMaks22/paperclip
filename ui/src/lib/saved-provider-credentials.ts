@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import type { CompanySecret, EnvBinding } from "@paperclipai/shared";
 import type { MyUserSecretEntry } from "../api/secrets";
 
@@ -27,7 +28,7 @@ export function savedProviderKeys(
         ? [
             {
               id: `user:${definition.id}`,
-              label: `${definition.name} (Your key)`,
+              label: t("agentSetup.personalKey", { name: definition.name }),
               binding: {
                 type: "user_secret_ref" as const,
                 key: definition.key,
@@ -45,7 +46,7 @@ export function savedProviderKeys(
         ? [
             {
               id: `company:${secret.id}`,
-              label: `${secret.name} (Organization key)`,
+              label: t("agentSetup.organizationKey", { name: secret.name }),
               binding: {
                 type: "secret_ref" as const,
                 secretId: secret.id,
@@ -73,7 +74,7 @@ export function savedCodexSubscriptions(
     )
     .map((secret) => ({
       id: `company:${secret.id}`,
-      label: secret.name.replace("CODEX_HOME_", "ChatGPT account · "),
+      label: t("agentSetup.chatgptAccount", { id: secret.name.slice("CODEX_HOME_".length) }),
       binding: { type: "secret_ref", secretId: secret.id, version: "latest" },
     }));
 }
