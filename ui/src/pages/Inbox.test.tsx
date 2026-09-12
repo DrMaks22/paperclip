@@ -12,6 +12,7 @@ import {
   getLocalInboxArchiveIssueIds,
 } from "../lib/inboxArchiveCache";
 import { taskCollectionPreferencesStorageKey } from "../lib/task-collection-preferences";
+import { i18n } from "../i18n";
 
 const routerMock = vi.hoisted(() => ({
   location: { pathname: "/", search: "", hash: "" },
@@ -734,7 +735,21 @@ describe("Inbox toolbar", () => {
       separator.querySelector("[data-date-group-label]")?.classList.contains("text-muted-foreground/70")
     ))).toBe(true);
 
-    act(() => root.unmount());
+    try {
+      for (const language of ["ru", "en", "ru"]) {
+        await act(async () => { await i18n.changeLanguage(language); });
+        const labels = language === "ru" ? ["Сегодня", "Вчера", "Ранее"] : ["Today", "Yesterday", "Earlier"];
+        expect([...container.querySelectorAll('[data-testid="inbox-date-group"]')]).toEqual(separators);
+        expect(separators.map((node) => node.textContent?.trim())).toEqual(labels);
+        expect(separators.map((node) => node.getAttribute("aria-label"))).toEqual(labels);
+        expect(container.textContent).toContain("Today task");
+        expect(container.textContent).toContain("Yesterday task");
+        expect(container.textContent).toContain("Earlier task");
+      }
+    } finally {
+      act(() => root.unmount());
+      await act(async () => { await i18n.changeLanguage("en"); });
+    }
   });
 
   it("honors the saved Columns option for hiding date group separators", async () => {

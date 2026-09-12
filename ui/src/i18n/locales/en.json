@@ -17109,6 +17109,10 @@
     "designTaskStates": "Empty, loading and failed",
     "designRecoveryDescription": "Recovery runs in the background. Task lists keep their ordinary status without execution badges. Active transcript headers keep saying Working during automatic recovery. Recovery decisions and attempts belong in the run log; there is no execution status card or reconciliation form."
   },
+  "foldCurtain": {
+    "showMore": "Show more",
+    "showLess": "Show less"
+  },
   "sep13AiMetadata": {
     "claudeSubscription": "Claude subscription",
     "claudeApiKey": "Claude API key",
