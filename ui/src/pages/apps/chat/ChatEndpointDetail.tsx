@@ -55,6 +55,7 @@ const providerNames: Record<ChatProvider, string> = {
   discord: "Discord",
   "microsoft-teams": "Microsoft Teams",
   telegram: "Telegram",
+  "imessage-photon": "iMessage Photon",
 };
 
 const providerLifecycleGuidance: Record<
@@ -80,6 +81,10 @@ const providerLifecycleGuidance: Record<
   "microsoft-teams": {
     get reconnect() { return t("chatUi.chatEndpointDetail.reconnectVerifiesThisSameMicrosoftAppTenantAndBotIdentity"); },
     get remove() { return t("chatUi.chatEndpointDetail.paperclipArchivesTheEndpointStopsNewIngressAndRetiresIts83"); },
+  },
+  "imessage-photon": {
+    reconnect: "Reconnect verifies the same Photon project and line allocation, then recovers eligible missed messages.",
+    remove: "Disconnect archives this channel and removes its saved secret. Your Photon project, number, subscription, and Messages history remain in Photon.",
   },
   telegram: {
     get reconnect() { return t("chatUi.chatEndpointDetail.reconnectVerifiesThisSameBotFatherBotAndAutomaticallyRefreshesIts"); },
@@ -219,6 +224,7 @@ export function ChatEndpointDetail() {
         : false,
   });
   const endpoint = endpointQuery.data;
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!endpoint || !activeTab) return;
@@ -264,6 +270,16 @@ export function ChatEndpointDetail() {
           <p className="mt-1 text-sm text-muted-foreground">
             {endpoint.providerAccountLabel ?? t("chatUi.chatEndpointDetail.chatConnection")}
           </p>
+          {endpoint.provider === "imessage-photon" && endpoint.botExternalId && endpoint.photonAllocation !== "shared" && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span>{endpoint.botExternalId}</span>
+              <Button variant="ghost" size="sm" aria-label="Copy dedicated number" onClick={async () => {
+                try { await copyTextToClipboard(endpoint.botExternalId!); setCopyStatus("Number copied"); }
+                catch { setCopyStatus("Could not copy the number. Select and copy it manually."); }
+              }}><Copy className="size-4" />Copy number</Button>
+              <span role="status" className="text-muted-foreground">{copyStatus}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {setupIncomplete ? (
@@ -363,6 +379,7 @@ function Settings({
     saveResources.mutate({ id: resource.id, enabled });
   return (
     <section className="max-w-3xl space-y-7">
+      {endpoint.provider === "imessage-photon" && <p className="text-sm text-muted-foreground">{endpoint.photonAllocation === "shared" ? "Shared Photon project · direct messages only. Enroll senders in Photon and link their Messages identities in Access. Groups cannot be enabled." : "Enable each group individually. Agent replies are visible to everyone in that group; only authorized senders can start work."}</p>}
       {endpoint.provider === "slack" && endpoint.setup?.command && (
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">{t("chatUi.chatEndpointDetail.slackCommand")}</h2>
@@ -408,11 +425,13 @@ function Settings({
                       ? (resource.detail ?? resource.type)
                       : t("chatUi.chatEndpointDetail.unavailableAtTheProvider")}
                   </p>
+                  {resource.participants?.length ? <p className="mt-1 break-words text-xs text-muted-foreground">Participants: {resource.participants.join(", ")}</p> : null}
                 </div>
                 <ToggleSwitch
                   aria-label={t("chatUi.enableDestination", { name: resource.label })}
                   checked={resource.enabled}
                   disabled={
+                    endpoint.photonAllocation === "shared" ||
                     resource.availability !== "available" ||
                     saveResources.isPending
                   }
