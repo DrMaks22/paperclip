@@ -107,6 +107,7 @@ export function PhotonConnectStep({
         />
       </label>
       <Button
+        className="h-auto max-w-full whitespace-normal"
         variant="outline"
         disabled={
           pending || inspection.isPending || !projectId.trim() || !projectSecret
@@ -170,6 +171,7 @@ export function PhotonConnectStep({
       )}
       <div>
         <Button
+          className="h-auto max-w-full whitespace-normal"
           disabled={
             pending ||
             inspection.isPending ||
