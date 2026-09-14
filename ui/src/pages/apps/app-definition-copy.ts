@@ -21,7 +21,38 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
   },
   "anthropic": {
     "Use Anthropic APIs with a restricted key.": "localizationApps.metadata4",
-    "API key": "localizationApps.metadata7"
+    "API key": "localizationApps.metadata7",
+    "Claude subscription": "sep13AiMetadata.claudeSubscription",
+    "Claude API key": "sep13AiMetadata.claudeApiKey",
+    "Authenticate an agent with this account.": "sep13AiMetadata.whenToUse",
+    "Use your personal account or an explicitly shared company account.": "sep13AiMetadata.guidance",
+    "Enter API key": "sep13AiMetadata.apiKeyPlaceholder"
+  },
+  "openai": {
+    "Connect OpenAI accounts for your agents.": "sep13AiMetadata.openaiDescription",
+    "OpenAI subscription": "sep13AiMetadata.openaiSubscription",
+    "OpenAI API key": "sep13AiMetadata.openaiApiKey",
+    "Authenticate an agent with this account.": "sep13AiMetadata.whenToUse",
+    "Use your personal account or an explicitly shared company account.": "sep13AiMetadata.guidance",
+    "API key": "localizationApps.metadata7",
+    "Enter API key": "sep13AiMetadata.apiKeyPlaceholder"
+  },
+  "openrouter": {
+    "Connect OpenRouter accounts for your agents.": "sep13AiMetadata.openrouterDescription",
+    "OpenRouter API key": "sep13AiMetadata.openrouterApiKey",
+    "Authenticate an agent with this account.": "sep13AiMetadata.whenToUse",
+    "Use your personal account or an explicitly shared company account.": "sep13AiMetadata.guidance",
+    "API key": "localizationApps.metadata7",
+    "Enter API key": "sep13AiMetadata.apiKeyPlaceholder"
+  },
+  "xai": {
+    "Connect Grok accounts for your agents.": "sep13AiMetadata.grokDescription",
+    "Grok subscription": "sep13AiMetadata.grokSubscription",
+    "Grok API key": "sep13AiMetadata.grokApiKey",
+    "Authenticate an agent with this account.": "sep13AiMetadata.whenToUse",
+    "Use your personal account or an explicitly shared company account.": "sep13AiMetadata.guidance",
+    "API key": "localizationApps.metadata7",
+    "Enter API key": "sep13AiMetadata.apiKeyPlaceholder"
   },
   "api-key-generic": {
     "API key": "localizationApps.metadata7",

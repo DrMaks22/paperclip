@@ -7,6 +7,30 @@ import { buildSystemNoticeProps, mapCommentMetadataToSystemNoticeSections, syste
 afterEach(async () => { await i18n.changeLanguage("en"); });
 
 describe("mapCommentMetadataToSystemNoticeSections", () => {
+  it("projects the AI repair title and known next action while preserving raw bodies and other metadata", async () => {
+    const nextAction = "Reconnect the selected AI account or choose an available connection, then continue the task.";
+    const body = "This task paused because its selected AI account is unavailable. Reconnect the account or choose an available connection to continue.";
+    const presentation = { kind: "system_notice" as const, title: "AI connection needs attention", tone: "danger" as const, detailsDefaultOpen: false };
+    const metadata = { version: 1 as const, sections: [{ title: "Recovery", rows: [
+      { type: "key_value" as const, label: "Next action", value: nextAction },
+      { type: "key_value" as const, label: "Failure summary", value: nextAction },
+      { type: "key_value" as const, label: "Next action", value: "Reconnect Keep English Name using custom settings." },
+    ] }] };
+    const original = JSON.stringify({ presentation, metadata, body });
+    for (const locale of ["en", "ru", "en"]) {
+      await i18n.changeLanguage(locale);
+      const props = buildSystemNoticeProps({ presentation, metadata, body });
+      expect(props.label).toBe(presentation.title);
+      expect(props.body).toBe(body);
+      expect(systemNoticeMetadataLabelDisplay(props.label!)).toBe(locale === "en" ? presentation.title : "Нужно проверить подключение к сервису ИИ");
+      expect(systemNoticeMetadataValueDisplay(props.metadata![0]!.rows[0]!)).toBe(locale === "en" ? nextAction
+        : "Повторно подключите выбранную учётную запись сервиса ИИ или выберите доступное подключение, затем продолжите задачу.");
+      expect(systemNoticeMetadataValueDisplay(props.metadata![0]!.rows[1]!)).toBe(nextAction);
+      expect(systemNoticeMetadataValueDisplay(props.metadata![0]!.rows[2]!)).toBe("Reconnect Keep English Name using custom settings.");
+      expect(JSON.stringify({ presentation, metadata, body })).toBe(original);
+    }
+  });
+
   it("renders Photon provenance labels without changing metadata keys, reply GUIDs, or user text", async () => {
     const metadata = { version: 1 as const, sourceChannel: "imessage-photon" as const, sections: [{ title: "iMessage Photon sender", rows: [
       { type: "key_value" as const, label: "Reply to message", value: "original-message-guid" },
