@@ -1,5 +1,8 @@
+import { AgentChatPicker } from "@/components/AgentChatPicker";
 import { TaskChatProjectCreatedCard } from "@/components/task-chat/TaskChatProjectCreatedCard";
 import { useTranslation } from "@/i18n";
+import { AnnouncementCard } from "@/components/AnnouncementCard";
+import { announcementPreview, announcementAnimationPreview, announcementAnimationPreviewSrc } from "@/lib/announcement-preview";
 import { TaskDetailTasksPanel } from "@/components/task-detail/TaskDetailTasksPanel";
 import { AiConnectionDesignExamples } from "@/components/ai-connections/AiConnectionDesignExamples";
 import { SavedProviderKeySelect } from "../components/onboarding/SavedProviderKeySelect";
@@ -479,6 +482,18 @@ function TaskExecutionControlsExample() {
   </div>;
 }
 
+function AgentChatPickerExample() {
+  const { t } = useTranslation();
+  const [state, setState] = useState<"closed" | "empty" | "loading" | "error">("closed");
+  return <div className="flex flex-wrap gap-2">
+    <Button variant="outline" onClick={() => setState("empty")}>{t("stable916Shell.emptyPicker")}</Button>
+    <Button variant="outline" onClick={() => setState("loading")}>{t("stable916Shell.loadingPicker")}</Button>
+    <Button variant="outline" onClick={() => setState("error")}>{t("stable916Shell.failedPicker")}</Button>
+    <AgentChatPicker agents={[]} open={state !== "closed"} onOpenChange={(open) => { if (!open) setState("closed"); }} onSelect={() => {}}
+      loading={state === "loading"} error={state === "error" ? new Error("Unavailable") : null} onRetry={() => setState("empty")} />
+  </div>;
+}
+
 export function DesignGuide() {
   const { t } = useTranslation();
   const [status, setStatus] = useState("todo");
@@ -548,6 +563,14 @@ export function DesignGuide() {
               ))}
             </div>
           </SubSection>
+        </div>
+      </Section>
+
+      <Section title={t("stable916Shell.announcementsHeading")}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <AnnouncementCard announcement={announcementAnimationPreview} imageSrc="/announcement-preview.svg" animationSrc={announcementAnimationPreviewSrc} onDismiss={() => {}} />
+          <AnnouncementCard announcement={announcementPreview} imageSrc="/announcement-preview.svg" onDismiss={() => {}} />
+          <AnnouncementCard announcement={{ ...announcementPreview, image: undefined, secondaryLink: undefined }} onDismiss={() => {}} />
         </div>
       </Section>
 
@@ -1658,9 +1681,12 @@ export function DesignGuide() {
       {/*  NAVIGATION PATTERNS                                          */}
       {/* ============================================================ */}
       <Section title="Navigation Patterns">
+        <SubSection title={t("stable916Shell.agentChatPicker")}>
+          <AgentChatPickerExample />
+        </SubSection>
         <SubSection title="Sidebar nav items">
           <p className="text-sm text-muted-foreground">
-            {t("sep12Screens.designSidebarDescription")}
+            {t("stable916Shell.designSidebarDescription")}
           </p>
           <Card className="block w-60 p-3 space-y-0.5">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-accent text-accent-foreground">

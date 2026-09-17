@@ -52,6 +52,7 @@ export interface MonitorSurfaceCopy {
   stripMeta: string[];
   /** `warning` (amber) once overdue, `info` (blue) while still on schedule. */
   tone: "info" | "warning";
+  workspaceWait?: boolean;
 }
 
 function capitalize(value: string): string {
@@ -66,8 +67,20 @@ function capitalize(value: string): string {
 export function buildMonitorSurfaceCopy(
   derived: DerivedMonitorState,
   now: MonitorDate,
+  scheduledRetryReason?: string | null,
 ): MonitorSurfaceCopy | null {
   if (!isWaitingMonitorState(derived.state) || !derived.nextCheckAt) return null;
+
+  if (derived.source === "scheduled-retry" && scheduledRetryReason === "workspace_busy") {
+    return {
+      bannerTitle: "Waiting for workspace",
+      stripTitle: "Waiting for workspace",
+      bannerMeta: ["Another task is using this workspace. Work starts automatically when it is available."],
+      stripMeta: ["Work starts automatically when the workspace is available."],
+      tone: "info",
+      workspaceWait: true,
+    };
+  }
 
   const eta = formatMonitorEta(derived.nextCheckAt, now); // "in 2h 12m" | "due now" | "overdue by 18m"
   const absolute = formatMonitorAbsolute(derived.nextCheckAt, {}, now); // local time, e.g. "Today, 4:08 PM"
@@ -115,9 +128,18 @@ export function buildMonitorSurfaceCopy(
 }
 
 /** Display projection only; the raw builder remains stable for callers and tests. */
-export function buildMonitorSurfaceCopyDisplay(derived: DerivedMonitorState, now: MonitorDate): MonitorSurfaceCopy | null {
-  const raw = buildMonitorSurfaceCopy(derived, now);
+export function buildMonitorSurfaceCopyDisplay(derived: DerivedMonitorState, now: MonitorDate, scheduledRetryReason?: string | null): MonitorSurfaceCopy | null {
+  const raw = buildMonitorSurfaceCopy(derived, now, scheduledRetryReason);
   if (!raw || !derived.nextCheckAt || i18n.resolvedLanguage === "en") return raw;
+  if (raw.workspaceWait) {
+    return {
+      ...raw,
+      bannerTitle: t("sep14Runtime.waitingForWorkspace"),
+      stripTitle: t("sep14Runtime.waitingForWorkspace"),
+      bannerMeta: [t("sep14Runtime.workspaceBusy")],
+      stripMeta: [t("sep14Runtime.workspaceAvailable")],
+    };
+  }
   const eta = formatMonitorEtaDisplay(derived.nextCheckAt, now);
   const absolute = formatMonitorAbsoluteDisplay(derived.nextCheckAt, {}, now);
   const retryOnly = derived.source === "scheduled-retry";
@@ -158,7 +180,7 @@ function useMonitorSurfaceCopy(issue: Issue): MonitorSurfaceCopy | null {
   // roll scheduled → due → overdue on their own.
   const nextCheckAt = useMemo(() => deriveMonitorState(issue).nextCheckAt, [issue]);
   const now = useMonitorCountdown(nextCheckAt);
-  return useMemo(() => buildMonitorSurfaceCopyDisplay(deriveMonitorState(issue, now), now), [issue, now, t]);
+  return useMemo(() => buildMonitorSurfaceCopyDisplay(deriveMonitorState(issue, now), now, issue.scheduledRetry?.scheduledRetryReason), [issue, now, t]);
 }
 
 function CheckNowButton({
@@ -208,7 +230,7 @@ export function IssueMonitorBanner({
       icon={Clock}
       title={copy.bannerTitle}
       className="my-3"
-      actions={onCheckNow ? <CheckNowButton onCheckNow={onCheckNow} checkingNow={checkingNow} /> : null}
+      actions={onCheckNow && !copy.workspaceWait ? <CheckNowButton onCheckNow={onCheckNow} checkingNow={checkingNow} /> : null}
     >
       <span>{copy.bannerMeta.join("  ·  ")}</span>
     </InlineBanner>
@@ -244,10 +266,12 @@ export function IssueMonitorComposerStrip({
             <div className="text-xs text-muted-foreground">{copy.stripMeta.join(" · ")}</div>
           </div>
         </div>
-        {onCheckNow ? <CheckNowButton onCheckNow={onCheckNow} checkingNow={checkingNow} /> : null}
+        {onCheckNow && !copy.workspaceWait ? <CheckNowButton onCheckNow={onCheckNow} checkingNow={checkingNow} /> : null}
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
-        {t("localizationIssueChrome.replyWakesAgent")}
+        {copy.workspaceWait
+          ? t("sep14Runtime.keepSendingInstructions")
+          : t("localizationIssueChrome.replyWakesAgent")}
       </p>
     </div>
   );

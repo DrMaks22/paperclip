@@ -259,7 +259,7 @@ function Setup({
   } catch (cause) {
     environmentError =
       cause instanceof Error
-        ? cause.message
+        ? agentSetupErrorText(cause, t)
         : t("agentSetup.resolveEnvironmentFailed");
   }
   const environment = envs.data?.find((env) => env.id === environmentId);
@@ -814,8 +814,21 @@ function Setup({
                     <fieldset disabled={busy} className="space-y-8">
                       <section className="space-y-5">
                         <h3 className="text-sm font-semibold">{t("localizationAgents.navigation_Runtime")}</h3>
-                        {aiProviderForAdapter(brandType) && <AiConnectionField companyId={companyId} agentName={name} adapterType={brandType} model={model} environmentId={environmentId ?? undefined} value={aiBinding}
-                          onChange={binding => { setRuntimeAiBinding(binding); resetTest(); }} />}
+                        {aiProviderForAdapter(brandType) && (
+                          connection && !aiBinding ? (
+                            <div className="space-y-3">
+                              <p className="text-sm text-muted-foreground">
+                                {t("stable916Ai.usingSelectedConnection")}
+                              </p>
+                              <Button type="button" variant="outline" onClick={() => setScreen("connect")}>
+                                {t("stable916Ai.changeConnection")}
+                              </Button>
+                            </div>
+                          ) : (
+                            <AiConnectionField companyId={companyId} agentName={name} adapterType={brandType} model={model} environmentId={environmentId ?? undefined} value={aiBinding}
+                              onChange={binding => { setRuntimeAiBinding(binding); resetTest(); }} />
+                          )
+                        )}
                         {models.error && <p role="alert" className="text-sm text-destructive">{t("sep13ProviderIntegration.modelLoadFailed")}</p>}
                         {((showModel && !usingKimiApi) ||
                           efforts.length > 0) && (

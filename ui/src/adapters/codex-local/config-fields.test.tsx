@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PAPERCLIP_RUNNER_PERMISSION_CAPABILITIES } from "@paperclipai/adapter-utils";
+import { i18n } from "@/i18n";
 
 import { CodexLocalConfigFields } from "./config-fields";
 
@@ -25,6 +27,20 @@ function renderRunner(config: Record<string, unknown>): string {
 }
 
 describe("Paperclip Runner Codex configuration", () => {
+  it("keeps translated English permission metadata aligned with the qualified runner catalog", () => {
+    const english = i18n.getFixedT("en");
+    for (const [provider, capability] of Object.entries(PAPERCLIP_RUNNER_PERMISSION_CAPABILITIES)) {
+      const descriptionKey = `localizationAgents.runnerDescription_${provider}`;
+      expect(english(descriptionKey)).toBe(capability.description);
+      expect(i18n.getResource("ru", "translation", descriptionKey)).toBeTypeOf("string");
+      for (const option of capability.options) {
+        const labelKey = `localizationAgents.runnerPermission_${option.value}`;
+        expect(english(labelKey)).toBe(option.label);
+        expect(i18n.getResource("ru", "translation", labelKey)).toBeTypeOf("string");
+      }
+    }
+  });
+
   it("exposes all qualified provider choices", () => {
     const html = renderRunner({ provider: "codex" });
 
@@ -66,7 +82,7 @@ describe("Paperclip Runner Codex configuration", () => {
     expect(html).not.toContain("Codex via ACPX");
     expect(html).not.toContain("ACPX Codex");
     expect(html).not.toContain("Pi via ACPX");
-    expect(html).toContain("Conservative (fail closed)");
+    expect(html).toContain("Allow Paperclip reads");
   });
 
   it("falls back to the fail-closed Codex permission mode", () => {

@@ -1,5 +1,6 @@
 import { i18n, t, useTranslation } from "@/i18n";
 import { AgentSetupError, agentSetupErrorText } from "@/lib/agent-setup-error";
+import { adapterEnvironmentCheckMessageDisplay } from "@/lib/adapter-environment-check-display";
 import { AiConnectionField } from "./ai-connections/AiConnectionField";
 import { aiConnectionBindingSchema } from "@paperclipai/shared";
 import { testAgentSetup } from "@/lib/test-agent-setup";
@@ -991,7 +992,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const testEnvironment = useMutation({
     mutationFn: async () => {
       if (!selectedCompanyId) {
-        throw new Error(t("localizationAgents.selectOrganizationTest"));
+        throw new AgentSetupError("localizationAgents.selectOrganizationTest");
       }
       const flushedEnv = flushEnvironmentDraft();
       const adapterConfigPatch = flushedEnv ? { env: flushedEnv } : undefined;
@@ -1040,9 +1041,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
           environmentList = resolvedEnvironments;
           managedSandboxOnly = resolvedExperimental?.enableManagedSandboxOnly === true;
         } catch {
-          throw new Error(
-            t("localizationAgents.environmentSettingsFailed"),
-          );
+          throw new AgentSetupError("localizationAgents.environmentSettingsFailed");
         }
       }
       // Mirror the server run-time resolution, including the managed-sandbox-only
@@ -1079,7 +1078,14 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     },
   });
   const [testActionPending, setTestActionPending] = useState(false);
-  const [testActionError, setTestActionError] = useState<string | null>(null);
+  const [testActionFailure, setTestActionFailure] = useState<Error | null>(null);
+  const testActionError = agentSetupErrorText(testActionFailure, t);
+  const testEnvironmentError = testEnvironment.error instanceof Error
+    ? agentSetupErrorText(testEnvironment.error, t)
+    : testEnvironment.error
+      ? t("localizationAgents.config_Environment_test_failed")
+      : null;
+  const testError = testActionError ?? testEnvironmentError;
   const testActionLabel = t("localizationAgents.testAction");
   const isSavePending = !isCreate && Boolean(props.isSaving);
   const testEnvironmentDisabled = testActionPending || isSavePending || !selectedCompanyId;
@@ -1120,7 +1126,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   useEffect(() => {
     resetTestEnvironmentRef.current();
-    setTestActionError(null);
+    setTestActionFailure(null);
     clearClaudeLoginClaimRef.current();
   }, [adapterType, effectiveLoginEnvironmentId]);
 
@@ -1160,15 +1166,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     (!loginNeedsPty || providerSupportsLoginPty);
   const runEnvironmentTest = useCallback(async () => {
     if (!selectedCompanyId) {
-      throw new Error(t("localizationAgents.selectOrganizationTest"));
+      throw new AgentSetupError("localizationAgents.selectOrganizationTest");
     }
     setTestActionPending(true);
-    setTestActionError(null);
+    setTestActionFailure(null);
     testEnvironment.reset();
     try {
       return await testEnvironment.mutateAsync();
     } catch (error) {
-      setTestActionError(error instanceof Error ? error.message : t("localizationAgents.config_Environment_test_failed"));
+      setTestActionFailure(error instanceof Error ? error : new AgentSetupError("localizationAgents.config_Environment_test_failed"));
       throw error;
     } finally {
       setTestActionPending(false);
@@ -1217,12 +1223,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   useEffect(() => {
     if (!props.onTestFeedbackChange) return;
     props.onTestFeedbackChange({
-      errorMessage: testActionError
-        ?? (testEnvironment.error instanceof Error
-          ? testEnvironment.error.message
-          : testEnvironment.error
-            ? t("localizationAgents.config_Environment_test_failed")
-            : null),
+      errorMessage: testError,
       result: testEnvironment.data ?? null,
       // `showAdapterLogin` already requires a selected company and a non-empty
       // environment id, so both are present here.
@@ -1236,7 +1237,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     };
   }, [
     props.onTestFeedbackChange,
-    testActionError,
+    testError,
     testEnvironment.data,
     testEnvironment.error,
     showAdapterLogin,
@@ -1655,10 +1656,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
           {showInlineAdapterTestEnvironmentFeedback && !props.compactTestFeedback && (testActionError || testEnvironment.error) && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {testActionError
-                ?? (testEnvironment.error instanceof Error
-                  ? testEnvironment.error.message
-                  : t("localizationAgents.ui133_Environment_test_failed"))}
+              {testError}
             </div>
           )}
 
@@ -2122,7 +2120,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         <RuntimeTestCard
           state={testActionPending ? "running" : testActionError || testEnvironment.error ? "fail" : testResult?.status ?? "idle"}
           result={testResult ?? null}
-          error={testActionError ?? (testEnvironment.error instanceof Error ? testEnvironment.error.message : null)}
+          error={testError}
           onTest={triggerTestEnvironment}
           disabled={testEnvironmentDisabled}
         />
@@ -3564,7 +3562,7 @@ export function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmen
               {t(`localizationAgents.checkLevel_${check.level}`, { defaultValue: check.level })}
             </span>
             <span className="mx-1 opacity-60">·</span>
-            <span>{check.message}</span>
+            <span>{adapterEnvironmentCheckMessageDisplay(check)}</span>
             {check.detail && <span className="block opacity-75 break-all">({check.detail})</span>}
             {check.hint && <span className="block opacity-90 break-words">{t("localizationAgents.environmentCheckHint", { hint: check.hint })}</span>}
           </div>

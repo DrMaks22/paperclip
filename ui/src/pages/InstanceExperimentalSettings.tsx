@@ -207,6 +207,8 @@ export function InstanceExperimentalSettings() {
   const enableChatConnectors = experimentalQuery.data?.enableChatConnectors === true;
   const enableManagedSandboxOnly = experimentalQuery.data?.enableManagedSandboxOnly === true;
   const enableIsolatedWorkspaces = experimentalQuery.data?.enableIsolatedWorkspaces === true;
+  const enableIsolatedWorkspacesByDefault =
+    experimentalQuery.data?.enableIsolatedWorkspacesByDefault === true;
   // Streamlined left navigation is now the standard sidebar (PAP-12472); the
   // experimental opt-out was retired, so it no longer surfaces a toggle here.
   const enableStreamlinedUi = experimentalQuery.data?.enableStreamlinedUi !== false;
@@ -385,6 +387,21 @@ export function InstanceExperimentalSettings() {
           managed={managedKeys.enableIsolatedWorkspaces}
           ariaLabel={t("localizationExperimental.features.enableIsolatedWorkspaces.ariaLabel")}
         />
+
+        {enableIsolatedWorkspaces && (
+          <ExperimentalToggleCard
+            title={t("stable916Shell.isolatedDefaultTitle")}
+            description={t("stable916Shell.isolatedDefaultDescription")}
+            checked={enableIsolatedWorkspacesByDefault}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableIsolatedWorkspacesByDefault: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableIsolatedWorkspacesByDefault"
+            managed={managedKeys.enableIsolatedWorkspacesByDefault}
+            ariaLabel={t("stable916Shell.isolatedDefaultToggle")}
+          />
+        )}
 
         <ExperimentalToggleCard
           title={t("localizationExperimental.features.enableExperimentalFileViewer.title")}

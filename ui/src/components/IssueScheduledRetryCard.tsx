@@ -9,6 +9,7 @@ import { formatRetryReason } from "@/lib/runRetryState";
 import type { IssueScheduledRetry } from "@paperclipai/shared";
 import { useRetryNowMutation, type RetryNowError } from "../hooks/useRetryNowMutation";
 import { Badge } from "@/components/ui/badge";
+import { InlineBanner } from "@/components/InlineBanner";
 
 const MAX_TURN_CONTINUATION = "max_turns_continuation";
 
@@ -34,6 +35,14 @@ export function IssueScheduledRetryCard({
 
   if (!scheduledRetry || !issueId) return null;
   if (scheduledRetry.status !== "scheduled_retry") return null;
+
+  if (scheduledRetry.scheduledRetryReason === "workspace_busy") {
+    return (
+      <InlineBanner tone="info" icon={Clock} title={t("sep14Runtime.waitingForWorkspace")} className="mb-3">
+        {t("sep14Runtime.workspaceBusy")}
+      </InlineBanner>
+    );
+  }
 
   const continuation = isContinuationReason(scheduledRetry.scheduledRetryReason);
   const dueAtIso = scheduledRetry.scheduledRetryAt

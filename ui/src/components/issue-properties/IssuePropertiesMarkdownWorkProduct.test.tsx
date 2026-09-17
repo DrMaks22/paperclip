@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { flushSync } from "react-dom";
+import { i18n } from "@/i18n";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -327,10 +328,9 @@ describe("markdown work product review row", () => {
     expect(looseLink?.getAttribute("href")).toBe("/api/attachments/22222222-2222-4222-8222-222222222222/content");
   });
 
-  it("keeps non-markdown work products on the raw link row", async () => {
+  it("keeps non-markdown work products on the download row", async () => {
     const contentPath = `/api/attachments/${ATTACHMENT_ID}/content`;
-    mockIssuesApi.listWorkProducts.mockResolvedValue([
-      makeMarkdownWorkProduct({
+    const workProduct = makeMarkdownWorkProduct({
         metadata: {
           attachmentId: ATTACHMENT_ID,
           contentType: "application/pdf",
@@ -340,20 +340,36 @@ describe("markdown work product review row", () => {
           downloadPath: `${contentPath}?download=1`,
           originalFilename: "report.pdf",
         },
-      }),
-    ]);
+      });
+    mockIssuesApi.listWorkProducts.mockResolvedValue([workProduct]);
     await renderTab();
 
     await waitForAssertion(() => {
       const row = container.querySelector('[data-testid="task-chat-rich-work-product-artifact"]');
       const link = row?.querySelector("a");
       expect(row?.textContent).toContain("Verification report");
-      expect(link?.getAttribute("href")).toBe(contentPath);
+      expect(link?.getAttribute("aria-label")).toBe("Download: Verification report");
+      expect(link?.getAttribute("href")).toBe(`${contentPath}?download=1`);
     });
     expect(container.querySelector("button[aria-expanded]")).toBeNull();
+    const source = JSON.stringify(workProduct);
+    const row = container.querySelector('[data-testid="task-chat-rich-work-product-artifact"]');
+    const link = row?.querySelector("a");
+    try {
+      for (const language of ["ru", "en", "ru"]) {
+        await act(async () => { await i18n.changeLanguage(language); });
+        expect(container.querySelector('[data-testid="task-chat-rich-work-product-artifact"]')).toBe(row);
+        expect(row?.querySelector("a")).toBe(link);
+        expect(link?.getAttribute("aria-label")).toBe(`${language === "ru" ? "Скачать" : "Download"}: Verification report`);
+        expect(link?.getAttribute("href")).toBe(`${contentPath}?download=1`);
+        expect(JSON.stringify(workProduct)).toBe(source);
+      }
+    } finally {
+      await act(async () => { await i18n.changeLanguage("en"); });
+    }
   });
 
-  it("groups compact rows by producing run and filters by type", async () => {
+  it("groups compact rows by producing run", async () => {
     const runOne = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const runTwo = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     const imagePath = `/api/attachments/${ATTACHMENT_ID}/content`;
@@ -400,13 +416,5 @@ describe("markdown work product review row", () => {
       expect(container.querySelector('a[aria-label="Open on GitHub: Artifact grouping PR"]')).not.toBeNull();
       expect(container.querySelector('button[aria-label="Open gallery: Artifacts screenshot"]')).not.toBeNull();
     });
-
-    const typeSelect = container.querySelector('select[aria-label="Filter artifacts by type"]') as HTMLSelectElement;
-    await act(async () => {
-      typeSelect.value = "pull_request";
-      typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    expect(container.textContent).toContain("Artifact grouping PR");
-    expect(container.textContent).not.toContain("Artifacts screenshot");
   });
 });

@@ -2644,7 +2644,11 @@ export function IssueProperties({
           </PropertyRow>
         )}
 
-        {showScheduledRetryRow && scheduledRetryContent ? (
+        {showScheduledRetryRow && scheduledRetry?.scheduledRetryReason === "workspace_busy" ? (
+          <PropertyRow label={t("pages.agentDetail.workspace")}>
+            <span className="text-sm text-muted-foreground">{t("sep14Runtime.waitingForWorkspace")}</span>
+          </PropertyRow>
+        ) : showScheduledRetryRow && scheduledRetryContent ? (
           <PropertyPicker
             inline={inline}
             label={t("status.scheduled_retry")}

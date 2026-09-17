@@ -9,6 +9,7 @@ import { TaskDetailTasksPanel } from "@/components/task-detail/TaskDetailTasksPa
 import { EmailThreadProvider } from "../components/EmailMessageCard";
 import { EmailTaskActivity } from "../components/EmailTaskActivity";
 import { TaskChatScrollNavigation } from "@/components/task-chat/scroll-navigation";
+import { taskThreadErrorDisplay } from "@/components/task-chat/task-chat-display";
 import {
    i18n, t, useTranslation } from "@/i18n";
 import { Trans } from "react-i18next";
@@ -230,6 +231,7 @@ import { waitForStoppedRuns } from "../lib/wait-for-stopped-runs";
 import { useIssueExternalObjects } from "../hooks/useIssueExternalObjects";
 import { IssueGalleryContext } from "../context/IssueGalleryContext";
 import { useIssuePlanDocument } from "../hooks/useIssuePlanDocument";
+import { useTaskArtifactArrival } from "../hooks/useTaskArtifactArrival";
 import { IssueRunLedger } from "../components/IssueRunLedger";
 import { IssueWorkspaceCard } from "../components/IssueWorkspaceCard";
 import type { MentionOption } from "../components/MarkdownEditor";
@@ -1302,6 +1304,8 @@ type IssueDetailChatTabProps = {
   onInterruptQueued: (runId: string | null) => Promise<void>;
   onDeleteComment?: (commentId: string) => Promise<void> | void;
   onPauseWorkRun?: (runId: string, feedback?: "composer") => Promise<void>;
+  onStopResponse?: (runId: string) => Promise<void>;
+  stopResponsePending?: boolean;
   pauseWorkPending?: boolean;
   pauseWorkScope?: "leaf" | "subtree";
   runFinalizationActions?: readonly IssueChatRunFinalizationAction[];
@@ -1416,6 +1420,8 @@ const IssueDetailChatTab = memo(function IssueDetailChatTab({
   onInterruptQueued,
   onDeleteComment,
   onPauseWorkRun,
+  onStopResponse,
+  stopResponsePending,
   pauseWorkPending,
   pauseWorkScope,
   runFinalizationActions,
@@ -2150,16 +2156,6 @@ const IssueDetailChatTab = memo(function IssueDetailChatTab({
         throw new Error(
           t("localizationIssueDetail.ui_The_queued_message_no_longer_has_an_active_run_target"),
         );
-      const anchorAt = new Date().toISOString();
-      setLocalSteeringPlacements((current) => {
-        const next = new Map(current);
-        const sequence = [...current.values()].filter(
-          (placement) => placement.targetRunId === targetRunId,
-        ).length;
-        next.set(commentId, { targetRunId, anchorAt, sequence });
-        return next;
-      });
-      setConsumedQueuedCommentIds((current) => new Set(current).add(commentId));
       try {
         const nextQueue = await issuesApi.steerQueuedComment(
           issueId,
@@ -2170,6 +2166,18 @@ const IssueDetailChatTab = memo(function IssueDetailChatTab({
             revision,
           },
         );
+        // Keep the queue component mounted until the server accepts steering:
+        // its pending/error state must survive a rejected last-row action.
+        const anchorAt = new Date().toISOString();
+        setLocalSteeringPlacements((current) => {
+          const next = new Map(current);
+          const sequence = [...current.values()].filter(
+            (placement) => placement.targetRunId === targetRunId,
+          ).length;
+          next.set(commentId, { targetRunId, anchorAt, sequence });
+          return next;
+        });
+        setConsumedQueuedCommentIds((current) => new Set(current).add(commentId));
         // The local steering placement already promoted the message into the
         // active turn. Refresh its durable acknowledgement before publishing
         // the returned queue so the local and server anchors hand off without a
@@ -2468,13 +2476,10 @@ const IssueDetailChatTab = memo(function IssueDetailChatTab({
             onSubmitInteractionVerdicts={onSubmitInteractionVerdicts}
             issueWorkMode={issueWorkMode}
             onWorkModeChange={onWorkModeChange}
-            stopPending={pauseWorkPending}
-            stopScope={pauseWorkScope}
+            stopPending={stopResponsePending}
             onCancelRun={
-              interruptibleIssueRun && onPauseWorkRun
-                ? async () => {
-                    await onPauseWorkRun(interruptibleIssueRun.id, "composer");
-                  }
+              interruptibleIssueRun && onStopResponse
+                ? () => onStopResponse(interruptibleIssueRun.id)
                 : undefined
             }
             onImageClick={onImageClick}
@@ -2913,6 +2918,11 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
   const [moreOpen, setMoreOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
+  const [artifactsOpenRequest, setArtifactsOpenRequest] = useState<{
+    issueId: string;
+    requestId: number;
+    handled?: boolean;
+  } | null>(null);
   const [documentDeepLink, setDocumentDeepLink] = useState<
     (IssuePropertiesDocumentDeepLink & { issueId: string }) | null
   >(null);
@@ -3601,6 +3611,27 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     }
     setPanelVisible(true);
   }, [issue?.id, setPanelVisible, suppressPanelUntilPlan]);
+  const revealNewArtifact = useCallback(() => {
+    if (!issue?.id) return;
+    setDocumentDeepLink(null);
+    setArtifactsOpenRequest((previous) => ({
+      issueId: issue.id,
+      requestId: (previous?.requestId ?? 0) + 1,
+    }));
+    if (isMobile) setMobilePropsOpen(true);
+    else openTaskSidePanel();
+  }, [issue?.id, isMobile, openTaskSidePanel]);
+  const handleArtifactsOpened = useCallback((requestId: number) => {
+    setArtifactsOpenRequest((request) => request?.requestId === requestId
+      ? { ...request, handled: true } : request);
+  }, []);
+  useTaskArtifactArrival({
+    issueId: taskChatShellEnabled ? issue?.id : undefined,
+    attachments,
+    workProducts,
+    documents: issue?.documentSummaries,
+    onArrival: revealNewArtifact,
+  });
   const toggleTaskSidePanel = useCallback(() => {
     if (!panelVisible || suppressPanelUntilPlan) {
       openTaskSidePanel();
@@ -4202,6 +4233,16 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       }
     },
   });
+  const stopResponse = useMutation({
+    mutationFn: async (runId: string) => {
+      await heartbeatsApi.cancel(runId);
+      await waitForStoppedRuns([runId]);
+    },
+    onSettled: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId!) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(issueId!) }),
+    ]),
+  });
   const stopAndFinalizeRun = useMutation({
     mutationFn: async ({
       runId,
@@ -4800,15 +4841,18 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       interrupt,
       reassignment,
       attachmentIds,
+      clientRequestId,
     }: {
       body: string;
       reopen?: boolean;
       interrupt?: boolean;
       reassignment: CommentReassignment;
       attachmentIds?: string[];
+      clientRequestId?: string;
     }) =>
       issuesApi.update(issueId!, {
         comment: body,
+        commentClientRequestId: clientRequestId,
         ...(attachmentIds?.length ? { attachmentIds } : {}),
         assigneeAgentId: reassignment.assigneeAgentId,
         assigneeUserId: reassignment.assigneeUserId,
@@ -5597,6 +5641,9 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
             streamlinedTabs={streamlinedTaskDetailEnabled}
             showSubtasksTab={streamlinedTaskDetailEnabled}
             tasksTab={resolvedTasksTab}
+            artifactsOpenRequestId={!isMobile && !artifactsOpenRequest?.handled && artifactsOpenRequest?.issueId === panelIssue.id
+              ? artifactsOpenRequest.requestId : undefined}
+            onArtifactsOpened={handleArtifactsOpened}
           />
         </IssueGalleryContext.Provider>,
         { contentMode: "full-bleed" },
@@ -5634,6 +5681,9 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     currentUserId,
     fileViewerEnabled,
     resolvedTasksTab,
+    artifactsOpenRequest,
+    handleArtifactsOpened,
+    isMobile,
   ]);
 
   const goToInboxShortcutArmedRef = useRef(false);
@@ -6154,6 +6204,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           reopen,
           reassignment,
           attachmentIds,
+          clientRequestId,
         });
         return;
       }
@@ -7363,7 +7414,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                 role="alert"
                 className={cn("text-sm text-destructive", shellSectionClass)}
               >
-                {executeTreeControl.error.message}
+                {taskThreadErrorDisplay(executeTreeControl.error.message)}
               </p>
             )}
 
@@ -7802,6 +7853,10 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                       .mutateAsync({ commentId })
                       .then(() => undefined)
                   }
+                  onStopResponse={canManageTreeControl
+                    ? (runId) => stopResponse.mutateAsync(runId)
+                    : undefined}
+                  stopResponsePending={stopResponse.isPending}
                   pauseWorkPending={
                     executeTreeControl.isPending &&
                     executeTreeControl.variables?.mode === "pause"
@@ -8060,6 +8115,9 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                     streamlinedTabs={streamlinedTaskDetailEnabled}
                     showSubtasksTab={streamlinedTaskDetailEnabled}
                     tasksTab={resolvedTasksTab}
+                    artifactsOpenRequestId={isMobile && !artifactsOpenRequest?.handled && artifactsOpenRequest?.issueId === issue.id
+                      ? artifactsOpenRequest.requestId : undefined}
+                    onArtifactsOpened={handleArtifactsOpened}
                     documentDeepLink={
                       documentDeepLink?.issueId === issue.id
                         ? documentDeepLink

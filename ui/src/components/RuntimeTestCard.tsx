@@ -9,6 +9,7 @@ import {
 import type { AdapterEnvironmentTestResult } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { adapterEnvironmentCheckMessageDisplay } from "@/lib/adapter-environment-check-display";
 export type TestState = "idle" | "running" | "pass" | "fail";
 
 const copy = {
@@ -139,7 +140,7 @@ export function RuntimeTestCard({
                   />
                 )}
                 <div className="min-w-0 space-y-1">
-                  <p className="break-words text-foreground">{check.message}</p>
+                  <p className="break-words text-foreground">{adapterEnvironmentCheckMessageDisplay(check)}</p>
                   {check.detail && (
                     <p className="break-all text-muted-foreground">
                       {check.detail}

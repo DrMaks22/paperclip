@@ -36,6 +36,20 @@ const eventKey = (action: string) => action.replace(/\./g, "_");
 afterEach(async () => { await i18n.changeLanguage("en"); });
 
 describe("activity event fallback localization", () => {
+  it("localizes announcement dismissal by its exact first-party action without changing event details", async () => {
+    const details = Object.freeze({ title: "Keep this English announcement title", announcementId: "announcement.release.v1" });
+    const original = JSON.stringify(details);
+    for (const locale of ["en", "ru", "en"]) {
+      await i18n.changeLanguage(locale);
+      for (const format of [formatActivityVerb, formatIssueActivityAction]) {
+        expect(format("announcement.dismissed", details)).toBe(locale === "ru" ? "объявление скрыто" : "announcement dismissed");
+        expect(format("announcement_dismissed", details)).toBe("announcement dismissed");
+        expect(format("announcement.dismissed.custom", details)).toBe("announcement dismissed custom");
+      }
+      expect(JSON.stringify(details)).toBe(original);
+    }
+  });
+
   it("keeps exact action identities and collision-free catalog keys in parity", () => {
     const keys = fallbackActions.map(eventKey);
     expect(new Set(fallbackActions).size).toBe(fallbackActions.length);

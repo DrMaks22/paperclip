@@ -1,4 +1,5 @@
 import { useTranslation } from "@/i18n";
+import { agentSetupErrorText } from "@/lib/agent-setup-error";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type AiProvider, type AiAuthMethod, type AiConnectionLoginIntent } from "@paperclipai/shared";
@@ -57,7 +58,7 @@ function SubscriptionConnectionStep({ companyId, provider, initialMethod, fixedM
       managedSandboxEnvironmentId: resolveManagedSandboxEnvironmentId(envs.data),
       visibleEnvironmentIds: envs.data?.map((env) => env.id),
     });
-  } catch (error) { environmentError = error instanceof Error ? error.message : t("sep13Connections.environmentError"); }
+  } catch (error) { environmentError = error instanceof Error ? agentSetupErrorText(error, t) ?? undefined : t("sep13Connections.environmentError"); }
   const loginEnvironments = (envs.data ?? []).filter((env) =>
     env.status === "active" && (env.driver === "local" || (env.driver === "sandbox" &&
     typeof env.config.provider === "string" &&

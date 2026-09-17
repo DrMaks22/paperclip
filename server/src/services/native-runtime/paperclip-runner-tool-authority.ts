@@ -43,7 +43,7 @@ import { issueService } from "../issues.js";
 import { issueThreadInteractionService } from "../issue-thread-interactions.js";
 import { persistActivity, publishActivity } from "../activity-log.js";
 import { captureRunIdentity } from "../run-identity.js";
-import { prepareNativeRunnerFileHandoff } from "./native-runner-file-handoff.js";
+import { prepareNativeRunnerFileHandoff, type RemoteWorkspaceFileReader } from "./native-runner-file-handoff.js";
 import { MAX_ATTACHMENT_BYTES } from "../../attachment-types.js";
 import {
   READ_CURRENT_WAKE_COMMENTS_TOOL_DEFINITION,
@@ -93,6 +93,7 @@ type Binding = {
   workMode?: "standard" | "planning" | "ask";
   workspaceRoot?: string;
   executionTargetKind?: "local" | "remote";
+  readRemoteWorkspaceFile?: RemoteWorkspaceFileReader;
   currentWakeComments?: CurrentWakeCommentsBinding;
   chatAttachmentReadScope?: NativeChatAttachmentReadScope;
   enqueueWakeup?: (agentId: string, options: {
@@ -146,7 +147,7 @@ export class PaperclipRunnerToolAuthority {
           descriptor.allowedModes.includes(workMode) &&
           (descriptor.operationId !== "register_deliverable" ||
             (Boolean(this.binding.workspaceRoot) &&
-              (this.binding.executionTargetKind ?? "local") === "local")),
+              ((this.binding.executionTargetKind ?? "local") === "local" || Boolean(this.binding.readRemoteWorkspaceFile)))),
       ).map((descriptor) => ({
         name: descriptor.operationId,
         description:
@@ -319,7 +320,13 @@ export class PaperclipRunnerToolAuthority {
           conversation: Boolean(context.issue.conversationAgentId) });
       }
       case "search_api": return searchRunnerApi(call.arguments);
-      case "call_api": return this.#callApi(call.callId, call.arguments);
+      case "call_api": {
+        // PRP reserves operationId/callId for semantic result identity. The
+        // HTTP operation is metadata, including in previously saved receipts;
+        // exposing it as operationId makes the runner reject a valid response.
+        const { operationId, ...response } = record(await this.#callApi(call.callId, call.arguments));
+        return { ...response, apiOperationId: operationId };
+      }
       case "get_task_context": return {
         company: { id: this.binding.companyId },
         actor: redactedActor(context.actor),
@@ -835,6 +842,7 @@ export class PaperclipRunnerToolAuthority {
             agentId: this.binding.agentId,
             workspaceRoot,
             executionTargetKind: this.binding.executionTargetKind ?? "local",
+            readRemoteWorkspaceFile: this.binding.readRemoteWorkspaceFile,
           },
           deliverable: {
             filename: typeof input.filename === "string" ? input.filename : "",

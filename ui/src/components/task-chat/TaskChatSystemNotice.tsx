@@ -17,7 +17,7 @@ import {
   type SystemNoticeTone,
 } from "@/components/SystemNotice";
 import { humanizeSystemNoticeDisplay as humanizeSystemNotice } from "@/lib/system-notice-humanizer";
-import { mapCommentMetadataToSystemNoticeSections } from "@/lib/system-notice-comment";
+import { mapCommentMetadataToSystemNoticeSections, systemNoticeBodyDisplay } from "@/lib/system-notice-comment";
 import { timeAgo } from "@/lib/timeAgo";
 import type { TaskChatMessageItem } from "./task-chat-model";
 
@@ -135,7 +135,7 @@ export function TaskChatSystemNotice({
           {showBody ? (
             <div className="px-3 py-2.5 text-foreground/90">
               <MarkdownBody softBreaks linkIssueReferences>
-                {item.text}
+                {systemNoticeBodyDisplay({ body: item.text, authorType: item.sourceAuthorType, presentation: item.presentation, metadata: item.metadata })}
               </MarkdownBody>
             </div>
           ) : null}

@@ -8,14 +8,14 @@ import { mkdtemp, rm, access, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { and, eq, sql } from "drizzle-orm";
-import { createDb, companies, agents, heartbeatRuns, companyMemberships, connectionGrants, connectionGrantDelegations, connectionGrantMembers, toolConnections, toolConnectionInstalls, aiConnectionDefaults, adapterAuthSessions, environments, issues, issueThreadInteractions, issueRecoveryActions, connectionIntentDeliveries, agentWakeupRequests } from "@paperclipai/db";
+import { createDb, companies, agents, heartbeatRuns, companyMemberships, connectionGrants, connectionGrantDelegations, connectionGrantMembers, toolConnections, toolConnectionInstalls, aiConnectionDefaults, aiProviderDefaults, adapterAuthSessions, environments, issues, issueThreadInteractions, issueRecoveryActions, connectionIntentDeliveries, agentWakeupRequests, companySecrets } from "@paperclipai/db";
 import { startEmbeddedPostgresTestDatabase } from "@paperclipai/db/test-embedded-postgres";
 import { aiConnectionService } from "../services/ai-connections.js";
 import * as executionTarget from "@paperclipai/adapter-utils/execution-target";
 import { prepareManagedAiRuntime, assertManagedAiProjectAuth } from "../services/ai-connection-runtime.js";
 import { toolAccessService } from "../services/tool-access.js";
 import { secretService } from "../services/secrets.js";
-import { connectionPurposeTransportSchema, isAiConnectionCompatible } from "@paperclipai/shared";
+import { aiConnectionBindingSchema, connectionPurposeTransportSchema, isAiConnectionCompatible } from "@paperclipai/shared";
 import express from "express";
 import request from "supertest";
 import { aiConnectionRoutes, canInstallSharedAiConnectionForNewAgent, responsibleUserForAiRequest } from "../routes/ai-connections.js";
@@ -46,6 +46,95 @@ beforeAll(async () => {
 afterAll(async () => { await database?.cleanup(); vi.unstubAllEnvs(); if (home) await rm(home, { recursive: true, force: true }); });
 
 describe("managed AI connections", () => {
+  it.each([
+    ["anthropic", "claude_local", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
+    ["openai", "codex_local", "CODEX_HOME", "OPENAI_API_KEY"],
+  ] as const)("runs the same %s agent with each responsible user's subscription or API key", async (provider, adapterType, subscriptionEnv, apiEnv) => {
+    const subscriptionUser = `${provider}-subscription-user`;
+    const apiUser = `${provider}-api-user`;
+    await db.insert(companyMemberships).values([subscriptionUser, apiUser].map(principalId => ({ companyId, principalId, principalType: "user", status: "active", membershipRole: "member" })));
+    const token = provider === "openai" ? JSON.stringify({ tokens: { access_token: "fixture-subscription", refresh_token: "fixture-refresh", id_token: "fixture-id", account_id: "fixture-account" } }) : "fixture-subscription";
+    const subscription = await service.save(companyId, subscriptionUser, { provider, method: "subscription", ownership: "personal", name: "Subscription", loginSessionId: "fixture", allAgents: true, agentIds: [] }, token);
+    const api = await service.save(companyId, apiUser, { provider, method: "api_key", ownership: "personal", name: "API", apiKey: "fixture", allAgents: true, agentIds: [] }, "fixture-api");
+    // This is the exact same saved bot config, including a legacy setup method.
+    const bot = { ...input, adapterType, binding: { provider, method: "subscription", mode: "responsible_user" } as const, config: { model: "unchanged-model", env: { [apiEnv]: "ambient", CLAUDE_CODE_OAUTH_TOKEN: "ambient" } } };
+    const original = structuredClone(bot);
+    const [subRun, apiRun] = await Promise.all([subscriptionUser, apiUser].map(responsibleUserId => prepareManagedAiRuntime(db, { ...bot, responsibleUserId })));
+    try {
+      expect(subRun.attribution).toMatchObject({ grantId: subscription.grantId, method: "subscription", responsibleUserId: subscriptionUser });
+      expect(apiRun.attribution).toMatchObject({ grantId: api.grantId, method: "api_key", responsibleUserId: apiUser });
+      const subEnv = subRun.config.env as Record<string, string>;
+      const apiEnvValues = apiRun.config.env as Record<string, string>;
+      expect(subEnv[apiEnv]).toBe("");
+      expect(apiEnvValues[apiEnv]).toBe("fixture-api");
+      if (provider === "anthropic") {
+        expect(subEnv[subscriptionEnv]).toBe(token);
+        expect(apiEnvValues[subscriptionEnv]).toBe("");
+      } else {
+        expect(await readFile(path.join(subEnv.CODEX_HOME, "auth.json"), "utf8")).toBe(token);
+        expect(JSON.parse(await readFile(path.join(apiEnvValues.CODEX_HOME, "auth.json"), "utf8"))).toEqual({ OPENAI_API_KEY: "fixture-api" });
+      }
+      expect(subEnv.HOME).not.toBe(apiEnvValues.HOME);
+      expect(subRun.identity).not.toBe(apiRun.identity);
+      expect(subRun.config.model).toBe(bot.config.model);
+      expect(apiRun.config.model).toBe(bot.config.model);
+      expect(bot).toEqual(original);
+      expect(aiConnectionBindingSchema.parse(bot.binding)).toEqual(bot.binding);
+    } finally { await Promise.all([subRun.cleanup(), apiRun.cleanup()]); }
+  });
+
+  it("has one provider default across methods, retains unavailable defaults and honors explicit account methods", async () => {
+    const userId = "provider-default-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const api = await create(userId, "Provider API");
+    const subscription = await service.save(companyId, userId, { provider: "anthropic", method: "subscription", ownership: "personal", name: "Provider subscription", loginSessionId: "fixture", allAgents: true, agentIds: [] }, "fixture-provider-subscription");
+    expect((await service.select({ ...input, userId })).grant.id).toBe(api.grantId);
+    expect((await service.list(companyId, userId)).filter(account => account.isDefault).map(account => account.grantId)).toEqual([api.grantId]);
+    await db.update(connectionGrants).set({ status: "revoked" }).where(eq(connectionGrants.id, api.grantId));
+    await expect(service.select({ ...input, userId })).rejects.toThrow("Reconnect");
+    await create(userId, "Another API");
+    await expect(service.select({ ...input, userId })).rejects.toThrow("Reconnect");
+    await service.setDefault(companyId, userId, subscription.grantId);
+    expect((await service.select({ ...input, userId })).attribution).toMatchObject({ method: "subscription", grantId: subscription.grantId });
+    expect((await service.list(companyId, userId)).filter(account => account.isDefault)).toHaveLength(1);
+    await expect(service.select({ ...input, userId, binding: { ...binding, mode: "delegated", ...subscription } })).rejects.toThrow("incompatible");
+  });
+
+  it("backfills provider defaults repeatably without deleting old preferences or replacing an unavailable choice", async () => {
+    const userId = "provider-default-migration-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const api = await create(userId, "Migration API");
+    const subscription = await service.save(companyId, userId, { provider: "anthropic", method: "subscription", ownership: "personal", name: "Migration subscription", loginSessionId: "fixture", allAgents: true, agentIds: [] }, "fixture-migration-subscription");
+    await db.update(connectionGrants).set({ status: "revoked" }).where(eq(connectionGrants.id, api.grantId));
+    await db.update(aiConnectionDefaults).set({ updatedAt: new Date("2030-01-01") }).where(eq(aiConnectionDefaults.grantId, api.grantId));
+    await db.delete(aiProviderDefaults).where(and(eq(aiProviderDefaults.companyId, companyId), eq(aiProviderDefaults.userId, userId)));
+    const legacyRows = await db.select().from(aiConnectionDefaults).where(eq(aiConnectionDefaults.userId, userId));
+    const migration = await readFile(new URL("../../../packages/db/src/migrations/0277_uneven_lady_deathstrike.sql", import.meta.url), "utf8");
+    for (let pass = 0; pass < 2; pass++) for (const statement of migration.split("--> statement-breakpoint").filter(value => value.trim())) await db.execute(sql.raw(statement));
+    expect(await db.select().from(aiConnectionDefaults).where(eq(aiConnectionDefaults.userId, userId))).toEqual(legacyRows);
+    await expect(service.select({ ...input, userId })).rejects.toThrow("Reconnect");
+    await service.setDefault(companyId, userId, subscription.grantId);
+    for (const statement of migration.split("--> statement-breakpoint").filter(value => value.trim())) await db.execute(sql.raw(statement));
+    expect((await service.select({ ...input, userId })).grant.id).toBe(subscription.grantId);
+  });
+  it("observes old-server default changes during rolling upgrades without treating new accounts as default changes", async () => {
+    const userId = "rolling-upgrade-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const api = await create(userId, "Rolling API");
+    const subscription = await service.save(companyId, userId, { provider: "anthropic", method: "subscription", ownership: "personal", name: "Rolling subscription", loginSessionId: "fixture", allAgents: true, agentIds: [] }, "fixture-rolling-subscription");
+    expect((await service.select({ ...input, userId })).grant.id).toBe(api.grantId);
+    // An older server updates only the legacy per-method row on Make default.
+    await db.update(aiConnectionDefaults).set({ grantId: subscription.grantId, updatedAt: new Date() })
+      .where(and(eq(aiConnectionDefaults.userId, userId), eq(aiConnectionDefaults.method, "subscription")));
+    expect((await service.select({ ...input, userId })).attribution).toMatchObject({ grantId: subscription.grantId, method: "subscription" });
+    expect((await service.list(companyId, userId)).filter(account => account.isDefault).map(account => account.grantId)).toEqual([subscription.grantId]);
+    await db.update(connectionGrants).set({ status: "revoked" }).where(eq(connectionGrants.id, subscription.grantId));
+    await create(userId, "Rolling second API");
+    await expect(service.select({ ...input, userId })).rejects.toThrow("Reconnect");
+    await db.update(aiConnectionDefaults).set({ grantId: api.grantId, updatedAt: new Date() })
+      .where(and(eq(aiConnectionDefaults.userId, userId), eq(aiConnectionDefaults.method, "api_key")));
+    expect((await service.select({ ...input, userId })).grant.id).toBe(api.grantId);
+  });
   it("checks the selected environment for project auth overrides without exposing their contents", async () => {
     const execute = vi.spyOn(executionTarget, "runAdapterExecutionTargetProcess");
     const target = { kind: "remote", transport: "sandbox", remoteCwd: "/workspace/project" } as Parameters<typeof assertManagedAiProjectAuth>[2];
@@ -193,16 +282,44 @@ describe("managed AI connections", () => {
     const [agent] = await db.select().from(agents).where(eq(agents.id, agentId));
     expect(agent.runtimeConfig.aiConnection).toBeUndefined();
   });
-  it("serializes subscription refresh and releases the lease after execution", async () => {
+  it("runs two Claude subscription executions for the same grant at the same time", async () => {
+    // Claude writes no auth file back to the grant, so two runs share no
+    // mutable state and must not wait for each other.
     const subscription = { ...input, binding: { ...binding, method: "subscription" as const }, responsibleUserId: "alice", config: { model: "same-model" } };
-    const first = await prepareManagedAiRuntime(db, subscription);
-    await expect(prepareManagedAiRuntime(db, subscription)).rejects.toThrow("in use");
-    await first.cleanup();
-    const next = await prepareManagedAiRuntime(db, subscription);
-    expect(next.identity).toBe(first.identity);
-    await next.cleanup();
+    const account = (await service.list(companyId, "alice")).find(account => account.provider === "anthropic" && account.method === "subscription")!;
+    await service.setDefault(companyId, "alice", account.grantId);
+    const [first, second] = await Promise.all([prepareManagedAiRuntime(db, subscription), prepareManagedAiRuntime(db, subscription)]);
+    try {
+      expect(second.identity).toBe(first.identity);
+    } finally {
+      await Promise.all([first.cleanup(), second.cleanup()]);
+    }
   });
-  it("persists refreshed credentials only to their original grant and fences reconnects", async () => {
+  it("runs a same-agent OpenAI subscription child alongside a still-open parent", async () => {
+    const userId = "subscription-contention-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const credential = JSON.stringify({ tokens: { access_token: "fixture-access", refresh_token: "fixture-refresh", id_token: "fixture-id", account_id: "fixture-account" } });
+    const account = await service.save(companyId, userId, { provider: "openai", method: "subscription", ownership: "personal", name: "Contention fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, credential);
+    const runInput = {
+      companyId,
+      agentId,
+      adapterType: "codex_local",
+      responsibleUserId: userId,
+      binding: { provider: "openai", method: "subscription", mode: "responsible_user" } as const,
+      config: {},
+    };
+    // A parent can create and assign a child before its own execution ends.
+    // Both runs select the same personal subscription, even on the same agent.
+    const parent = await prepareManagedAiRuntime(db, runInput);
+    const child = await prepareManagedAiRuntime(db, runInput);
+    try {
+      expect(child.identity).toBe(parent.identity);
+      expect(child.attribution.grantId).toBe(account.grantId);
+    } finally {
+      await Promise.all([parent.cleanup(), child.cleanup()]);
+    }
+  });
+  it("persists the freshest refreshed credential to its original grant across a same-account reconnect", async () => {
     const auth = (marker: string, hour: number) => JSON.stringify({ tokens: { account_id: "fixture-account", id_token: `id-${marker}`, access_token: `access-${marker}`, refresh_token: `refresh-${marker}` }, last_refresh: `2026-09-10T${hour}:00:00Z` });
     const intent = { provider: "openai" as const, method: "subscription" as const, name: "Refresh test", ownership: "personal" as const, agentIds: [], allAgents: true, loginSessionId: "fixture" };
     const saved = await service.save(companyId, "alice", intent, auth("first", 10));
@@ -214,10 +331,125 @@ describe("managed AI connections", () => {
     expect(await service.credential(selected)).toBe(auth("refreshed", 11));
     const second = await prepareManagedAiRuntime(db, runInput);
     expect(second.identity).not.toBe(first.identity);
+    // A same-account reconnect writes an older last_refresh than the run
+    // that is still open.
     await service.save(companyId, "alice", { ...intent, connectionId: saved.connectionId }, auth("reconnect", 12));
-    await writeFile(path.join(String(second.config.env.CODEX_HOME), "auth.json"), auth("stale-process", 13));
+    await writeFile(path.join(String(second.config.env.CODEX_HOME), "auth.json"), auth("later-refresh", 13));
     await second.cleanup();
-    expect(await service.credential(await service.select({ ...runInput, userId: "alice" }))).toBe(auth("reconnect", 12));
+    // The newer refresh persists to the grant it started from.
+    expect(await service.credential(await service.select({ ...runInput, userId: "alice" }))).toBe(auth("later-refresh", 13));
+  });
+  it("resolves two concurrent OpenAI subscription write-backs by freshness, not by order", async () => {
+    const userId = "concurrent-freshness-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (marker: string, hour: number) => JSON.stringify({ tokens: { account_id: "fixture-account", id_token: `id-${marker}`, access_token: `access-${marker}`, refresh_token: `refresh-${marker}` }, last_refresh: `2026-09-10T${hour}:00:00Z` });
+    await service.save(companyId, userId, { provider: "openai", method: "subscription", ownership: "personal", name: "Freshness fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, auth("start", 10));
+    const runInput = { ...input, adapterType: "codex_local", responsibleUserId: userId, binding: { provider: "openai", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    // Two runs use the same OpenAI subscription grant at the same time.
+    // Neither call below throws ai_connection_busy.
+    const older = await prepareManagedAiRuntime(db, runInput);
+    const newer = await prepareManagedAiRuntime(db, runInput);
+    await writeFile(path.join(String(older.config.env.CODEX_HOME), "auth.json"), auth("older", 11));
+    await writeFile(path.join(String(newer.config.env.CODEX_HOME), "auth.json"), auth("newer", 12));
+    // The run with the newer last_refresh writes back first. The run with
+    // the older last_refresh writes back last and must not overwrite it.
+    await newer.cleanup();
+    await older.cleanup();
+    const stored = await service.credential(await service.select({ ...runInput, userId }));
+    expect(stored).toBe(auth("newer", 12));
+  });
+  it("resolves two concurrent OpenAI subscription write-backs by freshness in reverse arrival order", async () => {
+    const userId = "concurrent-freshness-reverse-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (marker: string, hour: number) => JSON.stringify({ tokens: { account_id: "fixture-account", id_token: `id-${marker}`, access_token: `access-${marker}`, refresh_token: `refresh-${marker}` }, last_refresh: `2026-09-10T${hour}:00:00Z` });
+    await service.save(companyId, userId, { provider: "openai", method: "subscription", ownership: "personal", name: "Reverse freshness fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, auth("start", 10));
+    const runInput = { ...input, adapterType: "codex_local", responsibleUserId: userId, binding: { provider: "openai", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    // Two runs use the same OpenAI subscription grant at the same time.
+    // Neither call below throws ai_connection_busy.
+    const older = await prepareManagedAiRuntime(db, runInput);
+    const newer = await prepareManagedAiRuntime(db, runInput);
+    await writeFile(path.join(String(older.config.env.CODEX_HOME), "auth.json"), auth("older", 11));
+    await writeFile(path.join(String(newer.config.env.CODEX_HOME), "auth.json"), auth("newer", 12));
+    // The run with the older last_refresh writes back first. The run with
+    // the newer last_refresh writes back last and must win.
+    await older.cleanup();
+    await newer.cleanup();
+    const stored = await service.credential(await service.select({ ...runInput, userId }));
+    expect(stored).toBe(auth("newer", 12));
+  });
+  it("resolves two concurrent xAI subscription write-backs by freshness, not by order", async () => {
+    const userId = "concurrent-freshness-xai-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const identityKey = "https://auth.x.ai::33333333-3333-3333-3333-333333333333";
+    const auth = (marker: string, expiresAtMs: number) => JSON.stringify({ [identityKey]: { key: `key-${marker}`, refresh_token: `refresh-${marker}`, expires_at: new Date(expiresAtMs).toISOString() } });
+    const now = Date.now();
+    await service.save(companyId, userId, { provider: "xai", method: "subscription", ownership: "personal", name: "Grok freshness fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, auth("start", now));
+    const runInput = { ...input, adapterType: "grok_local", responsibleUserId: userId, binding: { provider: "xai", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    // Two runs use the same xAI subscription grant at the same time.
+    // Neither call below throws ai_connection_busy.
+    const older = await prepareManagedAiRuntime(db, runInput);
+    const newer = await prepareManagedAiRuntime(db, runInput);
+    await writeFile(path.join(String(older.config.env.GROK_HOME), "auth.json"), auth("older", now + 60 * 60 * 1000));
+    await writeFile(path.join(String(newer.config.env.GROK_HOME), "auth.json"), auth("newer", now + 2 * 60 * 60 * 1000));
+    // The run with the older expiry writes back first. The run with the
+    // newer expiry writes back last and must win.
+    await older.cleanup();
+    await newer.cleanup();
+    const stored = await service.credential(await service.select({ ...runInput, userId }));
+    expect(stored).toBe(auth("newer", now + 2 * 60 * 60 * 1000));
+  });
+  it("discards a credential write-back when the grant is revoked while the run is open", async () => {
+    const userId = "revoked-write-back-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (marker: string, hour: number) => JSON.stringify({ tokens: { account_id: "fixture-account", id_token: `id-${marker}`, access_token: `access-${marker}`, refresh_token: `refresh-${marker}` }, last_refresh: `2026-09-10T${hour}:00:00Z` });
+    const saved = await service.save(companyId, userId, { provider: "openai", method: "subscription", ownership: "personal", name: "Revocation fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, auth("start", 10));
+    const runInput = { ...input, adapterType: "codex_local", responsibleUserId: userId, binding: { provider: "openai", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    const run = await prepareManagedAiRuntime(db, runInput);
+    const [grantBeforeCleanup] = await db.select().from(connectionGrants).where(eq(connectionGrants.id, saved.grantId));
+    const ref = grantBeforeCleanup.credentialSecretRefs.find(r => r.configPath === "ai.credential")!;
+    const [secretBefore] = await db.select().from(companySecrets).where(eq(companySecrets.id, ref.secretId));
+    // A newer last_refresh would win the freshness merge if the grant stayed
+    // active. The revoked grant must discard the write-back before that merge
+    // decides anything.
+    await writeFile(path.join(String(run.config.env.CODEX_HOME), "auth.json"), auth("revoked-run", 11));
+    await db.update(connectionGrants).set({ status: "revoked" }).where(eq(connectionGrants.id, saved.grantId));
+    await run.cleanup();
+    const [secretAfter] = await db.select().from(companySecrets).where(eq(companySecrets.id, ref.secretId));
+    // service.select rejects a revoked grant, so it cannot read the stored
+    // credential here. Compare the stored secret version directly instead.
+    expect(secretAfter.latestVersion).toBe(secretBefore.latestVersion);
+  });
+  it("does not let a stale write-back overwrite an authorized secret rotation that commits while cleanup waits on the credential lock", async () => {
+    const userId = "credential-lock-race-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (marker: string, hour: number) => JSON.stringify({ tokens: { account_id: "fixture-account", id_token: `id-${marker}`, access_token: `access-${marker}`, refresh_token: `refresh-${marker}` }, last_refresh: `2026-09-10T${hour}:00:00Z` });
+    const saved = await service.save(companyId, userId, { provider: "openai", method: "subscription", ownership: "personal", name: "Credential lock race fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, auth("start", 10));
+    const runInput = { ...input, adapterType: "codex_local", responsibleUserId: userId, binding: { provider: "openai", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    const run = await prepareManagedAiRuntime(db, runInput);
+    // The run's own refresh looks newer than the value it started with, but
+    // it must lose to a company-authorized rotation that commits while
+    // cleanup is still waiting on the credential secret's row lock.
+    await writeFile(path.join(String(run.config.env.CODEX_HOME), "auth.json"), auth("run-refresh", 11));
+    const [grant] = await db.select().from(connectionGrants).where(eq(connectionGrants.id, saved.grantId));
+    const ref = grant.credentialSecretRefs.find(r => r.configPath === "ai.credential")!;
+    let holdAcquired!: () => void;
+    const holdAcquiredPromise = new Promise<void>(resolve => { holdAcquired = resolve; });
+    let releaseHold!: () => void;
+    const holdReleased = new Promise<void>(resolve => { releaseHold = resolve; });
+    // An authorized rotation writes the new credential inside its own open
+    // transaction, so it still holds the secret row's lock when signaled.
+    const holder = db.transaction(async tx => {
+      await secretService(tx).rotate(ref.secretId, { value: auth("authorized-rotation", 12) }, { userId });
+      holdAcquired();
+      await holdReleased;
+    });
+    await holdAcquiredPromise;
+    const cleanupPromise = run.cleanup();
+    releaseHold();
+    await holder;
+    await cleanupPromise;
+    const stored = await service.credential(await service.select({ ...runInput, userId }));
+    expect(stored).toBe(auth("authorized-rotation", 12));
   });
   it("enforces the shared transport discriminator and existing harness compatibility", () => {
     expect(connectionPurposeTransportSchema.safeParse({ connectionPurpose: "ai", transport: "mcp_remote" }).success).toBe(false);
@@ -225,6 +457,9 @@ describe("managed AI connections", () => {
     expect(connectionPurposeTransportSchema.safeParse({ connectionPurpose: "channel", transport: "rest_api", config: { provider: "agentmail" } }).success).toBe(true);
     expect(connectionPurposeTransportSchema.safeParse({ connectionPurpose: "channel", transport: "rest_api", config: { provider: "slack" } }).success).toBe(false);
     expect(connectionPurposeTransportSchema.safeParse({ connectionPurpose: "channel", transport: "runtime_auth", config: { provider: "agentmail" } }).success).toBe(false);
+    expect(aiConnectionBindingSchema.safeParse({ provider: "anthropic", mode: "responsible_user" }).success).toBe(false);
+    expect(aiConnectionBindingSchema.safeParse({ provider: "anthropic", mode: "shared", connectionId: randomUUID(), grantId: randomUUID() }).success).toBe(false);
+    expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key", mode: "responsible_user" }, "paperclip_runner", "same-model", "acpx", "claude")).toBe(true);
     expect(isAiConnectionCompatible(binding, "paperclip_runner", "same-model", "acpx", "claude")).toBe(true);
     expect(isAiConnectionCompatible(binding, "paperclip_runner", "same-model", "acpx", "codex")).toBe(false);
     expect(isAiConnectionCompatible({ provider: "openrouter", method: "api_key" }, "opencode_local", "anthropic/model")).toBe(false);
@@ -234,7 +469,7 @@ describe("managed AI connections", () => {
     const otherAgent = randomUUID();
     await db.insert(agents).values({ id: otherAgent, companyId, name: "Other" });
     await db.insert(connectionGrantDelegations).values({ companyId, grantId: selected.grant.id, agentId: otherAgent, createdByUserId: "bob" });
-    await expect(service.select({ ...input, agentId: otherAgent, userId: "bob", binding: { ...binding, mode: "delegated", connectionId: selected.connection.id, grantId: selected.grant.id } })).rejects.toThrow("not shared");
+    await expect(service.select({ ...input, agentId: otherAgent, userId: "bob", binding: { ...binding, method: selected.attribution.method, mode: "delegated", connectionId: selected.connection.id, grantId: selected.grant.id } })).rejects.toThrow("not shared");
     const [environment] = await db.select().from(environments).limit(1);
     const sessionId = randomUUID();
     const intent = { provider: "anthropic", method: "subscription", ownership: "personal", name: "Expired", agentIds: [], allAgents: true } as const;

@@ -8,13 +8,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/client";
 import { i18n } from "@/i18n";
 import ruTranslations from "@/i18n/locales/ru.json";
+import { aiConnectionsApi } from "@/api/ai-connections";
 import { queryKeys } from "@/lib/queryKeys";
 import { ConnectionSetupFlow } from "@/features/connections/ConnectionSetupFlow";
 import { AppsConnect } from "./AppsConnect";
 
 const listGalleryMock = vi.hoisted(() => vi.fn());
 const experimentalMock = vi.hoisted(() => vi.fn());
-vi.mock("@/api/instanceSettings", () => ({ instanceSettingsApi: { getExperimental: experimentalMock } }));
+vi.mock("@/api/instanceSettings", () => ({ instanceSettingsApi: {
+  getExperimental: experimentalMock,
+  get: async () => ({ defaultEnvironmentId: "local-env" }),
+  getGeneral: async () => ({}),
+} }));
 const listApplicationsMock = vi.hoisted(() => vi.fn());
 const listConnectionsMock = vi.hoisted(() => vi.fn());
 const getConnectionMock = vi.hoisted(() => vi.fn());
@@ -500,24 +505,43 @@ describe("AppsConnect — Connect with a link (M4 frame)", () => {
   // credential is entered.
   // -------------------------------------------------------------------------
 
-  it("keeps the existing Anthropic tool method reachable alongside AI authentication", async () => {
+  it.each([false, true])("offers both Anthropic methods without the obsolete REST option (task repair: %s)", async (taskRepair) => {
+    const createAiAccount = vi.spyOn(aiConnectionsApi, "create").mockResolvedValue({
+      connectionId: "anthropic-ai-account", grantId: "anthropic-ai-grant",
+    });
     mockParams.appKey = "anthropic";
     listGalleryMock.mockResolvedValue({ apps: [getAppStoreDefinition("anthropic")] });
-    await render();
+    const client = new QueryClient({ defaultOptions: { queries: {
+      retry: false,
+      staleTime: Infinity,
+    } } });
+    client.setQueryData(queryKeys.environments.list("company-1"), [
+      { id: "local-env", name: "Local", driver: "local", status: "active", config: {} },
+    ]);
+    client.setQueryData(queryKeys.environments.capabilities("company-1"), {});
+    client.setQueryData(queryKeys.instance.settings, { defaultEnvironmentId: "local-env" });
+    client.setQueryData(queryKeys.instance.generalSettings, {});
+    client.setQueryData(queryKeys.health, { deploymentMode: "authenticated", localAiLoginSupported: false });
+    await render(client, false, taskRepair ? <ConnectionSetupFlow host="dialog" serviceSlug="anthropic" interactionId="ai-intent" requestedAgentId="agent-1" aiConnection={{ provider: "anthropic", method: "subscription", mode: "responsible_user" }} /> : undefined);
     await passAccessStep();
-    expect(container.textContent).toContain("How do you want to connect?");
-    expect(radioContaining("Claude subscription")).toBeTruthy();
-    expect(radioContaining("Claude API key")).toBeTruthy();
-    await act(async () => radioContaining("Use an API key")!.click());
+    expect(container.textContent).toContain("Connect account");
+    expect(container.textContent).toContain("Connection name");
+    expect(container.textContent).not.toContain("How do you want to connect?");
+    expect(radioContaining("Use an API key")).toBeUndefined();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    await act(async () => buttonContaining("Use API key instead")!.click());
+    await act(async () => buttonContaining("Claude")!.click());
     await flushReact();
     const key = container.querySelector<HTMLInputElement>('input[type="password"]');
     expect(key).toBeTruthy();
-    await act(async () => setInputValue(key!, "fixture-anthropic-tool-key"));
+    await act(async () => setInputValue(key!, "fixture-anthropic-ai-key"));
     await act(async () => buttonByText("Connect")!.click());
     await flushReact();
-    expect(connectAppMock).toHaveBeenCalledWith("company-1", expect.objectContaining({
-      galleryKey: "anthropic", connectionMethodKey: "api-key",
+    expect(createAiAccount).toHaveBeenCalledWith("company-1", expect.objectContaining({
+      provider: "anthropic", method: "api_key", apiKey: "fixture-anthropic-ai-key",
     }));
+    if (!taskRepair) expect(mockNavigate).toHaveBeenCalledWith("/apps/anthropic-ai-account/permissions");
+    expect(connectAppMock).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("Connect for tool access instead");
   });
 

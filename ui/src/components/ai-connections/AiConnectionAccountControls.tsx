@@ -6,7 +6,7 @@ import type { ConnectionGrant } from "@paperclipai/shared";
 import { RevokeGrantDialog } from "@/pages/apps/app-detail/IdentitiesSection";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { aiMethodLabel, type AiConnectionSummary } from "./model";
+import { AI_PROVIDERS, aiMethodLabel, type AiConnectionSummary } from "./model";
 
 /** AI-only account controls; identity, access and navigation belong to AppDetail. */
 export function AiConnectionAccountControls({
@@ -39,7 +39,7 @@ export function AiConnectionAccountControls({
             <Star aria-hidden className={cn("size-5 shrink-0", activeDefault ? "fill-current text-(--status-task-icon-done)" : "text-muted-foreground")} />
             <div>
               <h3 className="text-sm font-semibold">{t("sep13Connections.personalDefault")}</h3>
-              <p className="text-xs text-muted-foreground">{aiMethodLabel(account.provider, account.method)}</p>
+              <p className="text-xs text-muted-foreground">{t("stable916Ai.forYourTasks", { provider: AI_PROVIDERS[account.provider].name })}</p>
             </div>
           </div>
           {account.isDefault ? (

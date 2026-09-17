@@ -14,6 +14,7 @@ import { defaultCreateValues } from "./agent-config-defaults";
 import { buildNewAgentHirePayload } from "../lib/new-agent-hire-payload";
 import { ApiError } from "../api/client";
 import { i18n } from "../i18n";
+import { ManagedSandboxUnavailableForTestError } from "../lib/adapter-test-environment";
 
 const mockAgentsApi = vi.hoisted(() => ({
   adapterModels: vi.fn(),
@@ -269,6 +270,7 @@ async function renderForm(
     onDirtyChange?: (dirty: boolean) => void;
     onSaveActionChange?: (save: (() => void) | null) => void;
     onCancelActionChange?: (cancel: (() => void) | null) => void;
+    onTestFeedbackChange?: (feedback: { errorMessage: string | null }) => void;
   } = {},
 ) {
   mockEnvironmentsApi.list.mockResolvedValue(environments);
@@ -300,6 +302,7 @@ async function renderForm(
               onDirtyChange={options.onDirtyChange}
               onSaveActionChange={options.onSaveActionChange}
               onCancelActionChange={options.onCancelActionChange}
+              onTestFeedbackChange={options.onTestFeedbackChange}
               showAdapterTypeField={false}
               sectionLayout={options.sectionLayout}
               showAdapterTestEnvironmentButton={options.showAdapterTestEnvironmentButton ?? false}
@@ -1585,7 +1588,7 @@ describe("AgentConfigForm environment selector", () => {
     expect(findButton(result.container, "Sign in")).toBeTruthy();
   });
 
-  it("keeps the Login button hidden under the managed-sandbox-only policy when no managed sandbox is available", async () => {
+  it.each(["inline", "lifted"])("keeps missing-sandbox errors reactive in %s feedback without probing the host", async (surface) => {
     // The policy is on, but no managed sandbox environment exists, so the login
     // target resolution fails closed. The render catches that failure and
     // resolves no login environment, so the affordance stays hidden. The Test
@@ -1595,6 +1598,7 @@ describe("AgentConfigForm environment selector", () => {
       enableManagedSandboxOnly: true,
     });
     mockAgentsApi.testEnvironment.mockResolvedValue(CLAUDE_AUTH_MISSING_RESULT);
+    const feedback = vi.fn();
     const result = await renderForm(
       [
         makeEnvironment({
@@ -1605,11 +1609,51 @@ describe("AgentConfigForm environment selector", () => {
         }),
       ],
       { adapterType: "claude_local", defaultEnvironmentId: null },
-      { showAdapterTestEnvironmentButton: true },
+      { showAdapterTestEnvironmentButton: true, onTestFeedbackChange: surface === "lifted" ? feedback : undefined },
     );
     roots.push(result.root);
 
     expect(findButton(result.container, "Sign in")).toBeFalsy();
+    await runTest(result.container);
+    const originalLanguage = i18n.language;
+    const english = new ManagedSandboxUnavailableForTestError().message;
+    const environmentReads = mockEnvironmentsApi.list.mock.calls.length;
+    try {
+      for (const locale of ["en", "ru", "en"]) {
+        await act(async () => { await i18n.changeLanguage(locale); });
+        await flushReact();
+        const expected = locale === "en" ? english : "В этом экземпляре агенты работают только в управляемой песочнице, но среда песочницы для проверки недоступна. Убедитесь, что провайдер управляемой песочницы активен, и повторите проверку.";
+        if (surface === "lifted") expect(feedback.mock.lastCall?.[0].errorMessage).toBe(expected);
+        else expect(result.container.textContent).toContain(expected);
+        expect(mockAgentsApi.testEnvironment).not.toHaveBeenCalled();
+        expect(mockEnvironmentsApi.list).toHaveBeenCalledTimes(environmentReads);
+        expect(result.onSave).not.toHaveBeenCalled();
+      }
+    } finally {
+      await act(async () => { await i18n.changeLanguage(originalLanguage); });
+    }
+  });
+
+  it.each(["external", "unknown"])("preserves the %s test failure while changing its display language", async (failureKind) => {
+    const raw = Object.freeze(new Error(new ManagedSandboxUnavailableForTestError().message));
+    mockAgentsApi.testEnvironment.mockRejectedValue(failureKind === "external" ? raw : { unavailable: true });
+    const result = await renderCodexSandbox();
+    roots.push(result.root);
+    await runTest(result.container);
+    const originalLanguage = i18n.language;
+    try {
+      for (const locale of ["en", "ru", "en"]) {
+        await act(async () => { await i18n.changeLanguage(locale); });
+        await flushReact();
+        expect(result.container.textContent).toContain(failureKind === "external"
+          ? raw.message
+          : locale === "ru" ? "Проверка окружения не пройдена" : "Environment test failed");
+        expect(mockAgentsApi.testEnvironment).toHaveBeenCalledTimes(1);
+        expect(result.onSave).not.toHaveBeenCalled();
+      }
+    } finally {
+      await act(async () => { await i18n.changeLanguage(originalLanguage); });
+    }
   });
 
   it("starts a login session for the effective sandbox and shows the code and the authentication URL", async () => {

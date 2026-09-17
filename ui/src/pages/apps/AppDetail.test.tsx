@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
 import ruTranslations from "@/i18n/locales/ru.json";
 import { queryKeys } from "@/lib/queryKeys";
+import { getAppStoreDefinition } from "@paperclipai/shared";
 import { AppDetail } from "./AppDetail";
 import { APP_TABS } from "./app-tabs";
 
@@ -1175,6 +1176,40 @@ describe("AppDetail", () => {
     expect(container.textContent).toContain("This app needs reconnecting");
     expect(container.textContent).toContain("Token expired.");
     expect(container.textContent).toContain("Which agents can use this connection?");
+  });
+
+  it.each(["permissions", "review"])("offers a supported replacement for an obsolete Anthropic connection on %s", async (tab) => {
+    mockParams.tab = tab;
+    listApplicationsMock.mockResolvedValue({ applications: [] });
+    listGalleryMock.mockResolvedValue({ apps: [getAppStoreDefinition("anthropic")!] });
+    getConnectionMock.mockResolvedValue(connection({
+      name: "Anthropic",
+      transport: "rest_api",
+      authKind: "api_key",
+      config: { sourceTemplateKey: "anthropic", connectionMethodKey: "api-key" },
+      healthStatus: "error",
+      healthMessage: "This connection has no supported tool integration.",
+    }));
+
+    await renderAppDetail();
+
+    expect(container.querySelector('input[type="password"]')).toBeNull();
+    expect(findButton("Check & reconnect")).toBeUndefined();
+    expect(findButton("Reconnect")).toBeUndefined();
+    expect(container.textContent).toContain("Connection no longer supported");
+    expect(container.textContent).toContain("then remove this connection");
+    expect(container.querySelector('a[href="/apps/connect?source=anthropic"]')?.textContent)
+      .toBe("Add supported connection");
+    const link = container.querySelector('a[href="/apps/connect?source=anthropic"]');
+    await act(async () => { await i18n.changeLanguage("ru"); });
+    expect(container.textContent).toContain("Подключение больше не поддерживается");
+    expect(container.textContent).toContain("затем удалите это подключение");
+    expect(link?.textContent).toBe("Добавить поддерживаемое подключение");
+    expect(link?.getAttribute("href")).toBe("/apps/connect?source=anthropic");
+    expect(container.querySelector('input[type="password"]')).toBeNull();
+    await act(async () => { await i18n.changeLanguage("en"); });
+    expect(container.textContent).toContain("Connection no longer supported");
+    expect(link?.textContent).toBe("Add supported connection");
   });
 
   it("offers retry for a transient GitHub error without asking for another login", async () => {

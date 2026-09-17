@@ -1,5 +1,4 @@
-import { t, useTranslation } from "@/i18n";
-import { Trans } from "react-i18next";
+import { useTranslation } from "@/i18n";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +12,7 @@ import {
 import type { ConnectionIntentInteraction } from "@paperclipai/shared";
 import { connectionIntentsApi } from "@/api/connection-intents";
 import { AiConnectionCredentialStep } from "@/components/ai-connections/AiConnectionCredentialStep";
+import { AI_PROVIDERS } from "@/components/ai-connections/model";
 import { AppLogo } from "@/pages/apps/AppLogo";
 import { Button } from "@/components/ui/button";
 import {
@@ -184,7 +184,7 @@ export function ConnectionIntentInteractionBody({
       ? {
           icon: CheckCircle2,
           title: t("localizationConnections.serviceConnected", { service: interaction.payload.serviceName }),
-          body: isAi ? t("sep13Connections.requestRestored") : t("localizationConnections.continuationAccess", { agent: interaction.payload.requestingAgentName }),
+          body: isAi ? t("stable916Ai.agentCanUseConnection") : t("localizationConnections.continuationAccess", { agent: interaction.payload.requestingAgentName }),
         }
       : interaction.status === "rejected"
         ? {
@@ -307,7 +307,16 @@ export function ConnectionIntentInteractionBody({
       </p>
     : setupQuery.data?.aiConnection && setupQuery.data.aiConnection.mode !== "responsible_user"
       ? <p role="status" className="text-sm text-muted-foreground">{t("sep13Connections.selectedUnavailable")}</p>
-      : setupContent;
+      : setupQuery.data?.aiConnection ? <AiConnectionCredentialStep
+          companyId={interaction.companyId}
+          provider={setupQuery.data.aiConnection.provider}
+          name={t("stable916Ai.myProviderAccount", { provider: AI_PROVIDERS[setupQuery.data.aiConnection.provider].name })}
+          ownership="personal"
+          agentIds={[interaction.payload.requestingAgentId]}
+          allAgents={false}
+          onComplete={(result) => { void finishNewConnection(result); }}
+          onCancel={() => { closeSetup(); returnFocusToCard(); }}
+        /> : setupContent;
 
   return (
     <div
@@ -330,7 +339,7 @@ export function ConnectionIntentInteractionBody({
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {interaction.payload.purpose === "ai"
-                ? t("sep13Connections.restoreAccount")
+                ? t("stable916Ai.connectToResume")
                 : t("localizationConnections.connectYourIdentityOrReuseAnEligibleConnectio221")}
             </p>
           </div>

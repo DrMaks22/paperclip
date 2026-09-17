@@ -48,14 +48,14 @@ export function AiConnectionPicker({
     matchesAiRequirement(connection, requirement),
   );
   const personalDefault = personalAiDefault(
-    compatible,
+    connections,
     requirement,
     currentUserId,
   );
   const problem = value ? bindingProblem(
     value,
     requirement,
-    compatible,
+    connections,
     currentUserId,
     agentId,
   ) : undefined;
@@ -65,7 +65,7 @@ export function AiConnectionPicker({
   ) =>
     onChange({
       provider: requirement.provider,
-      method: requirement.method,
+      method: connection.method,
       mode,
       connectionId: connection.id,
       grantId: connection.grantId,
@@ -83,8 +83,8 @@ export function AiConnectionPicker({
         <div className="flex min-w-0 flex-col gap-1">
         <h3 className="text-sm font-semibold">{t("sep13Connections.aiConnection")}</h3>
         <p className="text-xs text-muted-foreground">
-          {AI_PROVIDERS[requirement.provider].name} ·{" "}
-          {aiMethodLabel(requirement.provider, requirement.method)}
+          {AI_PROVIDERS[requirement.provider].name}
+          {value && value.mode !== "responsible_user" && ` · ${aiMethodLabel(value.provider, value.method)}`}
         </p>
         </div>
       </div>
@@ -111,16 +111,16 @@ export function AiConnectionPicker({
             choices={[
               { id: "responsible_user", name: t("sep13Connections.responsibleConnection"), description: <>
                 <span className="block">{t("sep13Connections.forYou", { connection: personalDefault?.name ?? t("sep13Connections.notConnected") })}</span>
-                <span className="block">{requirement.method === "api_key" ? t("sep13Connections.othersOwnApiKey", { provider: AI_PROVIDERS[requirement.provider].name }) : t("sep13Connections.othersOwnSubscription", { provider: requirement.provider === "openai" ? "ChatGPT" : AI_PROVIDERS[requirement.provider].name })}</span>
+                <span className="block">{t("stable916Ai.othersOwnConnection", { provider: AI_PROVIDERS[requirement.provider].name })}</span>
               </> },
               ...compatible.filter((connection) => connection.ownership === "shared").map((connection) => ({
                 id: connection.id, name: connection.name,
                 disabled: Boolean(aiConnectionProblem(connection)),
-                description: <>{t("sep13Connections.companyShared")}{connection.accountLabel ? ` · ${connection.accountLabel}` : ""}{aiConnectionProblem(connection) ? ` · ${aiConnectionProblem(connection)}` : ""}</>,
+                description: <>{t("sep13Connections.companyShared")} · {aiMethodLabel(connection.provider, connection.method)}{connection.accountLabel ? ` · ${connection.accountLabel}` : ""}{aiConnectionProblem(connection) ? ` · ${aiConnectionProblem(connection)}` : ""}</>,
               })),
             ]}
             onSelect={(id) => {
-              if (id === "responsible_user") onChange({provider: requirement.provider, method: requirement.method, mode: "responsible_user"});
+              if (id === "responsible_user") onChange({provider: requirement.provider, method: personalDefault?.method ?? requirement.method ?? (requirement.provider === "openrouter" ? "api_key" : "subscription"), mode: "responsible_user"});
               else { const connection = compatible.find((item) => item.id === id)!; select("shared", connection); }
             }}
           />

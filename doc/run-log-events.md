@@ -68,6 +68,19 @@ server-authored event among these three types; provider
 source events cannot supply stop authority. These records stay in the local run
 log and do not add Telemetry or OpenTelemetry data.
 
+## Verified Local Codex Replacement Evidence
+
+The server writes `native.stopped_text_turn_verified` in the same transaction
+that schedules a fresh successor for a stopped local Codex run. It records the
+runner and provider process identities, retained-state digests, provider thread
+and turn IDs, and IDs of exactly receipted task-completion calls. The server first
+checks the complete turn inventory, process-stop receipt, and execution binding.
+Unknown actions or changed retained state prevent this event and replacement.
+
+The record documents why the old execution can be retired. It does not make the
+old session resumable, rewrite provider files, or authorize replay on its own.
+It remains in the local run log and adds no Telemetry or OpenTelemetry export.
+
 ## Sandbox Startup Run-Log Event
 
 Paperclip writes one `run.startup.step` event to the run log for each bring-up
@@ -146,6 +159,14 @@ Provider identity diagnostics remain in the local run log. They record the notif
 
 Recovery lifecycle events retain the original structured failure code, retry attempt, next retry time, and predecessor/successor identifiers. Durable status delivery uses an idempotency marker; delivery grants no provider authority. Failed publication is retried without repeating provider work. These records are not first-party Telemetry.
 
+Bounded retry exhaustion writes one lifecycle receipt per run, retry reason,
+scheduled attempt, and retry limit. Repeated or concurrent recovery checks reuse
+that receipt, including receipts from earlier builds, without advancing the event
+sequence or publishing another live event. Attention reads select the latest
+matching receipt in PostgreSQL and project only the run's issue/task identifiers
+from its context, so historical duplicate receipts cannot multiply run contexts
+in server memory. Existing duplicate events do not require deletion or migration.
+
 ## Codex resume usage snapshot
 
 The native runner retains a bounded local `harness.diagnostic` event with code
@@ -155,3 +176,14 @@ and records cumulative usage counters. It does not include provider credentials
 or message content. The event establishes the accounting baseline; it is not a
 new billable usage receipt or a user-facing provider warning. Other provider
 identity checks remain in force.
+
+## AI subscription contention
+
+A fresh task execution cannot enter this wait. A run that already entered this
+wait writes an informational `lifecycle` event to the local run log. Its
+payload contains only `retryScheduled`, a boolean that reports
+whether the scheduler created a retry.
+The message distinguishes an automatic retry from work that is no longer eligible.
+This pre-provider wait records `ai_connection_busy` on the cancelled run and does
+not consume the provider-failure retry allowance. The event contains no credentials
+and creates no Telemetry or OpenTelemetry export.

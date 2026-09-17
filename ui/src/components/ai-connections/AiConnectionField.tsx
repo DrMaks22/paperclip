@@ -64,8 +64,6 @@ export function AiConnectionField({
   const [adopting, setAdopting] = useState(false);
   const [pendingAdoption, setPendingAdoption] = useState<AiConnectionBinding>();
   const [connecting, setConnecting] = useState(false);
-  const method: AiAuthMethod =
-    value?.method ?? (provider === "openrouter" ? "api_key" : "subscription");
   const changeBinding = (next: AiConnectionBinding) => {
     if (legacy && !value) { if (!connecting) returnFocus.current = document.activeElement as HTMLElement; setPendingAdoption(next); }
     else onChange(next);
@@ -76,6 +74,9 @@ export function AiConnectionField({
     queryFn: () => aiConnectionsApi.list(companyId, agentId),
     enabled: Boolean(provider),
   });
+  const method: AiAuthMethod = (value?.mode !== "responsible_user" ? value?.method : undefined)
+    ?? accounts.data?.connections.find((account) => account.provider === provider && account.isDefault)?.method
+    ?? (provider === "openrouter" ? "api_key" : "subscription");
   if (!provider) return null;
   if (legacy && !value && !adopting)
     return (
@@ -92,7 +93,7 @@ export function AiConnectionField({
         </p>
       )}
       <AiConnectionPicker
-        requirement={{ companyId, provider, method }}
+        requirement={{ companyId, provider }}
         connections={accounts.data?.connections ?? []}
         value={value}
         currentUserId={accounts.data?.currentUserId ?? ""}
@@ -122,7 +123,7 @@ export function AiConnectionField({
           </DialogHeader>
           <p className="text-sm">
             {pendingAdoption?.mode === "responsible_user"
-              ? t("sep13Connections.responsibleDefaultDescription", { connection: accounts.data?.connections.find((account) => account.isDefault && account.provider === provider && account.method === pendingAdoption.method)?.name ?? t("sep13Connections.notConnected") })
+              ? t("sep13Connections.responsibleDefaultDescription", { connection: accounts.data?.connections.find((account) => account.isDefault && account.provider === provider)?.name ?? t("sep13Connections.notConnected") })
               : accounts.data?.connections.find(
                   (account) => account.id === pendingAdoption?.connectionId,
                 )?.name}
@@ -163,12 +164,12 @@ export function AiConnectionField({
             allAgents={false}
             environmentId={environmentId}
             onCancel={() => setConnecting(false)}
-            onComplete={({ method: connectedMethod }) => {
+            onComplete={() => {
               void client.invalidateQueries({
                 queryKey: ["ai-connections", companyId],
               });
               setConnecting(false);
-              changeBinding({ provider, method: connectedMethod, mode: "responsible_user" });
+              changeBinding({ provider, method, mode: "responsible_user" });
             }}
           />
         </DialogContent>

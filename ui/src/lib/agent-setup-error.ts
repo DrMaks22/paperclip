@@ -1,4 +1,6 @@
-import type { TFunction } from "i18next";
+import { ManagedSandboxUnavailableForTestError } from "./adapter-test-environment";
+
+type TranslateSetupError = typeof import("@/i18n").t;
 
 /** Keep local errors translatable while leaving provider/server error text intact. */
 export class AgentSetupError extends Error {
@@ -12,8 +14,11 @@ export class AgentSetupError extends Error {
   }
 }
 
-export function agentSetupErrorText(error: Error | null, t: TFunction): string | null {
+export function agentSetupErrorText(error: Error | null, t: TranslateSetupError): string | null {
   if (!error) return null;
+  if (error instanceof ManagedSandboxUnavailableForTestError) {
+    return t("stable916Ai.managedSandboxUnavailable");
+  }
   if (!(error instanceof AgentSetupError)) return error.message;
   const message = t(error.messageKey, error.values);
   const previous = agentSetupErrorText(error.previous, t);

@@ -24,6 +24,7 @@ import { redactUrlSecrets } from "@/lib/redact-url-secrets";
 import { navigateTopLevel } from "@/lib/browserNavigation";
 import { prepareOAuthNavigation, savePendingCloudHandoff } from "@/lib/oauthHandoff";
 import { cn } from "@/lib/utils";
+import { Link } from "@/lib/router";
 import type { AppDetailSectionProps } from "./types";
 import { RevokeGrantDialog } from "./IdentitiesSection";
 
@@ -89,6 +90,15 @@ export function AdvancedPanel({
       />
     </div>
   );
+}
+
+function connectionMethodUnavailable(connection: ToolConnection, galleryEntry: AppDefinition | null): boolean {
+  const methodKey = connection.config?.connectionMethodKey;
+  return typeof methodKey === "string"
+    && methodKey.length > 0
+    && !!galleryEntry
+    && Array.isArray(galleryEntry.methods)
+    && !getAvailableConnectionMethod(galleryEntry, methodKey);
 }
 
 function KeySection({
@@ -203,15 +213,18 @@ export function ReconnectCard({
   });
   const oauth = connection.authKind === "oauth";
   const managedByVercel = connection.credentialSource === "vercel_connect";
+  const methodUnavailable = connectionMethodUnavailable(connection, galleryEntry);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-          {oauth ? t("localizationApps.reconnectRequired337") : t("localizationApps.thisAppNeedsReconnecting338")}
+          {methodUnavailable ? t("stable916Ai.connectionUnsupported") : oauth ? t("localizationApps.reconnectRequired337") : t("localizationApps.thisAppNeedsReconnecting338")}
         </h2>
         <p className="mt-0.5 text-sm text-amber-800 dark:text-amber-200">
-          {connection.healthMessage?.trim() || (oauth
+          {methodUnavailable
+            ? t("stable916Ai.addSupportedThenRemove")
+            : connection.healthMessage?.trim() || (oauth
             ? t("localizationApps.authorizationExpiredOrWasRevokedSignInAgainTo339")
             : t("localizationApps.theKeyStoppedWorkingPasteANewOneToGetItBackOn340"))}
         </p>
@@ -221,6 +234,12 @@ export function ReconnectCard({
           <p className="text-sm text-amber-800 dark:text-amber-200">
             {reconnectUnavailableMessage ?? t("localizationApps.youDonTHavePermissionToReconnectThisIdentity6")}
           </p>
+        ) : methodUnavailable ? (
+          <Button size="sm" variant="outline" asChild>
+            <Link to={`/apps/connect?source=${encodeURIComponent(galleryEntry!.slug)}`}>
+              {t("stable916Ai.addSupportedConnection")}
+            </Link>
+          </Button>
         ) : onReconnect ? (
           <Button size="sm" variant="outline" onClick={onReconnect}>{t("pages.apps.connections.reconnect")}</Button>
         ) : managedByVercel && !oauth ? (
@@ -447,6 +466,7 @@ export function DangerZone({
   const paused = connection
     ? connection.enabled === false || connection.status === "disabled"
     : false;
+  const methodUnavailable = connection ? connectionMethodUnavailable(connection, galleryEntry) : false;
 
   return (
     <Collapsible
@@ -485,7 +505,7 @@ export function DangerZone({
               </div>
             ) : null}
 
-            {connection && connection.authKind !== "oauth" ? (
+            {connection && !methodUnavailable && connection.authKind !== "oauth" ? (
               <div className="py-4">
                 <KeySection
                   connection={connection}
@@ -497,7 +517,7 @@ export function DangerZone({
               </div>
             ) : null}
 
-            {connection?.authKind === "oauth" && (onReconnectIdentity || !canReplaceCredential) ? (
+            {connection?.authKind === "oauth" && !methodUnavailable && (onReconnectIdentity || !canReplaceCredential) ? (
               <div className="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
                   <p className="text-sm font-medium text-foreground">{t("pages.apps.connections.reconnect")}</p>

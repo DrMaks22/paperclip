@@ -4,6 +4,8 @@ import type { TaskChatMaterializedResourceItem } from "./task-chat-model";
 // Only call these helpers for built-in presentation metadata. Protocol models,
 // provider payloads, user messages, source code, and persisted content stay raw.
 const DISPLAY_KEYS: Readonly<Record<string, string>> = {
+  "Approval required": "stable916Tasks.approvalRequired",
+  "Couldn't start": "stable916Tasks.couldntStart",
   "New session": "sep12Chat.composer.newSession",
   "Waiting to resume": "sep12Chat.marker.waitingToResume",
   "Run interrupted": "localizationTaskThread.runInterrupted",
@@ -341,7 +343,7 @@ const DISPLAY_KEYS: Readonly<Record<string, string>> = {
 };
 
 export function taskChatDisplayLabel(value: string): string {
-  const key = DISPLAY_KEYS[value];
+  const key = Object.hasOwn(DISPLAY_KEYS, value) ? DISPLAY_KEYS[value] : undefined;
   return key ? t(key) : value;
 }
 
@@ -417,12 +419,18 @@ const THREAD_LABEL_KEYS: Readonly<Record<string, string>> = {
 };
 
 export function taskThreadBuiltinLabel(value: string): string {
-  const key = THREAD_LABEL_KEYS[value];
+  const key = Object.hasOwn(THREAD_LABEL_KEYS, value) ? THREAD_LABEL_KEYS[value] : undefined;
   return key ? t(`localizationTaskThread.${key}`) : value;
 }
 
 /** Raw errors remain suitable for callbacks; translate known UI failures on render. */
 export function taskThreadErrorDisplay(value: string): string {
+  const stopKeys: Readonly<Record<string, string>> = {
+    "The stop was requested, but stopping could not be verified. Refresh and try Stop again if work is still running.": "stopUnverified",
+    "The stop was requested, but work is still stopping. Try Stop again if it continues.": "stopStillPending",
+    "Unable to stop. Try again.": "stopFailed",
+  };
+  if (Object.hasOwn(stopKeys, value)) return t(`stable916Tasks.${stopKeys[value]}`);
   const keys: Readonly<Record<string, string>> = {
     "This queued message is no longer editable.": "queuedNotEditable",
     "This runtime request is missing the provider turn identity needed to resolve it.": "runtimeIdentityMissing",
@@ -432,19 +440,26 @@ export function taskThreadErrorDisplay(value: string): string {
     "Steering is unavailable.": "steerUnavailable",
     "Discard is unavailable.": "discardUnavailable",
   };
-  return keys[value] ? t(`localizationTaskThread.${keys[value]}`) : value;
+  return Object.hasOwn(keys, value) ? t(`localizationTaskThread.${keys[value]}`) : value;
 }
 
 /** Never alter marker.label in the model: retry eligibility compares "Run failed". */
 export function taskThreadMarkerDetailDisplay(value: string): string {
   const addedKeys: Readonly<Record<string, string>> = {
+    "This operation requires approval, but this runner has no interactive approval handler. Review the operation and update the agent's permission setting before retrying.": "stable916Tasks.approvalNoHandler",
+    "The previous execution must be checked before this task can continue. Your message is preserved. View the stopped run for details.": "stable916Tasks.executionReconciliation",
+    "Execution was stopped before returning an answer.": "stable916Tasks.executionStopped",
+    "Workspace setup failed before the agent started. Retry scheduled automatically.": "stable916Tasks.workspaceRetryScheduled",
+    "Workspace setup failed before the agent started. You can retry this message now.": "stable916Tasks.workspaceRetryNow",
+    "Workspace setup failed before the agent started. Your message is preserved.": "stable916Tasks.workspaceMessagePreserved",
+    "Provider output exceeded the safe limit. Your message is preserved.": "stable916Tasks.providerLimitPreserved",
     "The selected AI account is unavailable. Fix it in the connection card.": "sep13Marker.aiAccountNeedsRepair",
     "This run stopped because its AI account was unavailable.": "sep13Marker.aiAccountStoppedRun",
     "Earlier messages and files are still available.": "sep12Chat.marker.earlierMessagesAvailable",
     "This turn was cancelled before it returned a response.": "sep12Chat.marker.cancelledBeforeResponse",
     "The previous execution needs to be checked before work can continue. See the task’s execution hold for the next action. Individual checks remain in the run history.": "sep12Chat.marker.executionCheckRequired",
   };
-  if (addedKeys[value]) return t(addedKeys[value]);
+  if (Object.hasOwn(addedKeys, value)) return t(addedKeys[value]);
   const exact: Readonly<Record<string, string>> = {
     "The run was cancelled before returning an answer.": "cancelledBefore",
     "The run was cancelled after returning a final response.": "cancelledAfter",
@@ -457,7 +472,9 @@ export function taskThreadMarkerDetailDisplay(value: string): string {
     "Provider output exceeded the safe limit. You can retry this message now.": "providerLimitRetryNow",
     "The runner returned no user-facing response.": "noResponse",
   };
-  if (exact[value]) return t(`localizationTaskThread.${exact[value]}`);
+  if (Object.hasOwn(exact, value)) return t(`localizationTaskThread.${exact[value]}`);
+  const preserved = /^The runner stopped before returning an answer \((.+)\)\. Your message is preserved\.$/.exec(value);
+  if (preserved) return t("stable916Tasks.stoppedBeforePreserved", { code: preserved[1] });
   const match = /^The runner (timed out|stopped) (before returning an answer|after returning a final response) \((.+)\)\.(?: (Retry scheduled automatically\.|You can retry this message now\.))?$/.exec(value);
   if (!match) return value;
   const action = match[1] === "timed out" ? "timeout" : "stopped";

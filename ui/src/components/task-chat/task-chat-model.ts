@@ -155,6 +155,8 @@ export interface TaskChatMessageItem {
    */
   presentation?: IssueCommentPresentation | null;
   metadata?: IssueCommentMetadata | null;
+  /** Original authorship, distinct from a system-notice presentation chosen by another author. */
+  sourceAuthorType?: string | null;
   /** Agent that owns the source run, used to build run-detail links in metadata rows. */
   runAgentId?: string | null;
   /** Raw comment timestamp (ISO) for locale-aware display; never a chronology override. */

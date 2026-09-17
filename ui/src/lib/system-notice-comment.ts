@@ -32,6 +32,11 @@ const NOTICE_DISPLAY_KEYS: Record<string, string> = {
   "Task paused — waiting on a recovery owner": "localizationTaskRuntime.ui_Task_paused_waiting_on_a_recovery_owner_vb5ter",
   "No live execution path": "localizationTaskRuntime.ui_No_live_execution_path_ocr24d",
   "Workspace validation failed": "localizationTaskRuntime.ui_Workspace_validation_failed_1ak9xwe",
+  "Workspace scan timed out": "stable916Dynamic.workspaceScanTimedOut",
+  "Workspace scan queue is full": "stable916Dynamic.workspaceScanQueueFull",
+  "Workspace scan exceeded its limit": "stable916Dynamic.workspaceScanLimitExceeded",
+  "Workspace scan failed": "stable916Dynamic.workspaceScanFailed",
+  "Workspace scan was cancelled": "stable916Dynamic.workspaceScanCancelled",
   "Configuration incomplete": "localizationTaskRuntime.ui_Configuration_incomplete_an1vbj",
   "AI connection needs attention": "sep13QueueMetadata.aiConnectionNeedsAttention",
   "Review recovery stalled": "localizationTaskRuntime.ui_Review_recovery_stalled_3ewqnf",
@@ -63,8 +68,47 @@ const NOTICE_DISPLAY_KEYS: Record<string, string> = {
   "The recovery owner should either restore a live execution path or record the manual resolution on the source issue": "localizationTaskRuntime.ui_The_recovery_owner_should_either_restore_a_live_execution_path_or_dr2smj",
 };
 
+// Exact Next action values emitted by recovery/stranded-notice.ts. These are
+// presentation instructions, not arbitrary run errors or comment bodies.
+const WORKSPACE_SCAN_NEXT_ACTION_KEYS: Record<string, string> = {
+  "Check repository access and server load, then retry the task.": "stable916Dynamic.workspaceScanTimeoutAction",
+  "Check server load and the workspace scan queue, then retry the task.": "stable916Dynamic.workspaceScanQueueAction",
+  "Check the repository size and workspace scan output limit before retrying the task.": "stable916Dynamic.workspaceScanLimitAction",
+  "Inspect the failed run and check repository access and integrity before retrying the task.": "stable916Dynamic.workspaceScanFailureAction",
+  "Inspect why workspace preparation was cancelled before retrying the task.": "stable916Dynamic.workspaceScanCancelledAction",
+};
+
+const WORKSPACE_SCAN_NOTICES: Record<string, { title: string; nextAction: string }> = {
+  workspace_git_scan_timeout: { title: "Workspace scan timed out", nextAction: "Check repository access and server load, then retry the task." },
+  workspace_git_scan_saturated: { title: "Workspace scan queue is full", nextAction: "Check server load and the workspace scan queue, then retry the task." },
+  workspace_git_scan_output_limit: { title: "Workspace scan exceeded its limit", nextAction: "Check the repository size and workspace scan output limit before retrying the task." },
+  workspace_git_scan_failed: { title: "Workspace scan failed", nextAction: "Inspect the failed run and check repository access and integrity before retrying the task." },
+  workspace_git_scan_cancelled: { title: "Workspace scan was cancelled", nextAction: "Inspect why workspace preparation was cancelled before retrying the task." },
+};
+
+/** Project only a complete server-authored recovery notice; keep stored/copy text raw. */
+export function systemNoticeBodyDisplay(input: {
+  body: string;
+  authorType: string | null | undefined;
+  presentation?: IssueCommentPresentation | null;
+  metadata?: IssueCommentMetadata | null;
+}): string {
+  if (input.authorType !== "system" || input.presentation?.kind !== "system_notice"
+    || input.metadata?.version !== 1 || !input.metadata.sourceRunId) return input.body;
+  const rows = input.metadata.sections.flatMap((section) => section.rows);
+  const failure = rows.find((row) => row.type === "key_value" && row.label === "Failure code");
+  if (failure?.type !== "key_value" || !Object.hasOwn(WORKSPACE_SCAN_NOTICES, failure.value)) return input.body;
+  const notice = WORKSPACE_SCAN_NOTICES[failure.value];
+  if (input.presentation.title !== notice.title
+    || !rows.some((row) => row.type === "key_value" && row.label === "Next action" && row.value === notice.nextAction)
+    || input.body !== `Paperclip could not prepare the workspace before the agent started. Automatic recovery could not continue. ${notice.nextAction}`) return input.body;
+  return t("stable916Dynamic.workspaceScanBody", {
+    nextAction: t(WORKSPACE_SCAN_NEXT_ACTION_KEYS[notice.nextAction]),
+  });
+}
+
 export function systemNoticeMetadataLabelDisplay(value: string): string {
-  const key = NOTICE_DISPLAY_KEYS[value];
+  const key = Object.hasOwn(NOTICE_DISPLAY_KEYS, value) ? NOTICE_DISPLAY_KEYS[value] : undefined;
   return key ? t(key) : value;
 }
 
@@ -83,6 +127,9 @@ export function systemNoticeMetadataValueDisplay(row: SystemNoticeMetadataRow): 
   if (row.label === "Next action" && row.value === "Reconnect the selected AI account or choose an available connection, then continue the task.") {
     return t("sep13QueueMetadata.aiConnectionNextAction");
   }
+  if (row.label === "Next action" && Object.hasOwn(WORKSPACE_SCAN_NEXT_ACTION_KEYS, row.value)) {
+    return t(WORKSPACE_SCAN_NEXT_ACTION_KEYS[row.value]);
+  }
   const values: Record<string, string> = {
     "Board decision required": "localizationTaskRuntime.ui_Board_decision_required_1kwnj60",
     "The recovery owner should either restore a live execution path or record the manual resolution on the source issue": "localizationTaskRuntime.ui_The_recovery_owner_should_either_restore_a_live_execution_path_or_dr2smj",
@@ -90,7 +137,7 @@ export function systemNoticeMetadataValueDisplay(row: SystemNoticeMetadataRow): 
   };
   // Translate only the known system-authored instructions, never arbitrary
   // failure text, issue titles, names, IDs, or user-provided metadata values.
-  return (row.label === "Next action" || row.label === "Recovery owner") && values[row.value]
+  return (row.label === "Next action" || row.label === "Recovery owner") && Object.hasOwn(values, row.value)
     ? t(values[row.value]) : row.value;
 }
 

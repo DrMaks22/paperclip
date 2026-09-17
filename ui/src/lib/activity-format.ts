@@ -559,6 +559,7 @@ function formatFallbackActivityAction(action: string): string {
 }
 
 const ACTIVITY_ROW_VERBS: Record<string, string> = {
+  "announcement.dismissed": "stable916Dynamic.announcementDismissed",
   "issue.created": "localizationActivity.activity_row_verbs_issue_created",
   "issue.updated": "localizationActivity.activity_row_verbs_issue_updated",
   "issue.read_marked": "sep12Shell.activityRead",
@@ -659,6 +660,7 @@ const ACTIVITY_ROW_VERBS: Record<string, string> = {
 };
 
 const ISSUE_ACTIVITY_LABELS: Record<string, string> = {
+  "announcement.dismissed": "stable916Dynamic.announcementDismissed",
   "issue.created": "localizationActivity.issue_activity_labels_issue_created",
   "issue.updated": "localizationActivity.issue_activity_labels_issue_updated",
   "issue.checked_out": "localizationActivity.issue_activity_labels_issue_checked_out",

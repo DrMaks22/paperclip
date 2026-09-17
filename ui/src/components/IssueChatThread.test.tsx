@@ -429,6 +429,45 @@ describe("IssueChatThread", () => {
     });
   });
 
+  it("projects proven workspace system notices while copying their original body", async () => {
+    const nextAction = "Check repository access and server load, then retry the task.";
+    const body = `Paperclip could not prepare the workspace before the agent started. Automatic recovery could not continue. ${nextAction}`;
+    const comments = [{
+      id: "system-workspace-raw", companyId: "company-1", issueId: "issue-1",
+      authorType: "system" as const, authorAgentId: null, authorUserId: null, body,
+      presentation: { kind: "system_notice" as const, title: "Workspace scan timed out", tone: "warning" as const, detailsDefaultOpen: true },
+      metadata: { version: 1 as const, sourceRunId: "raw-source-run", sections: [{ rows: [
+        { type: "key_value" as const, label: "Failure code", value: "workspace_git_scan_timeout" },
+        { type: "key_value" as const, label: "Next action", value: nextAction },
+      ] }] },
+      createdAt: new Date("2026-09-16T12:00:00Z"), updatedAt: new Date("2026-09-16T12:00:00Z"),
+    }];
+    const original = JSON.stringify(comments);
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const root = createRoot(container);
+    try {
+      await act(async () => root.render(<MemoryRouter><IssueChatThread comments={comments} onAdd={async () => {}} showComposer={false} enableLiveTranscriptPolling={false} /></MemoryRouter>));
+      for (const language of ["ru", "en", "ru"]) {
+        await act(async () => { await i18n.changeLanguage(language); });
+        expect(container.textContent).toContain(language === "ru"
+          ? "Проверьте доступ к репозиторию и нагрузку на сервер"
+          : body);
+        if (language === "ru") expect(container.textContent).not.toContain("Paperclip could not prepare");
+        expect(JSON.stringify(comments)).toBe(original);
+      }
+      const copy = container.querySelector<HTMLButtonElement>(`button[aria-label="${i18n.t("localizationTaskRuntime.ui_Copy_system_notice_1i8uion")}"]`);
+      expect(copy).not.toBeNull();
+      await act(async () => { copy!.click(); });
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(body);
+    } finally {
+      await act(async () => { root.unmount(); await i18n.changeLanguage("en"); });
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
   it("localizes incoming iMessage attribution without translating content or labeling board replies", async () => {
     const root = createRoot(container);
     act(() => {
@@ -3603,13 +3642,7 @@ describe("IssueChatThread", () => {
     expect(send().disabled).toBe(false);
     await act(async () => send().click());
     const expectedBody = `Inspect the file\n\n[fresh.txt](/api/attachments/${id}/content)`;
-    expect(onAdd).toHaveBeenNthCalledWith(
-      1,
-      expectedBody,
-      undefined,
-      undefined,
-      [id],
-    );
+    expect(onAdd).toHaveBeenNthCalledWith(1, expectedBody, undefined, undefined, [id], expect.any(String));
     expect(appendMock).not.toHaveBeenCalled();
     await act(async () => root.unmount());
     root = createRoot(container);
@@ -3621,13 +3654,7 @@ describe("IssueChatThread", () => {
     ).toBe("Inspect the file");
     expect(container.textContent).toContain("fresh.txt");
     await act(async () => send().click());
-    expect(onAdd).toHaveBeenNthCalledWith(
-      2,
-      expectedBody,
-      undefined,
-      undefined,
-      [id],
-    );
+    expect(onAdd).toHaveBeenNthCalledWith(2, expectedBody, undefined, undefined, [id], expect.any(String));
     expect(onAttachImage).toHaveBeenCalledTimes(1);
     await act(async () => root.unmount());
   });
@@ -3698,6 +3725,64 @@ describe("IssueChatThread", () => {
     },
   );
 
+  it.each(["late receipt", "reload receipt", "navigation success"])(
+    "preserves a newer legacy draft after %s",
+    async (outcome) => {
+      const key = `legacy-next-draft-${outcome}`;
+      let resolveSend!: () => void;
+      let rejectSend!: (error: Error) => void;
+      const onAdd = vi.fn().mockReturnValue(new Promise<void>((resolve, reject) => {
+        resolveSend = resolve;
+        rejectSend = reject;
+      }));
+      const attachmentId = "aaf8228f-0be7-45ae-a104-6fbe0af6f1d3";
+      const onAttachImage = vi.fn().mockResolvedValue({
+        id: attachmentId, contentPath: `/api/attachments/${attachmentId}/content`, originalFilename: "next-draft.txt",
+      });
+      let root = createRoot(container);
+      const element = (requestId?: string) => (
+        <MemoryRouter>
+          <IssueChatThread
+            comments={requestId ? [{
+              ...issueChatLongThreadComments[0]!,
+              id: "confirmed-legacy-comment", body: "Earlier message",
+              authorAgentId: null, authorUserId: "user-1", clientRequestId: requestId,
+            }] : []}
+            currentUserId="user-1"
+            linkedRuns={[]} timelineEvents={[]} liveRuns={[]}
+            onAdd={onAdd} onAttachImage={onAttachImage} draftKey={key} enableLiveTranscriptPolling={false}
+          />
+        </MemoryRouter>
+      );
+      const editor = () => container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Issue chat editor"]')!;
+      const type = (value: string) => act(() => {
+        Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")!.set!.call(editor(), value);
+        editor().dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await act(async () => root.render(element()));
+      type("Earlier message");
+      await act(async () => Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Send")!.click());
+      const requestId = onAdd.mock.calls[0]![4] as string;
+      type("Newer unsent draft");
+      await act(async () => container.querySelector('[data-testid="issue-chat-composer"]')!
+        .dispatchEvent(createFileDragEvent("drop", [new File(["next"], "next-draft.txt", { type: "text/plain" })])));
+      if (outcome !== "late receipt") await act(async () => root.unmount());
+      if (outcome === "navigation success") await act(async () => resolveSend());
+      else if (outcome === "late receipt") await act(async () => rejectSend(new CommentSubmissionUnknownError()));
+      if (outcome !== "late receipt") root = createRoot(container);
+      await act(async () => root.render(element(requestId)));
+      expect(editor().value).toBe("Newer unsent draft");
+      expect(localStorage.getItem(key)).toBe("Newer unsent draft");
+      expect(localStorage.getItem(`${key}:submission:v1`)).toBeNull();
+      expect(localStorage.getItem(`${key}:attachments:v1`)).toContain(attachmentId);
+      expect(container.textContent).toContain("next-draft.txt");
+      expect(container.textContent).not.toContain("We couldn’t confirm");
+      await act(async () => root.unmount());
+      await act(async () => resolveSend());
+      expect(localStorage.getItem(key)).toBe("Newer unsent draft");
+    },
+  );
+
   it("keeps a reassigned legacy comment pending until its actual mutation promise settles", async () => {
     let resolveSend!: () => void;
     const onAdd = vi.fn().mockReturnValue(
@@ -3746,7 +3831,7 @@ describe("IssueChatThread", () => {
     expect(onAdd).toHaveBeenCalledWith("Please review the result", undefined, {
       assigneeAgentId: null,
       assigneeUserId: "reviewer",
-    });
+    }, undefined, expect.any(String));
     expect(appendMock).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Posting...");
     expect(localStorage.getItem("legacy-awaited-reassignment")).toBe(
@@ -3997,11 +4082,7 @@ describe("IssueChatThread", () => {
       submitButton?.click();
     });
 
-    expect(onAdd).toHaveBeenCalledWith(
-      "Please pick this back up",
-      true,
-      undefined,
-    );
+    expect(onAdd).toHaveBeenCalledWith("Please pick this back up", true, undefined, undefined, expect.any(String));
 
     act(() => {
       root.unmount();
@@ -4074,11 +4155,7 @@ describe("IssueChatThread", () => {
     });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd).toHaveBeenCalledWith(
-      "Reply without assignee",
-      undefined,
-      undefined,
-    );
+    expect(onAdd).toHaveBeenCalledWith("Reply without assignee", undefined, undefined, undefined, expect.any(String));
     expect(
       document.querySelector('[data-testid="issue-chat-no-assignee-dialog"]'),
     ).toBeNull();

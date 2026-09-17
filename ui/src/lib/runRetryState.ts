@@ -26,6 +26,8 @@ const RETRY_REASON_LABELS: Record<string, string> = {
   assignment_recovery: "localizationActivity.retryReason_assignment_recovery",
   issue_continuation_needed: "localizationActivity.retryReason_issue_continuation_needed",
   max_turns_continuation: "localizationActivity.retryReason_max_turns_continuation",
+  workspace_busy: "sep14Dynamic.retryReasonWorkspaceBusy",
+  native_safe_replacement: "sep14Dynamic.retryReasonNativeSafeReplacement",
 };
 
 function readNonEmptyString(value: unknown) {

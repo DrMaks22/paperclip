@@ -69,4 +69,32 @@ describe("agent setup localization", () => {
     expect(agentSetupErrorText(error, i18n.t.bind(i18n))).toBe("Введите API_SERVER_KEY или выберите секрет организации.");
     expect(agentSetupErrorText(cleanup, i18n.t.bind(i18n))).toMatch(/^Provider-owned failure Не удалось/);
   });
+
+  it("retranslates the first-party key check while keeping diagnostic details and the probe stable", async () => {
+    const onTest = vi.fn();
+    const verifiedMessage = "The provider verified this API key for adoption.";
+    const check = Object.freeze({
+      code: "ai_connection_api_key_reverified", level: "info" as const, message: verifiedMessage,
+      detail: "Provider-owned diagnostic details", hint: "Provider-owned account instructions",
+    });
+    await act(async () => root.render(<RuntimeTestCard state="pass" onTest={onTest} result={{
+      adapterType: "codex_local", status: "pass", testedAt: "2026-09-14T00:00:00Z",
+      checks: [check, { code: "ai_connection_api_key_rejected", level: "error", message: "Provider error: permission denied" }],
+    }} />));
+    const details = container.querySelector("details")!;
+    details.open = true;
+    for (const locale of ["ru", "en"]) {
+      await act(async () => { await i18n.changeLanguage(locale); });
+      expect(container.textContent).toContain(locale === "ru"
+        ? "Провайдер подтвердил, что этот ключ API можно использовать для агента."
+        : verifiedMessage);
+      expect(container.textContent).toContain(check.detail);
+      expect(container.textContent).toContain(check.hint);
+      expect(container.textContent).toContain("Provider error: permission denied");
+      expect(check.message).toBe(verifiedMessage);
+      expect(container.querySelector("details")).toBe(details);
+      expect(details.open).toBe(true);
+      expect(onTest).not.toHaveBeenCalled();
+    }
+  });
 });
