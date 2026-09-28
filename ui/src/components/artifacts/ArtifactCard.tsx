@@ -35,7 +35,9 @@ function PlaceholderPreview({ label }: { label?: string }) {
   );
 }
 
-function ImagePreview({ artifact }: { artifact: CompanyArtifact }) {
+type PreviewArtifact = Pick<CompanyArtifact, "mediaKind" | "contentPath" | "title"> & Partial<Pick<CompanyArtifact, "source" | "previewText">>;
+
+function ImagePreview({ artifact }: { artifact: PreviewArtifact }) {
   const { t } = useTranslation();
   const [errored, setErrored] = useState(false);
   if (errored || !artifact.contentPath) {
@@ -54,7 +56,7 @@ function ImagePreview({ artifact }: { artifact: CompanyArtifact }) {
   );
 }
 
-function VideoPreview({ artifact }: { artifact: CompanyArtifact }) {
+function VideoPreview({ artifact }: { artifact: PreviewArtifact }) {
   useTranslation();
   const [errored, setErrored] = useState(false);
   const [frameReady, setFrameReady] = useState(false);
@@ -95,7 +97,7 @@ function VideoPreview({ artifact }: { artifact: CompanyArtifact }) {
     thumbnailSeekRequested.current = true;
     const video = event.currentTarget;
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-    const seekTarget = duration > 0 ? Math.min(0.12, duration / 2) : 0.05;
+    const seekTarget = duration > 0 ? Math.min(1, duration / 4) : 0.05;
     try {
       if (Math.abs(video.currentTime - seekTarget) > 0.001) {
         video.currentTime = seekTarget;
@@ -136,7 +138,7 @@ function VideoPreview({ artifact }: { artifact: CompanyArtifact }) {
   );
 }
 
-function TextPreview({ artifact }: { artifact: CompanyArtifact }) {
+function TextPreview({ artifact }: { artifact: PreviewArtifact }) {
   const { t } = useTranslation();
   const preview = artifact.previewText?.trim();
   if (!preview) {
@@ -154,13 +156,13 @@ function TextPreview({ artifact }: { artifact: CompanyArtifact }) {
   );
 }
 
-export function ArtifactPreview({ artifact }: { artifact: CompanyArtifact }) {
+export function ArtifactPreview({ artifact }: { artifact: PreviewArtifact }) {
   const { t } = useTranslation();
   switch (artifact.mediaKind) {
     case "image":
-      return <ImagePreview artifact={artifact} />;
+      return <ImagePreview key={artifact.contentPath} artifact={artifact} />;
     case "video":
-      return <VideoPreview artifact={artifact} />;
+      return <VideoPreview key={artifact.contentPath} artifact={artifact} />;
     case "text":
     case "document":
       return <TextPreview artifact={artifact} />;

@@ -253,7 +253,7 @@ describe("Photon UI locale boundaries", () => {
 
   it("updates lifecycle guidance in an open confirmation without disconnecting or replaying work", async () => {
     mocks.tab = "activity";
-    mocks.get.mockResolvedValue(endpoint({ status: "active", photonAllocation: "shared", healthMessage: "Photon receiver connected", setup: { step: "complete" } }));
+    mocks.get.mockResolvedValue(endpoint({ status: "paused", photonAllocation: "shared", healthMessage: "Photon receiver connected", setup: { step: "complete" } }));
     await render(<ChatEndpointDetail />);
     await click(i18n.t("localizationApps.removeConnection91"));
     for (const locale of ["ru", "en"]) {

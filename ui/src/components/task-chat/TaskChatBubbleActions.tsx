@@ -1,12 +1,11 @@
 import { t, useTranslation } from "@/i18n";
-import { useState } from "react";
 import type {
   FeedbackDataSharingPreference,
   FeedbackVoteValue,
 } from "@paperclipai/shared";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { useCopyAction } from "@/lib/use-copy-action";
 import { IssueChatFeedbackButtons } from "@/components/AgentBubbleActionRow";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 
 /** Feedback-vote wiring for an agent bubble, resolved per comment by the host. */
 export interface TaskChatBubbleFeedback {
@@ -35,25 +34,27 @@ export function TaskChatBubbleActions({
   feedback?: TaskChatBubbleFeedback | null;
 }) {
   useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, failed, copy } = useCopyAction(2000);
+  const label = failed ? t("sep28Chat.copyMessageFailed") : t("localizationTaskRuntime.ui_Copy_message_1b3i557");
 
   return (
     <div className="flex items-center gap-0.5" data-testid="task-chat-bubble-actions">
       <button
         type="button"
         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        title={t("localizationTaskRuntime.ui_Copy_message_1b3i557")}
-        aria-label={t("localizationTaskRuntime.ui_Copy_message_1b3i557")}
+        title={label}
+        aria-label={label}
         onClick={() => {
-          void copyTextToClipboard(copyText)
-            .then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            })
-            .catch(() => {});
+          void copy(copyText);
         }}
       >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? (
+          <Check className="h-3.5 w-3.5" />
+        ) : failed ? (
+          <X className="h-3.5 w-3.5 text-destructive" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
       </button>
       {feedback ? (
         <IssueChatFeedbackButtons

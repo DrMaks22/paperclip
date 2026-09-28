@@ -1,9 +1,11 @@
 import { i18n, t } from "@/i18n";
+import { parseWorkspaceRestoreMarkerDetail } from "@/lib/workspace-restore-marker";
 import type { TaskChatMaterializedResourceItem } from "./task-chat-model";
 
 // Only call these helpers for built-in presentation metadata. Protocol models,
 // provider payloads, user messages, source code, and persisted content stay raw.
 const DISPLAY_KEYS: Readonly<Record<string, string>> = {
+  "Workspace restore failed": "sep28ChatDynamic.workspaceRestoreFailedLabel",
   "Approval required": "stable916Tasks.approvalRequired",
   "Couldn't start": "stable916Tasks.couldntStart",
   "New session": "sep12Chat.composer.newSession",
@@ -431,6 +433,12 @@ export function taskThreadErrorDisplay(value: string): string {
     "Unable to stop. Try again.": "stopFailed",
   };
   if (Object.hasOwn(stopKeys, value)) return t(`stable916Tasks.${stopKeys[value]}`);
+  const questionKeys: Readonly<Record<string, string>> = {
+    "This question has already been answered or closed.": "questionClosed",
+    "Cancelling this question is unavailable.": "questionCancelUnavailable",
+    "Submit the answer through the saved question card.": "questionUseSavedCard",
+  };
+  if (Object.hasOwn(questionKeys, value)) return t(`sep28ChatDynamic.${questionKeys[value]}`);
   const keys: Readonly<Record<string, string>> = {
     "This queued message is no longer editable.": "queuedNotEditable",
     "This runtime request is missing the provider turn identity needed to resolve it.": "runtimeIdentityMissing",
@@ -446,6 +454,9 @@ export function taskThreadErrorDisplay(value: string): string {
 /** Never alter marker.label in the model: retry eligibility compares "Run failed". */
 export function taskThreadMarkerDetailDisplay(value: string): string {
   const addedKeys: Readonly<Record<string, string>> = {
+    "The run was cancelled.": "sep28ChatDynamic.cancelled",
+    "The run was interrupted.": "sep28ChatDynamic.interrupted",
+    "Execution was stopped.": "sep28ChatDynamic.executionStopped",
     "This operation requires approval, but this runner has no interactive approval handler. Review the operation and update the agent's permission setting before retrying.": "stable916Tasks.approvalNoHandler",
     "The previous execution must be checked before this task can continue. Your message is preserved. View the stopped run for details.": "stable916Tasks.executionReconciliation",
     "Execution was stopped before returning an answer.": "stable916Tasks.executionStopped",
@@ -460,6 +471,24 @@ export function taskThreadMarkerDetailDisplay(value: string): string {
     "The previous execution needs to be checked before work can continue. See the task’s execution hold for the next action. Individual checks remain in the run history.": "sep12Chat.marker.executionCheckRequired",
   };
   if (Object.hasOwn(addedKeys, value)) return t(addedKeys[value]);
+  const restore = parseWorkspaceRestoreMarkerDetail(value);
+  if (restore) {
+    const parts = [t(restore.savedPlan ? "sep28ChatDynamic.workspaceRestoreAfterPlan" : "sep28ChatDynamic.workspaceRestoreFailed")];
+    if (restore.missingFinalResponse) parts.push(t("sep28ChatDynamic.noFinalResponse"));
+    if (restore.relativePath) parts.push(t("sep28ChatDynamic.affectedPath", { path: restore.relativePath }));
+    return parts.join(" ");
+  }
+  const nativeStop = /^The runner (timed out|stopped) \((.+)\)\.$/.exec(value);
+  if (nativeStop?.[0] === value) return t(nativeStop[1] === "timed out" ? "sep28ChatDynamic.runnerTimedOut" : "sep28ChatDynamic.runnerStopped", { code: nativeStop[2] });
+  const legacyFailure = /^The run failed \((.+)\)\. (Retry scheduled automatically\.|You can retry this message now\.|Your message is preserved\.)$/.exec(value);
+  if (legacyFailure?.[0] === value) {
+    const key = legacyFailure[2] === "Retry scheduled automatically."
+      ? "runFailedRetryScheduled"
+      : legacyFailure[2] === "You can retry this message now."
+        ? "runFailedRetryNow"
+        : "runFailedPreserved";
+    return t(`sep28ChatDynamic.${key}`, { code: legacyFailure[1] });
+  }
   const exact: Readonly<Record<string, string>> = {
     "The run was cancelled before returning an answer.": "cancelledBefore",
     "The run was cancelled after returning a final response.": "cancelledAfter",

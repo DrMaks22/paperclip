@@ -57,7 +57,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { useCopyAction } from "@/lib/use-copy-action";
 
 type TraceEntry = Record<string, unknown>;
 type InspectorView = "overview" | "pipeline" | "trace";
@@ -423,9 +423,11 @@ function JsonNode({
         key.toLowerCase().includes(query.toLowerCase()) || jsonMatches(child, query),
       )
     : entries;
+  const pathCopy = useCopyAction();
+  const valueCopy = useCopyAction();
   const copyValue = () => {
     const serialized = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-    void copyTextToClipboard(serialized ?? String(value));
+    void valueCopy.copy(serialized ?? String(value));
   };
   return (
     <div className={cn(depth > 0 && "border-l border-border/60 pl-3")}>
@@ -453,19 +455,19 @@ function JsonNode({
         <span className="ml-auto hidden items-center gap-0.5 group-hover:flex">
           <button
             type="button"
-            title={t("localizationInspector.ui_Copy_JSON_path")}
+            title={pathCopy.copied ? t("sep28Settings.jsonPathCopied") : pathCopy.failed ? t("sep28Settings.copyFailed") : t("localizationInspector.ui_Copy_JSON_path")}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            onClick={() => void copyTextToClipboard(path)}
+            onClick={() => void pathCopy.copy(path)}
           >
-            <Braces className="h-3 w-3" />
+            {pathCopy.copied ? <Check className="h-3 w-3" /> : <Braces className="h-3 w-3" />}
           </button>
           <button
             type="button"
-            title={t("localizationInspector.ui_Copy_value")}
+            title={valueCopy.copied ? t("sep28Settings.valueCopied") : valueCopy.failed ? t("sep28Settings.copyFailed") : t("localizationInspector.ui_Copy_value")}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={copyValue}
           >
-            <Copy className="h-3 w-3" />
+            {valueCopy.copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           </button>
         </span>
       </div>

@@ -1,6 +1,7 @@
 import { t, useTranslation, i18n } from "@/i18n";
 import { Trans } from "react-i18next";
 import { formatMonitorOffset } from "@/lib/issue-monitor";
+import { useWorkspaceIsolationControls } from "@/hooks/useWorkspaceIsolationControls";
 import { requiresExecutionReconciliation } from "@paperclipai/shared";
 import { useMemo, useState } from "react";
 import type {
@@ -991,6 +992,7 @@ export function IssueRecoveryActionCard({
   className,
 }: IssueRecoveryActionCardProps) {
   const { t } = useTranslation();
+  const { visible: workspaceIsolationControlsVisible } = useWorkspaceIsolationControls();
   const liveness = useMemo(() => ({ scheduledRetry }), [i18n.resolvedLanguage, scheduledRetry]);
   const cardState: RecoveryCardCardState = forcedState ?? deriveRecoveryCardState(action, liveness);
   const tone = STATE_TONE[cardState];
@@ -1057,6 +1059,7 @@ export function IssueRecoveryActionCard({
   });
   const reissueBaseRef = divergence?.reissueBaseRef ?? null;
   const showReissueAction =
+    workspaceIsolationControlsVisible &&
     onReissueIsolated !== undefined &&
     cardState !== "resolved" &&
     divergence !== null &&
@@ -1088,7 +1091,7 @@ export function IssueRecoveryActionCard({
     divergence !== null &&
     divergence.cleanliness === "dirty";
   const repairDisabledReason = repairContention
-    ? t("localizationTaskRuntime.heldReissue", { owner: contentionLabel(repairContention) })
+    ? t(showReissueAction ? "localizationTaskRuntime.heldReissue" : "sep28Core.held", { owner: contentionLabel(repairContention) })
     : null;
   // When contended, the re-issue is the recommended path, so it takes the primary emphasis and a
   // "Recommended" hint while the repair button is disabled.

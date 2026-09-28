@@ -1,4 +1,4 @@
-import { useTranslation } from "@/i18n";
+import { t, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -84,14 +84,14 @@ export function buildRoutineProjectOptions(
 }
 
 const SECTION_TITLES: Record<RoutineSectionKey, string> = {
-  overview: "Overview",
-  triggers: "Triggers",
-  variables: "Variables",
-  secrets: "Secrets",
-  delivery: "Delivery",
-  runs: "Runs",
-  activity: "Activity",
-  history: "History",
+  get overview() { return t("localizationRoutines.overview"); },
+  get triggers() { return t("localizationRoutines.triggers"); },
+  get variables() { return t("localizationRoutines.variables"); },
+  get secrets() { return t("localizationRoutines.secrets"); },
+  get delivery() { return t("localizationRoutines.delivery"); },
+  get runs() { return t("localizationRoutines.runs"); },
+  get activity() { return t("localizationRoutines.activity"); },
+  get history() { return t("localizationRoutines.history"); },
 };
 
 function isRoutineSection(value: string | undefined | null): value is RoutineSectionKey {
@@ -253,7 +253,7 @@ export function RoutineDetail() {
   });
   const createSecret = useMutation({
     mutationFn: (input: { name: string; value: string }) => {
-      if (!selectedCompanyId) throw new Error("Select a company to create secrets");
+      if (!selectedCompanyId) throw new Error(t("sep28Routines.selectCompanySecrets"));
       return secretsApi.create(selectedCompanyId, input);
     },
     onSuccess: () => {
@@ -632,18 +632,18 @@ export function RoutineDetail() {
 
   const onHistoryRestoreSecretMaterials = useCallback((response: RestoreRoutineRevisionResponse) => {
     if (response.secretMaterials.length > 0) {
+      navigateToSection("triggers");
       setSecretMessage({
-        title:
-          response.secretMaterials.length === 1
-            ? "Webhook trigger restored"
-            : `${response.secretMaterials.length} webhook triggers restored`,
+        title: t(response.secretMaterials.length === 1 ? "sep28Routines.restoredWebhook" : "sep28Routines.restoredWebhooks", { count: response.secretMaterials.length }),
+        titleKey: response.secretMaterials.length === 1 ? "sep28Routines.restoredWebhook" : "sep28Routines.restoredWebhooks",
+        titleCount: response.secretMaterials.length,
         entries: response.secretMaterials.map((recreated) => ({
           webhookUrl: recreated.webhookUrl,
           webhookSecret: recreated.webhookSecret,
         })),
       });
     }
-  }, []);
+  }, [navigateToSection, t]);
 
   const onHistoryRestored = useCallback(
     (response: RestoreRoutineRevisionResponse) => {
@@ -715,12 +715,12 @@ export function RoutineDetail() {
   const automationToggleDisabled = updateRoutineStatus.isPending || routine.status === "archived";
   const automationLabel =
     routine.status === "archived"
-      ? "Archived"
+      ? t("localizationRoutines.archived")
       : !routine.assigneeAgentId
-        ? "Draft"
+        ? t("localizationRoutines.draft")
         : automationEnabled
-          ? "Active"
-          : "Paused";
+          ? t("pages.routineDetail.statusActive")
+          : t("sep28Routines.paused");
   const automationLabelClassName =
     routine.status === "archived"
       ? "text-muted-foreground"

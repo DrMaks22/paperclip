@@ -165,6 +165,7 @@ export function ConnectionIntentInteractionBody({
 
   const setupProps: ConnectionSetupFlowProps | null = setupQuery.data ? {
     host: "dialog",
+    upstreamServiceName: interaction.payload.upstreamService?.name,
     serviceSlug: interaction.payload.serviceSlug.startsWith("connection:") ? undefined : interaction.payload.serviceSlug,
     configuredConnection: interaction.payload.serviceSlug.startsWith("connection:") ? setupQuery.data.existingConnections[0] : undefined,
     requestedAgentId: setupQuery.data.requestedAgentId,
@@ -183,8 +184,10 @@ export function ConnectionIntentInteractionBody({
     interaction.status === "accepted"
       ? {
           icon: CheckCircle2,
-          title: t("localizationConnections.serviceConnected", { service: interaction.payload.serviceName }),
-          body: isAi ? t("stable916Ai.agentCanUseConnection") : t("localizationConnections.continuationAccess", { agent: interaction.payload.requestingAgentName }),
+          title: interaction.payload.upstreamService ? t("sep28Common.externalProviderConnected") : t("localizationConnections.serviceConnected", { service: interaction.payload.serviceName }),
+          body: interaction.payload.upstreamService
+            ? t("sep28Common.providerAuthorizeUnverified", { agent: interaction.payload.requestingAgentName, service: interaction.payload.upstreamService.name })
+            : isAi ? t("stable916Ai.agentCanUseConnection") : t("localizationConnections.continuationAccess", { agent: interaction.payload.requestingAgentName }),
         }
       : interaction.status === "rejected"
         ? {
@@ -260,7 +263,7 @@ export function ConnectionIntentInteractionBody({
   const selectedReady = repair && setupQuery.data?.existingConnections.some((connection) => connection.id === repair.connection.id);
   const setupContent = setupQuery.isLoading ? (
                 <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> {t("localizationConnections.loadingConnectionOptions226")}
+                  <Loader2 className="h-4 w-4 animate-spin" />{t("localizationConnections.loadingConnectionOptions226")}
                 </div>
               ) : setupQuery.isError ? (
                 <div className="py-8 text-center">
@@ -377,7 +380,8 @@ export function ConnectionIntentInteractionBody({
               </Button>
             </DialogTrigger>
             <DialogContent
-              className="!max-w-(--pct-90) max-h-(--sz-85vh) w-full overflow-y-auto sm:max-w-5xl"
+              className="max-h-(--sz-85vh) overflow-y-auto sm:max-w-3xl"
+              showCloseButton={false}
               onCloseAutoFocus={(event) => {
                 event.preventDefault();
                 focusTargetRef.current?.focus();

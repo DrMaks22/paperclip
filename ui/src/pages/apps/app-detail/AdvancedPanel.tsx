@@ -32,7 +32,6 @@ export function AdvancedPanel({
   connection,
   appName,
   galleryEntry,
-  childConnectionCount,
   removing,
   onRemove,
   onReplaced,
@@ -49,7 +48,6 @@ export function AdvancedPanel({
   onRevokeIdentity,
 }: Pick<AppDetailSectionProps, "connection" | "appName" | "galleryEntry"> & {
   removing: boolean;
-  childConnectionCount?: number;
   onRemove: () => void;
   onReplaced: () => void;
   canReplaceCredential?: boolean;
@@ -72,7 +70,6 @@ export function AdvancedPanel({
         appName={appName}
         connection={connection}
         galleryEntry={galleryEntry}
-        childConnectionCount={childConnectionCount}
         removing={removing}
         onRemove={onRemove}
         onReplaced={onReplaced}
@@ -295,7 +292,7 @@ function ReconnectForm({
     : null;
   const fields = (method?.credentialFields ?? []).map((field) => ({
     ...field,
-    configPath: credentialConfigPath(field),
+    configPath: credentialConfigPath(field, method),
     helpUrl: method?.consoleLinks?.keys ?? method?.consoleLinks?.docs ?? "",
   }));
   const [values, setValues] = useState<Record<string, string>>({});
@@ -424,7 +421,6 @@ export function DangerZone({
   appName,
   connection,
   galleryEntry = null,
-  childConnectionCount = 0,
   removing,
   onRemove,
   onReplaced,
@@ -443,7 +439,6 @@ export function DangerZone({
   appName: string;
   connection?: ToolConnection;
   galleryEntry?: AppDefinition | null;
-  childConnectionCount?: number;
   removing: boolean;
   onRemove: () => void;
   onReplaced?: () => void;
@@ -559,9 +554,7 @@ export function DangerZone({
               <div>
                 <p className="text-sm font-medium text-foreground">{t("localizationApps.removeThisApp361")}</p>
                 <p className="text-xs text-muted-foreground">
-                  {childConnectionCount > 0
-                    ? t("localizationApps.deleteServiceCredentialsWarning", { app: appName, count: childConnectionCount })
-                    : t("localizationApps.deleteCredentialsWarning", { app: appName })}
+                  {t("localizationApps.deleteCredentialsWarning", { app: appName })}
                 </p>
               </div>
               {confirming ? (

@@ -47,7 +47,7 @@ export function EmailConnectionAccess({
   const everyone = active.some((g) => g.kind === "organization");
   const personal = active.find((g) => g.kind === "user");
   const humanLabel = everyone
-    ? t("sep12Connections.anyHuman")
+    ? t("sep28Apps.anyHumanOrganization")
     : personal
       ? personal.subjectUserId === grants.data?.currentUserId
         ? t("sep12Connections.justMe")

@@ -1,5 +1,6 @@
 import { Trans } from "react-i18next";
 import { useTranslation } from "@/i18n";
+import { AgentAvatar } from "@/components/AgentAvatar";
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Download, ScrollText, ShieldAlert } from "lucide-react";
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Identity } from "@/components/Identity";
-import { AgentIcon } from "@/components/AgentIconPicker";
 import { cn, relativeTime, formatDateTime } from "@/lib/utils";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatActivityVerb } from "@/lib/activity-format";
@@ -125,7 +125,7 @@ function AuditActor({
     return (
       <span className="inline-flex min-w-0 items-center gap-1.5" title={agent.name}>
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <AgentIcon icon={agent.icon} className="h-3 w-3" />
+          <AgentAvatar agent={agent} size={16} className="h-3 w-3"/>
         </span>
         <span className="truncate font-medium text-foreground">{agent.name}</span>
       </span>

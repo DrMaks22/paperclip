@@ -7,10 +7,11 @@ import {
   hidesCompanyPage,
   type Agent,
 } from "@paperclipai/shared";
-import { Shield, ShieldCheck, Trash2 } from "lucide-react";
+import { Shield, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { accessApi, type CompanyMember } from "@/api/access";
 import { agentsApi } from "@/api/agents";
 import { ApiError } from "@/api/client";
+import { cloudApi } from "@/api/cloud";
 import { issuesApi } from "@/api/issues";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,10 +29,12 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/ToastContext";
 import { Link, Navigate, useSearchParams } from "@/lib/router";
 import { queryKeys } from "@/lib/queryKeys";
+import { cloudStackInviteUrl } from "@/lib/cloudLinks";
 import { usePluginSlots } from "@/plugins/slots";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PageTabBar } from "@/components/PageTabBar";
 import { useHiddenSettings } from "@/hooks/useHiddenSettings";
+import { useCloudInstance } from "@/hooks/useCloudInstance";
 import { InvitesSection } from "@/components/access/InvitesSection";
 
 const memberRemovalReasonKeys: Record<string, string> = {
@@ -55,6 +58,21 @@ export function CompanyAccess() {
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const cloud = useCloudInstance();
+  const cloudStacksQuery = useQuery({
+    queryKey: queryKeys.cloud.stacks,
+    queryFn: () => cloudApi.listStacks(),
+    enabled: Boolean(cloud && selectedCompanyId),
+    staleTime: 30_000,
+    retry: false,
+  });
+  const currentStack = cloudStacksQuery.data?.stacks.find((stack) => stack.isCurrent);
+  // Company roles can differ from Cloud roles. Only the current stack's
+  // owner/admin may invite, even if another portfolio entry grants ownership.
+  const cloudInviteUrl = cloud && !cloudStacksQuery.isError &&
+    (currentStack?.role === "owner" || currentStack?.role === "admin")
+    ? cloudStackInviteUrl(cloud.cloudBaseUrl, currentStack.stackSlug)
+    : null;
   // Invites render as a tab of this page; `company.invites` hides just that
   // tab while `company.members` (the route gate) hides the whole page.
   const { hidden: hiddenSettings } = useHiddenSettings();
@@ -276,9 +294,16 @@ export function CompanyAccess() {
 
   return (
     <div className="max-w-6xl space-y-8">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">{t("localizationSettings.membersTitle")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-lg font-semibold">{t("localizationSettings.membersTitle")}</h1>
+        </div>
+        {cloudInviteUrl && (
+          <Button asChild>
+            <a href={cloudInviteUrl}><UserPlus />{t("sep28Settings.invitePeople")}</a>
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col gap-4">

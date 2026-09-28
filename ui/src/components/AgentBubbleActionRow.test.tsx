@@ -5,7 +5,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { IssueChatFeedbackButtons } from "./AgentBubbleActionRow";
+import { BubbleCopyButton, IssueChatFeedbackButtons } from "./AgentBubbleActionRow";
+import { copyTextToClipboard } from "@/lib/clipboard";
+
+vi.mock("@/lib/clipboard", () => ({ copyTextToClipboard: vi.fn() }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -24,6 +27,19 @@ describe("feedback sharing localization", () => {
     await act(async () => root.unmount());
     container.remove();
     await i18n.changeLanguage("en");
+    vi.clearAllMocks();
+  });
+
+  it("retranslates a failed copy without retrying or translating the message", async () => {
+    vi.mocked(copyTextToClipboard).mockRejectedValue(new Error("Clipboard blocked"));
+    await act(async () => root.render(<BubbleCopyButton copyText="Agent user-authored message" />));
+    const button = container.querySelector<HTMLButtonElement>("button")!;
+    expect(button.getAttribute("aria-label")).toBe("Copy message");
+    await act(async () => button.click());
+    expect(button.title).toBe("Couldn’t copy message");
+    await act(async () => { await i18n.changeLanguage("ru"); });
+    expect(button.getAttribute("aria-label")).toBe("Не удалось скопировать сообщение");
+    expect(copyTextToClipboard).toHaveBeenCalledExactlyOnceWith("Agent user-authored message");
   });
 
   it.each([true, false])("keeps a pending vote and its sharing choice while changing language (%s)", async (allowSharing) => {

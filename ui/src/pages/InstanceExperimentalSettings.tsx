@@ -124,6 +124,7 @@ export function InstanceExperimentalSettings() {
   const { t } = useTranslation();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
+  const { hidden: hiddenSettings } = useHiddenSettings();
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -167,6 +168,7 @@ export function InstanceExperimentalSettings() {
         queryClient.invalidateQueries({ queryKey: queryKeys.adapters.all }),
         queryClient.invalidateQueries({ queryKey: ["built-in-agents"] }),
         queryClient.invalidateQueries({ queryKey: queryKeys.health }),
+        queryClient.invalidateQueries({ queryKey: ["apps"] }),
       ]);
     },
     onError: (error, _patch, context) => {
@@ -239,6 +241,17 @@ export function InstanceExperimentalSettings() {
     experimentalQuery.data?.enableFirstTaskPlanProposal === true;
   const enableSmokeLab = experimentalQuery.data?.enableSmokeLab === true;
   const autoRestartDevServerWhenIdle = experimentalQuery.data?.autoRestartDevServerWhenIdle === true;
+  const isVisible = (key: InstanceFeatureKey) => !hiddenSettings.has(experimentalSettingKey(key));
+  const showWorktreeRunExecution = inWorktree && isVisible("enableWorktreeRunExecution");
+  const showDeveloperSection = showWorktreeRunExecution || ([
+    "autoRestartDevServerWhenIdle",
+    "enableManagedSandboxOnly",
+    "enablePaperclipDeveloperMode",
+    "enableServerInfoDebugView",
+    "enableSmokeLab",
+    "enableIssuePlanDecompositions",
+  ] satisfies InstanceFeatureKey[]).some(isVisible);
+  const showLegacySection = isVisible("enableClassicTaskInterface") || isVisible("enableGoalsSidebarLink");
   return (
     <div className="max-w-6xl space-y-6">
       <div className="space-y-2">
@@ -275,6 +288,18 @@ export function InstanceExperimentalSettings() {
         </div>
 
         <ExperimentalToggleCard
+          title={t("sep12Screens.agentChatTitle")}
+          description={t("sep12Screens.agentChatDescription")}
+          footnote={t("sep12Screens.agentChatFootnote")}
+          checked={experimentalQuery.data?.enableAgentChat ?? false}
+          onCheckedChange={(checked) => toggleMutation.mutate({ enableAgentChat: checked })}
+          disabled={toggleMutation.isPending}
+          settingKey="enableAgentChat"
+          managed={managedKeys.enableAgentChat}
+          ariaLabel={t("sep12Screens.agentChatToggle")}
+        />
+
+        <ExperimentalToggleCard
           title={t("localizationExperimental.features.enableBetaSkills.title")}
           description={t("localizationExperimental.features.enableBetaSkills.description")}
           checked={enableBetaSkills}
@@ -308,17 +333,6 @@ export function InstanceExperimentalSettings() {
           ariaLabel={t("localizationExperimental.features.enableCases.ariaLabel")}
         />
 
-        <ExperimentalToggleCard
-          title={t("sep12Screens.agentChatTitle")}
-          description={t("sep12Screens.agentChatDescription")}
-          footnote={t("sep12Screens.agentChatFootnote")}
-          checked={experimentalQuery.data?.enableAgentChat ?? false}
-          onCheckedChange={(checked) => toggleMutation.mutate({ enableAgentChat: checked })}
-          disabled={toggleMutation.isPending}
-          settingKey="enableAgentChat"
-          managed={managedKeys.enableAgentChat}
-          ariaLabel={t("sep12Screens.agentChatToggle")}
-        />
         <ExperimentalToggleCard
           title={t("localizationExperimental.features.enableChatConnectors.title")}
           description={t("localizationExperimental.features.enableChatConnectors.description")}
@@ -388,21 +402,6 @@ export function InstanceExperimentalSettings() {
           ariaLabel={t("localizationExperimental.features.enableIsolatedWorkspaces.ariaLabel")}
         />
 
-        {enableIsolatedWorkspaces && (
-          <ExperimentalToggleCard
-            title={t("stable916Shell.isolatedDefaultTitle")}
-            description={t("stable916Shell.isolatedDefaultDescription")}
-            checked={enableIsolatedWorkspacesByDefault}
-            onCheckedChange={(checked) =>
-              toggleMutation.mutate({ enableIsolatedWorkspacesByDefault: checked })
-            }
-            disabled={toggleMutation.isPending}
-            settingKey="enableIsolatedWorkspacesByDefault"
-            managed={managedKeys.enableIsolatedWorkspacesByDefault}
-            ariaLabel={t("stable916Shell.isolatedDefaultToggle")}
-          />
-        )}
-
         <ExperimentalToggleCard
           title={t("localizationExperimental.features.enableExperimentalFileViewer.title")}
           description={t("localizationExperimental.features.enableExperimentalFileViewer.description")}
@@ -412,6 +411,31 @@ export function InstanceExperimentalSettings() {
           settingKey="enableExperimentalFileViewer"
           managed={managedKeys.enableExperimentalFileViewer}
           ariaLabel={t("localizationExperimental.features.enableExperimentalFileViewer.ariaLabel")}
+        />
+
+        <ExperimentalToggleCard
+          title={t("localizationExperimental.features.enableFirstTaskPlanProposal.title")}
+          description={t("localizationExperimental.features.enableFirstTaskPlanProposal.description")}
+          checked={enableFirstTaskPlanProposal}
+          onCheckedChange={(checked) =>
+            toggleMutation.mutate({ enableFirstTaskPlanProposal: checked })
+          }
+          disabled={toggleMutation.isPending}
+          settingKey="enableFirstTaskPlanProposal"
+          managed={managedKeys.enableFirstTaskPlanProposal}
+          ariaLabel={t("sep28Settings.enableFirstTaskPlanProposal_ariaLabel")}
+        />
+
+        <ExperimentalToggleCard
+          title={t("sep28Settings.enableMemoryConnectors_title")}
+          description={t("sep28Settings.enableMemoryConnectors_description")}
+          footnote={t("sep28Settings.enableMemoryConnectors_footnote")}
+          checked={experimentalQuery.data?.enableMemoryConnectors === true}
+          onCheckedChange={(checked) => toggleMutation.mutate({ enableMemoryConnectors: checked })}
+          disabled={toggleMutation.isPending}
+          settingKey="enableMemoryConnectors"
+          managed={managedKeys.enableMemoryConnectors}
+          ariaLabel={t("sep28Settings.enableMemoryConnectors_ariaLabel")}
         />
 
         <ExperimentalToggleCard
@@ -438,19 +462,6 @@ export function InstanceExperimentalSettings() {
           settingKey="enableSimplifiedEnglishInteractions"
           managed={managedKeys.enableSimplifiedEnglishInteractions}
           ariaLabel={t("localizationExperimental.features.enableSimplifiedEnglishInteractions.ariaLabel")}
-        />
-
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableFirstTaskPlanProposal.title")}
-          description={t("localizationExperimental.features.enableFirstTaskPlanProposal.description")}
-          checked={enableFirstTaskPlanProposal}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enableFirstTaskPlanProposal: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enableFirstTaskPlanProposal"
-          managed={managedKeys.enableFirstTaskPlanProposal}
-          ariaLabel={t("localizationExperimental.features.enableFirstTaskPlanProposal.toggle")}
         />
 
         <ExperimentalToggleCard
@@ -501,172 +512,196 @@ export function InstanceExperimentalSettings() {
           ariaLabel={t("localizationExperimental.features.enableSummaries.ariaLabel")}
         />
 
+        {enableIsolatedWorkspaces && (
+          <ExperimentalToggleCard
+            title={t("sep28Settings.enableIsolatedWorkspacesByDefault_title")}
+            description={t("sep28Settings.enableIsolatedWorkspacesByDefault_description")}
+            checked={enableIsolatedWorkspacesByDefault}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableIsolatedWorkspacesByDefault: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableIsolatedWorkspacesByDefault"
+            managed={managedKeys.enableIsolatedWorkspacesByDefault}
+            ariaLabel={t("sep28Settings.enableIsolatedWorkspacesByDefault_ariaLabel")}
+          />
+        )}
       </section>
 
-      <section className="space-y-3" aria-labelledby="developer-mode-heading">
-        <div className="space-y-1">
-          <h2 id="developer-mode-heading" className="text-sm font-semibold">{t("localizationExperimental.features.enablePaperclipDeveloperMode.title")}</h2>
-          <p className="text-sm text-muted-foreground">{t("localizationExperimental.developerDescription")}</p>
-        </div>
+      {showDeveloperSection ? (
+        <section className="space-y-3" aria-labelledby="developer-mode-heading">
+          <div className="space-y-1">
+            <h2 id="developer-mode-heading" className="text-sm font-semibold">
+              {t("localizationExperimental.features.enablePaperclipDeveloperMode.title")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t("localizationExperimental.developerDescription")}
+            </p>
+          </div>
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enablePaperclipDeveloperMode.title")}
-          description={t("localizationExperimental.features.enablePaperclipDeveloperMode.description")}
-          checked={enablePaperclipDeveloperMode}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enablePaperclipDeveloperMode: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enablePaperclipDeveloperMode"
-          managed={managedKeys.enablePaperclipDeveloperMode}
-          ariaLabel={t("localizationExperimental.features.enablePaperclipDeveloperMode.ariaLabel")}
-        />
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.autoRestartDevServerWhenIdle.title")}
+            description={t("localizationExperimental.features.autoRestartDevServerWhenIdle.description")}
+            checked={autoRestartDevServerWhenIdle}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ autoRestartDevServerWhenIdle: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="autoRestartDevServerWhenIdle"
+            managed={managedKeys.autoRestartDevServerWhenIdle}
+            ariaLabel={t("localizationExperimental.features.autoRestartDevServerWhenIdle.ariaLabel")}
+          />
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableManagedSandboxOnly.title")}
-          description={t("localizationExperimental.features.enableManagedSandboxOnly.description")}
-          checked={enableManagedSandboxOnly}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enableManagedSandboxOnly: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enableManagedSandboxOnly"
-          managed={managedKeys.enableManagedSandboxOnly}
-          ariaLabel={t("localizationExperimental.features.enableManagedSandboxOnly.ariaLabel")}
-        />
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enableManagedSandboxOnly.title")}
+            description={t("localizationExperimental.features.enableManagedSandboxOnly.description")}
+            checked={enableManagedSandboxOnly}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableManagedSandboxOnly: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableManagedSandboxOnly"
+            managed={managedKeys.enableManagedSandboxOnly}
+            ariaLabel={t("localizationExperimental.features.enableManagedSandboxOnly.ariaLabel")}
+          />
 
-        {inWorktree ? (
-          <Card className="block bg-transparent p-5">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold">{t("localizationExperimental.worktreeTitle")}</h3>
-                    {worktreeRunExecutionManaged ? <ManagedByCloudBadge /> : null}
-                  </div>
-                  <p className="max-w-2xl text-sm text-muted-foreground">{t("localizationExperimental.worktreeDescription")}</p>
-                </div>
-                <ToggleSwitch
-                  checked={enableWorktreeRunExecution}
-                  onCheckedChange={(checked) => {
-                    if (worktreeRunExecutionManaged) return;
-                    toggleMutation.mutate({ enableWorktreeRunExecution: checked });
-                  }}
-                  disabled={toggleMutation.isPending || worktreeRunExecutionManaged}
-                  aria-label={t("localizationExperimental.worktreeToggle")}
-                />
-              </div>
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enablePaperclipDeveloperMode.title")}
+            description={t("localizationExperimental.features.enablePaperclipDeveloperMode.description")}
+            checked={enablePaperclipDeveloperMode}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enablePaperclipDeveloperMode: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enablePaperclipDeveloperMode"
+            managed={managedKeys.enablePaperclipDeveloperMode}
+            ariaLabel={t("localizationExperimental.features.enablePaperclipDeveloperMode.ariaLabel")}
+          />
 
-              {worktreeRunExecutionState.kind === "armed" ? (
-                <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
-                  <Play className="h-4 w-4 shrink-0 text-emerald-600" />
-                  <span>
-                    <Trans i18nKey="localizationExperimental.runningAfter" values={{ time: formatActivationTimestamp(worktreeRunExecutionState.activatedAt) }} components={{ time: <span className="font-medium" /> }} />
-                  </span>
-                </div>
-              ) : null}
-
-              {worktreeRunExecutionState.kind === "fail_closed" ? (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                  <div className="space-y-0.5">
-                    <p className="font-medium text-foreground">{t("localizationExperimental.executionSuppressed")}</p>
-                    <p className="text-muted-foreground">
-                      {t(worktreeRunExecutionState.reason === "instance_mismatch"
-                        ? "localizationExperimental.instanceMismatch"
-                        : "localizationExperimental.missingCutoff")}
+          {showWorktreeRunExecution ? (
+            <Card className="block bg-transparent p-5">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold">{t("localizationExperimental.worktreeTitle")}</h3>
+                      {worktreeRunExecutionManaged ? <ManagedByCloudBadge /> : null}
+                    </div>
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      {t("localizationExperimental.worktreeDescription")}
                     </p>
                   </div>
+                  <ToggleSwitch
+                    checked={enableWorktreeRunExecution}
+                    onCheckedChange={(checked) => {
+                      if (worktreeRunExecutionManaged) return;
+                      toggleMutation.mutate({ enableWorktreeRunExecution: checked });
+                    }}
+                    disabled={toggleMutation.isPending || worktreeRunExecutionManaged}
+                    aria-label={t("localizationExperimental.worktreeToggle")}
+                  />
                 </div>
-              ) : null}
-            </div>
-          </Card>
-        ) : null}
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.autoRestartDevServerWhenIdle.title")}
-          description={t("localizationExperimental.features.autoRestartDevServerWhenIdle.description")}
-          checked={autoRestartDevServerWhenIdle}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ autoRestartDevServerWhenIdle: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="autoRestartDevServerWhenIdle"
-          managed={managedKeys.autoRestartDevServerWhenIdle}
-          ariaLabel={t("localizationExperimental.features.autoRestartDevServerWhenIdle.ariaLabel")}
-        />
+                {worktreeRunExecutionState.kind === "armed" ? (
+                  <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
+                    <Play className="h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>
+                      <Trans i18nKey="localizationExperimental.runningAfter" values={{ time: formatActivationTimestamp(worktreeRunExecutionState.activatedAt) }} components={{ time: <span className="font-medium" /> }} />
+                    </span>
+                  </div>
+                ) : null}
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableServerInfoDebugView.title")}
-          description={t("localizationExperimental.features.enableServerInfoDebugView.description")}
-          checked={enableServerInfoDebugView}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enableServerInfoDebugView: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enableServerInfoDebugView"
-          managed={managedKeys.enableServerInfoDebugView}
-          ariaLabel={t("localizationExperimental.features.enableServerInfoDebugView.ariaLabel")}
-        />
+                {worktreeRunExecutionState.kind === "fail_closed" ? (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                    <div className="space-y-0.5">
+                      <p className="font-medium text-foreground">{t("localizationExperimental.executionSuppressed")}</p>
+                      <p className="text-muted-foreground">
+                        {t(worktreeRunExecutionState.reason === "instance_mismatch" ? "localizationExperimental.instanceMismatch" : "localizationExperimental.missingCutoff")}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableSmokeLab.title")}
-          description={t("localizationExperimental.features.enableSmokeLab.description")}
-          checked={enableSmokeLab}
-          onCheckedChange={(checked) => toggleMutation.mutate({ enableSmokeLab: checked })}
-          disabled={toggleMutation.isPending}
-          settingKey="enableSmokeLab"
-          managed={managedKeys.enableSmokeLab}
-          ariaLabel={t("localizationExperimental.features.enableSmokeLab.ariaLabel")}
-        />
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enableServerInfoDebugView.title")}
+            description={t("localizationExperimental.features.enableServerInfoDebugView.description")}
+            checked={enableServerInfoDebugView}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableServerInfoDebugView: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableServerInfoDebugView"
+            managed={managedKeys.enableServerInfoDebugView}
+            ariaLabel={t("localizationExperimental.features.enableServerInfoDebugView.ariaLabel")}
+          />
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableIssuePlanDecompositions.title")}
-          description={t("localizationExperimental.features.enableIssuePlanDecompositions.description")}
-          checked={enableIssuePlanDecompositions}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enableIssuePlanDecompositions: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enableIssuePlanDecompositions"
-          managed={managedKeys.enableIssuePlanDecompositions}
-          ariaLabel={t("localizationExperimental.features.enableIssuePlanDecompositions.ariaLabel")}
-        />
-      </section>
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enableSmokeLab.title")}
+            description={t("localizationExperimental.features.enableSmokeLab.description")}
+            checked={enableSmokeLab}
+            onCheckedChange={(checked) => toggleMutation.mutate({ enableSmokeLab: checked })}
+            disabled={toggleMutation.isPending}
+            settingKey="enableSmokeLab"
+            managed={managedKeys.enableSmokeLab}
+            ariaLabel={t("localizationExperimental.features.enableSmokeLab.ariaLabel")}
+          />
 
-      <section className="space-y-3" aria-labelledby="legacy-heading">
-        <div className="space-y-1">
-          <h2 id="legacy-heading" className="text-sm font-semibold">{t("localizationExperimental.legacy")}</h2>
-          <p className="text-sm text-muted-foreground">{t("localizationExperimental.legacyDescription")}</p>
-        </div>
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enableIssuePlanDecompositions.title")}
+            description={t("localizationExperimental.features.enableIssuePlanDecompositions.description")}
+            checked={enableIssuePlanDecompositions}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableIssuePlanDecompositions: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableIssuePlanDecompositions"
+            managed={managedKeys.enableIssuePlanDecompositions}
+            ariaLabel={t("localizationExperimental.features.enableIssuePlanDecompositions.ariaLabel")}
+          />
+        </section>
+      ) : null}
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableClassicTaskInterface.title")}
-          description={t("localizationExperimental.features.enableClassicTaskInterface.description")}
-          footnote={t("localizationExperimental.features.enableClassicTaskInterface.footnote")}
-          checked={enableClassicTaskInterface}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enableClassicTaskInterface: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enableClassicTaskInterface"
-          managed={managedKeys.enableClassicTaskInterface}
-          ariaLabel={t("localizationExperimental.features.enableClassicTaskInterface.ariaLabel")}
-        />
+      {showLegacySection ? (
+        <section className="space-y-3" aria-labelledby="legacy-heading">
+          <div className="space-y-1">
+            <h2 id="legacy-heading" className="text-sm font-semibold">
+              {t("localizationExperimental.legacy")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("localizationExperimental.legacyDescription")}</p>
+          </div>
 
-        <ExperimentalToggleCard
-          title={t("localizationExperimental.features.enableGoalsSidebarLink.title")}
-          description={t("localizationExperimental.features.enableGoalsSidebarLink.description")}
-          checked={enableGoalsSidebarLink}
-          onCheckedChange={(checked) =>
-            toggleMutation.mutate({ enableGoalsSidebarLink: checked })
-          }
-          disabled={toggleMutation.isPending}
-          settingKey="enableGoalsSidebarLink"
-          managed={managedKeys.enableGoalsSidebarLink}
-          ariaLabel={t("localizationExperimental.features.enableGoalsSidebarLink.ariaLabel")}
-        />
-      </section>
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enableClassicTaskInterface.title")}
+            description={t("localizationExperimental.features.enableClassicTaskInterface.description")}
+            footnote={t("localizationExperimental.features.enableClassicTaskInterface.footnote")}
+            checked={enableClassicTaskInterface}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableClassicTaskInterface: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableClassicTaskInterface"
+            managed={managedKeys.enableClassicTaskInterface}
+            ariaLabel={t("localizationExperimental.features.enableClassicTaskInterface.ariaLabel")}
+          />
+
+          <ExperimentalToggleCard
+            title={t("localizationExperimental.features.enableGoalsSidebarLink.title")}
+            description={t("localizationExperimental.features.enableGoalsSidebarLink.description")}
+            checked={enableGoalsSidebarLink}
+            onCheckedChange={(checked) =>
+              toggleMutation.mutate({ enableGoalsSidebarLink: checked })
+            }
+            disabled={toggleMutation.isPending}
+            settingKey="enableGoalsSidebarLink"
+            managed={managedKeys.enableGoalsSidebarLink}
+            ariaLabel={t("localizationExperimental.features.enableGoalsSidebarLink.ariaLabel")}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }

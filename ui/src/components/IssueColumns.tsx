@@ -1,4 +1,6 @@
 import { t, useTranslation } from "@/i18n";
+import { AgentIdentity } from "@/components/AgentIdentity";
+import type { AvatarAgent } from "./AgentAvatar";
 import type { ReactNode } from "react";
 import { deriveOriginatingActor, type Issue } from "@paperclipai/shared";
 import { Columns3 } from "lucide-react";
@@ -203,7 +205,7 @@ export function InboxIssueMetaLeading({
     <>
       {showStatus ? (
         <span className="hidden shrink-0 items-center sm:inline-flex">
-          {statusSlot ?? <StatusIcon status={issue.status} blockerAttention={issue.blockerAttention} />}
+          {statusSlot ?? <StatusIcon status={issue.status} externalConversationState={issue.externalConversationState} blockerAttention={issue.blockerAttention} />}
         </span>
       ) : null}
       {checklistStepNumber !== null ? (
@@ -274,6 +276,8 @@ export function InboxIssueTrailingColumns({
   workspaceId,
   workspaceName,
   assigneeName,
+  assigneeAgent,
+  creatorAgent,
   assigneeUserName,
   assigneeUserAvatarUrl,
   creatorAgentName,
@@ -293,6 +297,8 @@ export function InboxIssueTrailingColumns({
   workspaceId?: string | null;
   workspaceName: string | null;
   assigneeName: string | null;
+  assigneeAgent?: AvatarAgent;
+  creatorAgent?: AvatarAgent;
   assigneeUserName?: string | null;
   assigneeUserAvatarUrl?: string | null;
   creatorAgentName?: string | null;
@@ -326,10 +332,9 @@ export function InboxIssueTrailingColumns({
           if (issue.assigneeAgentId) {
             return (
               <span key={column} className="min-w-0 text-xs text-foreground">
-                <Identity
-                  name={assigneeName ?? issue.assigneeAgentId.slice(0, 8)}
+                <AgentIdentity
+                  agent={assigneeAgent ?? { id: issue.assigneeAgentId, name: assigneeName ?? issue.assigneeAgentId.slice(0, 8) }}
                   size="sm"
-                  shape="square"
                   className="min-w-0"
                 />
               </span>
@@ -363,10 +368,9 @@ export function InboxIssueTrailingColumns({
               <Tooltip key={column}>
                 <TooltipTrigger asChild>
                   <span className="min-w-0 text-xs text-foreground">
-                    <Identity
-                      name={name}
+                    <AgentIdentity
+                      agent={creatorAgent ?? { id: originatingActor.id, name }}
                       size="sm"
-                      shape="square"
                       className="min-w-0"
                     />
                   </span>

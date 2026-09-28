@@ -859,9 +859,10 @@ function formatIssueUpdatedVerb(details: ActivityDetails): string | null {
   const previous = asRecord(details._previous) ?? {};
   if (details.status !== undefined) {
     const from = previous.status;
+    const to = humanizeValue(details.status === "in_review" && details.externalConversationState === "waiting" ? "idle" : details.status);
     return from
-      ? t("localizationActivity.changed_status_from_Verb", { from: humanizeValue(from), to: humanizeValue(details.status) })
-      : t("localizationActivity.changed_status_Verb", { to: humanizeValue(details.status) });
+      ? t("localizationActivity.changed_status_from_Verb", { from: humanizeValue(from), to })
+      : t("localizationActivity.changed_status_Verb", { to });
   }
   if (details.priority !== undefined) {
     const from = previous.priority;
@@ -892,10 +893,11 @@ function formatIssueUpdatedAction(details: ActivityDetails, options: ActivityFor
 
   if (details.status !== undefined) {
     const from = previous.status;
+    const to = humanizeValue(details.status === "in_review" && details.externalConversationState === "waiting" ? "idle" : details.status);
     parts.push(
       from
-        ? t("localizationActivity.changed_status_from_Action", { from: humanizeValue(from), to: humanizeValue(details.status) })
-        : t("localizationActivity.changed_status_Action", { to: humanizeValue(details.status) }),
+        ? t("localizationActivity.changed_status_from_Action", { from: humanizeValue(from), to })
+        : t("localizationActivity.changed_status_Action", { to }),
     );
   }
   if (details.priority !== undefined) {

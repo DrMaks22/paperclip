@@ -122,6 +122,7 @@ export function TaskChatRunnerTurn({
   runId,
   agentName,
   agentIcon,
+  agent,
   items,
   status,
   startedAtMs,
@@ -135,6 +136,7 @@ export function TaskChatRunnerTurn({
   runId?: string | null;
   agentName?: string | null;
   agentIcon?: string | null;
+  agent?: import("../AgentAvatar").AvatarAgent;
   items: readonly TaskChatItem[];
   status: string;
   execution?: ExecutionProjection | null;
@@ -218,7 +220,7 @@ export function TaskChatRunnerTurn({
         data-testid="task-chat-runner-identity-row"
       >
         {agentName ? (
-          <TaskChatAgentIdentity agentName={agentName} agentIcon={agentIcon} />
+          <TaskChatAgentIdentity agentName={agentName} agentIcon={agentIcon} agent={agent} />
         ) : null}
         <RunnerTurnStatus
           status={status}
@@ -276,7 +278,7 @@ export function TaskChatRunnerTurn({
           data-testid="task-chat-final-response"
         >
           <TaskChatBubble
-            item={{ ...final, authorName: agentName ?? undefined, agentIcon, timestamp: final.timestamp ?? formatTaskChatTimestamp(final.atMs) }}
+            item={{ ...final, authorName: agentName ?? undefined, agentIcon, agent, timestamp: final.timestamp ?? formatTaskChatTimestamp(final.atMs) }}
             animateEntry={false}
             hideAgentIdentity={!continuedAfterSteering}
             actions={<TaskChatBubbleActions copyText={final.text} />}

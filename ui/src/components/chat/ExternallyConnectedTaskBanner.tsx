@@ -114,14 +114,15 @@ const filePhaseLabels: Record<ChatFileTransferPhase, string> = {
 
 export function useIssueChatBinding(companyId: string, issueId: string) {
   const { enabled } = useChatConnectorsEnabled();
+  const queryEnabled = enabled && Boolean(companyId && issueId) && !issueId.startsWith("chat:");
   const query = useQuery({
     queryKey: ["issue-chat-binding", companyId, issueId],
     queryFn: () => chatEndpointsApi.getIssueBinding(issueId),
-    enabled: enabled && Boolean(companyId && issueId),
+    enabled: queryEnabled,
   });
   return {
-    binding: enabled ? (query.data ?? null) : null,
-    isLoading: enabled && query.isLoading,
+    binding: queryEnabled ? (query.data ?? null) : null,
+    isLoading: queryEnabled && query.isLoading,
   };
 }
 
@@ -497,7 +498,11 @@ function ConnectedTaskComposer({
           <Radio className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <p className="font-medium">{t("chatUi.externallyConnectedTaskBanner.connectedTo", { value0: providerNames[binding.provider] })}</p>
-            <p className="truncate text-xs text-muted-foreground">{t("chatUi.externallyConnectedTaskBanner.agentAssignmentIsFixedForThisExternalTask", { value0: binding.externalLabel })}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {binding.provider === "slack"
+                ? t("sep28Chat.slackMessagesForwarded", { label: binding.externalLabel })
+                : t("chatUi.externallyConnectedTaskBanner.agentAssignmentIsFixedForThisExternalTask", { value0: binding.externalLabel })}
+            </p>
           </div>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -787,7 +792,11 @@ function ConnectedTaskComposer({
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">{t("chatUi.externallyConnectedTaskBanner.ordinaryBoardCommentsRemainPaperclipOnly")}</p>
+            <p className="text-xs text-muted-foreground">
+              {binding.provider === "slack"
+                ? t("sep28Chat.slackMessageStartsAgent")
+                : t("chatUi.externallyConnectedTaskBanner.ordinaryBoardCommentsRemainPaperclipOnly")}
+            </p>
             <Button
               size="sm"
               disabled={

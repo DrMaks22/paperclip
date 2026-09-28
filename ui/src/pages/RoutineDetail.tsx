@@ -1,6 +1,6 @@
-import { useTranslation } from "@/i18n";
+import { t, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useNavigate, useParams } from "@/lib/router";
+import { Navigate, useNavigate, useParams, useSearchParams } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, History, Pencil, Repeat, Sparkles, X } from "lucide-react";
 import { ApiError } from "../api/client";
@@ -86,14 +86,14 @@ export function buildRoutineProjectOptions(
 }
 
 const SECTION_TITLES: Record<RoutineSectionKey, string> = {
-  overview: "Overview",
-  triggers: "Schedule",
-  variables: "Variables",
-  secrets: "Secrets",
-  delivery: "Delivery",
-  runs: "Runs",
-  activity: "Activity",
-  history: "Version history",
+  get overview() { return t("localizationRoutines.overview"); },
+  get triggers() { return t("localizationRoutines.triggers"); },
+  get variables() { return t("localizationRoutines.variables"); },
+  get secrets() { return t("localizationRoutines.secrets"); },
+  get delivery() { return t("localizationRoutines.delivery"); },
+  get runs() { return t("localizationRoutines.runs"); },
+  get activity() { return t("localizationRoutines.activity"); },
+  get history() { return t("sep28Routines.versionHistory"); },
 };
 
 function autoResizeTextarea(element: HTMLTextAreaElement | null) {
@@ -123,6 +123,8 @@ function buildRoutineMutationPayload(input: RoutineEditDraft) {
 export function RoutineDetail() {
   const { t } = useTranslation();
   const { routineId, section: sectionParam } = useParams<{ routineId: string; section?: string }>();
+  const [searchParams] = useSearchParams();
+  const triggerSetup = sectionParam === "triggers" && searchParams.has("triggerSetup");
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -200,7 +202,7 @@ export function RoutineDetail() {
     }),
     [routine?.triggers, routineRuns],
   );
-  const { data: activity } = useQuery({
+  const { data: activity, isLoading: activityLoading, error: activityError } = useQuery({
     queryKey: [
       ...queryKeys.routines.activity(selectedCompanyId!, routineId!),
       relatedActivityIds.triggerIds.join(","),
@@ -327,17 +329,14 @@ export function RoutineDetail() {
 
   useEffect(() => {
     if (!routine) return;
+    if (!triggerSetup) setBreadcrumbs([{ label: t("pages.routineDetail.routinesCrumb"), href: "/routines" }, { label: routine.title }]);
     if (!routineDefaults) return;
     const changedRoutine = hydratedRoutineIdRef.current !== routine.id;
     if (changedRoutine || !isEditDirty) {
       setEditDraft(routineDefaults);
       hydratedRoutineIdRef.current = routine.id;
     }
-  }, [routine, routineDefaults, isEditDirty]);
-
-  useEffect(() => {
-    if (routine) setBreadcrumbs([{ label: t("pages.routineDetail.routinesCrumb"), href: "/routines" }, { label: routine.title }]);
-  }, [routine, setBreadcrumbs, t]);
+  }, [routine, routineDefaults, isEditDirty, setBreadcrumbs, triggerSetup, t]);
 
   useEffect(() => {
     autoResizeTextarea(titleInputRef.current);
@@ -418,6 +417,7 @@ export function RoutineDetail() {
       setRunVariablesOpen(false);
       navigateToSection("runs");
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...queryKeys.issues.list(selectedCompanyId!), "routine", routineId!] }),
         queryClient.invalidateQueries({ queryKey: queryKeys.routines.detail(routineId!) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.routines.runs(routineId!) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.routines.list(selectedCompanyId!) }),
@@ -607,18 +607,18 @@ export function RoutineDetail() {
 
   const onHistoryRestoreSecretMaterials = useCallback((response: RestoreRoutineRevisionResponse) => {
     if (response.secretMaterials.length > 0) {
+      navigateToSection("triggers");
       setSecretMessage({
-        title:
-          response.secretMaterials.length === 1
-            ? "Webhook trigger restored"
-            : `${response.secretMaterials.length} webhook triggers restored`,
+        title: t(response.secretMaterials.length === 1 ? "sep28Routines.restoredWebhook" : "sep28Routines.restoredWebhooks", { count: response.secretMaterials.length }),
+        titleKey: response.secretMaterials.length === 1 ? "sep28Routines.restoredWebhook" : "sep28Routines.restoredWebhooks",
+        titleCount: response.secretMaterials.length,
         entries: response.secretMaterials.map((recreated) => ({
           webhookUrl: recreated.webhookUrl,
           webhookSecret: recreated.webhookSecret,
         })),
       });
     }
-  }, []);
+  }, [navigateToSection, t]);
 
   const onHistoryRestored = useCallback(
     (response: RestoreRoutineRevisionResponse) => {
@@ -685,12 +685,12 @@ export function RoutineDetail() {
   const automationToggleDisabled = updateRoutineStatus.isPending || routine.status === "archived";
   const automationLabel =
     routine.status === "archived"
-      ? "Archived"
+      ? t("localizationRoutines.archived")
       : !routine.assigneeAgentId
-        ? "Draft"
+        ? t("localizationRoutines.draft")
         : automationEnabled
-          ? "Active"
-          : "Paused";
+          ? t("pages.routineDetail.statusActive")
+          : t("sep28Routines.paused");
   const automationLabelClassName =
     routine.status === "archived"
       ? "text-muted-foreground"
@@ -764,6 +764,8 @@ export function RoutineDetail() {
     onHistoryRestored,
     navigateToSection,
   };
+
+  if (triggerSetup) return <RoutineDetailContext.Provider value={contextValue}><TriggersSection /></RoutineDetailContext.Provider>;
 
   const isEditableSection = EDITABLE_SECTIONS.includes(section);
 
@@ -898,7 +900,7 @@ export function RoutineDetail() {
             {section === "secrets" && <SecretsSection />}
             {section === "delivery" && <DeliverySection />}
             {section === "runs" && <RunsSection />}
-            {section === "activity" && <ActivitySection />}
+            {section === "activity" && <ActivitySection isLoading={activityLoading} error={activityError} />}
             {section === "history" && <HistorySection />}
 
             {isEditableSection && (section !== "overview" || overviewEditing) ? (

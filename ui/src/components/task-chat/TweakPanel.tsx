@@ -1,7 +1,7 @@
 import { t, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { useCopyAction } from "@/lib/use-copy-action";
 import { Copy, GripHorizontal, Minus, Plus, RotateCcw } from "lucide-react";
 import {
   EASING_PRESETS,
@@ -55,6 +55,7 @@ export function TweakPanel() {
     loadSession(OVERRIDES_KEY, {}),
   );
   const [exportText, setExportText] = useState<string | null>(null);
+  const exportCopy = useCopyAction();
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
 
   // Initialize display values from computed styles, then re-apply any saved
@@ -216,16 +217,26 @@ export function TweakPanel() {
           </div>
 
           {exportText ? (
-            <textarea
-              readOnly
-              data-testid="task-chat-tweak-export"
-              className="mt-2 h-32 w-full resize-none rounded border border-border bg-muted/40 p-2 font-mono text-(length:--text-nano)"
-              value={exportText}
-              onFocus={(e) => {
-                e.currentTarget.select();
-                void copyTextToClipboard(exportText).catch(() => {});
-              }}
-            />
+            <>
+              <textarea
+                readOnly
+                data-testid="task-chat-tweak-export"
+                className="mt-2 h-32 w-full resize-none rounded border border-border bg-muted/40 p-2 font-mono text-(length:--text-nano)"
+                value={exportText}
+                onFocus={(e) => {
+                  e.currentTarget.select();
+                  void exportCopy.copy(exportText);
+                }}
+              />
+              {/* Focusing the box copies it silently; say so, or the click looks inert. */}
+              <p className="mt-1 text-(length:--text-nano) text-muted-foreground" aria-live="polite">
+                {exportCopy.copied
+                  ? t("sep28Chat.copiedToClipboard")
+                  : exportCopy.failed
+                    ? t("sep28Chat.copyManually")
+                    : t("sep28Chat.clickToCopy")}
+              </p>
+            </>
           ) : null}
         </div>
       )}

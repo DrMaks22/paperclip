@@ -8,6 +8,7 @@ const MAX_TASK_STATES = 50;
 
 /** Display projection; saved labels, tab IDs and payloads stay locale-independent. */
 export function taskPanelTabLabelDisplay(tab: SidePanelTabRecord<TaskSidePanelTabPayload>): string {
+  if (tab.payload.kind === "skill" && tab.payload.defaultLabel) return t("sep28Recovery.skillTab");
   const keys: Record<string, string> = {
     "properties": "localizationIssuePanels.ui_Properties_100clx8",
     "subtasks": "localizationIssuePanels.ui_Subtasks_hx67r1",
@@ -22,10 +23,36 @@ export function taskDocumentTitleDisplay(document: { key: string; title: string 
   return documentDisplayTitle(document);
 }
 
+export function shouldSuppressTaskPanelUntilPlan(input: {
+  deferredPlanAvailable: boolean;
+  panelBeforePlanOverride: boolean;
+}) {
+  return !input.deferredPlanAvailable && !input.panelBeforePlanOverride;
+}
+
+export interface OpenSkillPanelState {
+  skill: { id: string; name: string };
+  panelBeforePlanOverrideIssueId: string | null;
+}
+
+export function openSkillPanelState(
+  current: Pick<OpenSkillPanelState, "panelBeforePlanOverrideIssueId">,
+  skill: { id: string; name: string },
+  issueId: string | null,
+  panelSuppressedUntilPlan: boolean,
+): OpenSkillPanelState {
+  return {
+    skill,
+    panelBeforePlanOverrideIssueId:
+      panelSuppressedUntilPlan && issueId ? issueId : current.panelBeforePlanOverrideIssueId,
+  };
+}
+
 export type TaskSidePanelTabPayload =
   | { kind: "properties" }
   | { kind: "subtasks" }
   | { kind: "artifacts" }
+  | { kind: "skill"; skillId: string; defaultLabel?: true }
   | { kind: "issue-document"; documentKey: string }
   | {
       kind: "files-browser";
@@ -83,6 +110,11 @@ function parsePayload(value: unknown): TaskSidePanelTabPayload | null {
   if (kind === "properties") return { kind };
   if (kind === "subtasks") return { kind };
   if (kind === "artifacts") return { kind };
+  if (kind === "skill") {
+    return typeof input.skillId === "string" && input.skillId.length > 0
+      ? { kind, skillId: input.skillId, ...(input.defaultLabel === true ? { defaultLabel: true as const } : {}) }
+      : null;
+  }
   if (kind === "issue-document") {
     return typeof input.documentKey === "string" && input.documentKey.length > 0
       ? { kind, documentKey: input.documentKey }
@@ -210,6 +242,10 @@ export function taskPanelSubtasksTab(): SidePanelTabRecord<TaskSidePanelTabPaylo
 
 export function taskPanelArtifactsTab(): SidePanelTabRecord<TaskSidePanelTabPayload> {
   return { id: "artifacts", type: "artifacts", label: "Artifacts", closable: true, contentMode: "padded", payload: { kind: "artifacts" } };
+}
+
+export function taskPanelSkillTab(skillId: string, label?: string): SidePanelTabRecord<TaskSidePanelTabPayload> {
+  return { id: `skill:${skillId}`, type: "skill", label: label ?? "Skill", closable: true, contentMode: "prose", payload: { kind: "skill", skillId, ...(label === undefined ? { defaultLabel: true as const } : {}) } };
 }
 
 export function taskPanelDocumentTab(documentKey: string, label: string): SidePanelTabRecord<TaskSidePanelTabPayload> {

@@ -1,4 +1,5 @@
 import { t, useTranslation } from "@/i18n";
+import { AgentAvatar } from "@/components/AgentAvatar";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useSearchParams } from "@/lib/router";
@@ -25,7 +26,6 @@ import { EmptyState } from "../components/EmptyState";
 import { IssuesList } from "../components/IssuesList";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { PageTabBar } from "../components/PageTabBar";
-import { AgentIcon } from "../components/AgentIconPicker";
 import { InlineEntitySelector, type InlineEntityOption } from "../components/InlineEntitySelector";
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "../components/MarkdownEditor";
 import { RoutineListRow, nextRoutineStatus } from "../components/RoutineList";
@@ -72,13 +72,13 @@ import {
 const concurrencyPolicies = ["coalesce_if_active", "always_enqueue", "skip_if_active"];
 const catchUpPolicies = ["skip_missed", "enqueue_missed_with_cap"];
 const concurrencyPolicyDescriptions: Record<string, string> = {
-  coalesce_if_active: "If a run is already active, keep just one follow-up run queued.",
-  always_enqueue: "Queue every trigger occurrence, even if the routine is already running.",
-  skip_if_active: "Drop new trigger occurrences while a run is still active.",
+  get coalesce_if_active() { return t("sep28Routines.coalesceHelp"); },
+  get always_enqueue() { return t("sep28Routines.enqueueHelp"); },
+  get skip_if_active() { return t("sep28Routines.skipActiveHelp"); },
 };
 const catchUpPolicyDescriptions: Record<string, string> = {
-  skip_missed: "Ignore windows that were missed while the scheduler or routine was paused.",
-  enqueue_missed_with_cap: "Catch up missed schedule windows after recovery; sub-hourly schedules are combined into one catch-up run, slower schedules replay each missed window up to a cap.",
+  get skip_missed() { return t("sep28Routines.skipMissedHelp"); },
+  get enqueue_missed_with_cap() { return t("localizationRoutines.enqueueMissedHelp"); },
 };
 
 function autoResizeTextarea(element: HTMLTextAreaElement | null) {
@@ -888,10 +888,10 @@ export function Routines() {
                 <PopoverContent align="end" className="w-44 p-0">
                   <div className="p-2 space-y-0.5">
                     {([
-                      ["updated", "Updated"],
-                      ["created", "Created"],
-                      ["lastRun", "Last run"],
-                      ["title", "Title"],
+                      ["updated", t("pages.projects.sort.updated")],
+                      ["created", t("pages.projects.sort.created")],
+                      ["lastRun", t("localizationRoutines.lastRun")],
+                      ["title", t("localizationRoutineHistory.title")],
                     ] as const).map(([field, label]) => (
                       <button
                         key={field}
@@ -929,10 +929,10 @@ export function Routines() {
                 <PopoverContent align="end" className="w-44 p-0">
                   <div className="p-2 space-y-0.5">
                     {([
-                      ["folder", "Folder"],
-                      ["project", "Project"],
-                      ["assignee", "Agent"],
-                      ["none", "None"],
+                      ["folder", t("pages.routines.folder")],
+                      ["project", t("localizationRoutines.project")],
+                      ["assignee", t("localizationRoutines.agent")],
+                      ["none", t("localizationRoutines.none")],
                     ] as const).map(([value, label]) => (
                       <button
                         key={value}
@@ -1064,7 +1064,7 @@ export function Routines() {
                       option ? (
                         currentAssignee ? (
                           <>
-                            <AgentIcon icon={currentAssignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <AgentAvatar agent={currentAssignee} size={16} className="h-3.5 w-3.5 shrink-0 text-muted-foreground"/>
                             <span className="truncate">{option.label}</span>
                           </>
                         ) : (
@@ -1079,7 +1079,7 @@ export function Routines() {
                       const assignee = agentById.get(option.id);
                       return (
                         <>
-                          {assignee ? <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+                          {assignee ? <AgentAvatar agent={assignee} size={16} className="h-3.5 w-3.5 shrink-0 text-muted-foreground"/> : null}
                           <span className="truncate">{option.label}</span>
                         </>
                       );

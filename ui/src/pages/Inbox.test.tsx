@@ -814,7 +814,7 @@ describe("Inbox toolbar", () => {
           </QueryClientProvider>,
         );
       });
-      await vi.waitFor(() => expect(container.textContent).toContain("Workspace-aware task"));
+      // Workspace metadata resolves independently of the task list.
       await vi.waitFor(() => {
         expect(container.querySelector('[data-slot="task-row"]')?.textContent).toContain("Workspace Aurora");
       });

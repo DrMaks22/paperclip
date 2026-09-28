@@ -83,6 +83,10 @@ vi.mock("./TaskWorkspaceFilePanel", () => ({
   TaskWorkspaceFilePanel: () => <div>Workspace file</div>,
 }));
 
+vi.mock("./TaskSkillPanel", () => ({
+  TaskSkillPanel: ({ skillId }: { skillId: string }) => <div>{`Skill content ${skillId}`}</div>,
+}));
+
 function issue(overrides: Partial<Issue> = {}): Issue {
   return {
     id: "task-1",
@@ -212,6 +216,31 @@ describe("TaskSidePanel", () => {
     await render(panel({ artifactsOpenRequestId: 2 }));
     expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toContain("Artifacts");
     expect(container.querySelectorAll('[data-side-panel-tab-target="artifacts"]')).toHaveLength(1);
+  });
+
+  it("keeps skill fallback labels reactive without changing stored names, selection or payloads", async () => {
+    try {
+      await act(async () => { await i18n.changeLanguage("ru"); });
+      await render(panel({ openSkillId: "unnamed" }));
+      const unnamed = container.querySelector('[data-side-panel-tab-target="skill:unnamed"]')!;
+      expect(unnamed.textContent).toContain("Навык");
+      await render(panel({ openSkillId: "named", openSkillName: "Skill" }));
+      const named = container.querySelector('[data-side-panel-tab-target="skill:named"]')!;
+      expect(named.textContent).toContain("Skill");
+      expect(named.getAttribute("aria-selected")).toBe("true");
+      const stored = readTaskSidePanelState("user-1", "company-1", "task-1", false)!.state;
+      expect(stored.tabs.find(tab => tab.id === "skill:unnamed")).toMatchObject({ label: "Skill", payload: { kind: "skill", skillId: "unnamed", defaultLabel: true } });
+      expect(stored.tabs.find(tab => tab.id === "skill:named")?.payload).toEqual({ kind: "skill", skillId: "named" });
+      await act(async () => { await i18n.changeLanguage("en"); });
+      expect(unnamed.textContent).toContain("Skill");
+      await act(async () => { await i18n.changeLanguage("ru"); });
+      expect(unnamed.textContent).toContain("Навык");
+      expect(named.textContent).toContain("Skill");
+      expect(named.getAttribute("aria-selected")).toBe("true");
+      expect(readTaskSidePanelState("user-1", "company-1", "task-1", false)?.state).toEqual(stored);
+    } finally {
+      await act(async () => { await i18n.changeLanguage("en"); });
+    }
   });
 
   it("reopens a dismissed Artifacts tab only for a new arrival", async () => {

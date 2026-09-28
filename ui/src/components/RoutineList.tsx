@@ -1,9 +1,10 @@
 import { i18n, t, useTranslation } from "@/i18n";
 import { routineRunStatusLabel } from "@/lib/routine-run-display";
+import type { AgentAppearance } from "@paperclipai/shared";
+import { AgentAvatar } from "@/components/AgentAvatar";
 import type { ReactNode } from "react";
 import { MoreHorizontal, Play } from "lucide-react";
 import { Link } from "@/lib/router";
-import { AgentIcon } from "@/components/AgentIconPicker";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +21,8 @@ export type RoutineListProjectSummary = {
 };
 
 export type RoutineListAgentSummary = {
+  id?: string;
+  appearance?: AgentAppearance | null;
   name: string;
   icon?: string | null;
 };
@@ -151,8 +154,8 @@ export function RoutineListRow<TRoutine extends RoutineListRowItem>({
             <span>{routine.projectId ? (project?.name ?? t("localizationRoutines.unknownProject")) : t("localizationRoutines.noProject")}</span>
           </span>
           <span className="flex items-center gap-2">
-            {agent?.icon ? <AgentIcon icon={agent.icon} className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span>{routine.assigneeAgentId ? (agent?.name ?? "Unknown agent") : t("localizationRoutines.noDefaultAgentLabel")}</span>
+            {routine.assigneeAgentId ? <AgentAvatar agent={{ ...agent, id: routine.assigneeAgentId }} size={16} className="h-3.5 w-3.5 shrink-0"/> : null}
+            <span>{routine.assigneeAgentId ? (agent?.name ?? t("localizationRoutines.unknownAgent")) : t("localizationRoutines.noDefaultAgentLabel")}</span>
           </span>
           <span>
             {formatLastRunTimestamp(routine.lastRun?.triggeredAt)}

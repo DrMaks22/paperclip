@@ -4,7 +4,7 @@ import { adapterEnvironmentCheckMessageDisplay } from "@/lib/adapter-environment
 import { AiConnectionField } from "./ai-connections/AiConnectionField";
 import { aiConnectionBindingSchema } from "@paperclipai/shared";
 import { testAgentSetup } from "@/lib/test-agent-setup";
-import { setupEffortLabel } from "@/lib/agent-setup-fields";
+import { setupEffortLabel, setupEfforts } from "@/lib/agent-setup-fields";
 import { RuntimeTestCard } from "./RuntimeTestCard";
 import { useState, useEffect, useRef, useMemo, useCallback, Children, isValidElement, type ReactNode } from "react";
 import type { AdapterConfigSection } from "../adapters/types";
@@ -1273,6 +1273,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         ? "mode"
         : adapterType === "opencode_local"
           ? "variant"
+          : adapterType === "grok_local" ? "reasoningEffort"
           : adapterType === "pi_local" ? "thinking" : "effort";
   const thinkingEffortOptions =
     adapterType === "codex_local"
@@ -1288,7 +1289,12 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             ? kimiThinkingEffortOptions
             : adapterType === "pi_local"
               ? [{ id: "", get label() { return t("localizationAgents.ui104_Auto"); } }, ...["off", "minimal", "low", "medium", "high", "xhigh"].map(id => ({ id, label: setupEffortLabel(id) }))]
-              : claudeThinkingEffortOptions;
+              : adapterType === "claude_local" || adapterType === "grok_local"
+                ? [{ id: "", label: t("localizationAgents.ui104_Auto") }, ...setupEfforts(adapterType, currentModelId).map((id) => ({
+                    id,
+                    label: setupEffortLabel(id),
+                  }))]
+                : claudeThinkingEffortOptions;
   const currentThinkingEffort = isCreate
     ? val!.thinkingEffort
     : adapterType === "codex_local"
@@ -1709,10 +1715,10 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 models={models}
                 value={currentModelId}
                 onChange={(v) => {
-                  const supportedEfforts = codexReasoningEffortOptions(v, t("localizationAgents.config_Auto"));
-                  const clearUnsupportedEffort = adapterType === "codex_local"
+                  const supportedEfforts = setupEfforts(adapterType, v);
+                  const clearUnsupportedEffort = ["codex_local", "claude_local", "grok_local"].includes(adapterType)
                     && Boolean(currentThinkingEffort)
-                    && !supportedEfforts.some((option) => option.value === currentThinkingEffort);
+                    && !supportedEfforts.includes(String(currentThinkingEffort));
                   if (isCreate) {
                     set!({
                       model: v,

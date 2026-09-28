@@ -5,6 +5,7 @@ import { agentsApi } from "../api/agents";
 import { activityApi } from "../api/activity";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "./ui/button";
+import { Link } from "../lib/router";
 
 export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried }: {
   companyId: string;
@@ -20,6 +21,8 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
   });
   const failedRun = runs?.find(run => run.runId === blocker.runId &&
     ["failed", "timed_out"].includes(run.status));
+  const requiresInspection = blocker.cause === "native_continuation_requires_reconciliation" ||
+    blocker.cause === "native_session_cleanup_quarantined";
   const retry = useMutation({
     mutationFn: () => agentsApi.retryFailedRun(failedRun!.agentId, failedRun!.runId, companyId),
     onSuccess: () => {
@@ -32,8 +35,15 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
   });
   return (
     <div role="status" aria-label={t("sep13Recovery.label")} className="mx-(--sz-execution-blocker-inline) my-(--sz-execution-blocker-block) flex flex-wrap items-center justify-between execution-blocker-notice border border-border bg-muted text-foreground">
-      <span>{blocker.cause === "legacy_execution_requires_reconciliation" ? t("sep13Recovery.stopped") : blocker.nextAction}</span>
-      {failedRun && (
+      <span>{blocker.cause === "legacy_execution_requires_reconciliation"
+        ? t("sep13Recovery.stopped")
+        : requiresInspection ? t("sep28Core.recoveryNeeded", { nextAction: blocker.nextAction }) : blocker.nextAction}</span>
+      {requiresInspection && blocker.agentId && blocker.runId && (
+        <Button variant="outline" size="sm" asChild>
+          <Link to={`/agents/${blocker.agentId}/runs/${blocker.runId}`}>{t("localizationAgents.ui73_Inspect_run")}</Link>
+        </Button>
+      )}
+      {!requiresInspection && failedRun && (
         <Button variant="outline" size="sm" disabled={retry.isPending} onClick={() => retry.mutate()}>
           {retry.isPending ? t("sep12Screens.retrying") : t("sep12Screens.retry")}
         </Button>

@@ -7,7 +7,7 @@ import type {
 } from "@paperclipai/shared";
 import { cn, formatShortDate } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
-import { copyTextToClipboard } from "../lib/clipboard";
+import { useCopyAction, useCopyToast } from "../lib/use-copy-action";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, Copy, MoreHorizontal, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Check, Copy, MoreHorizontal, ThumbsDown, ThumbsUp, X } from "lucide-react";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -51,24 +51,26 @@ export function agentBubbleDateLabel(date: Date | string | undefined): string {
  */
 export function BubbleCopyButton({ copyText }: { copyText: string }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, failed, copy } = useCopyAction(2000);
+  const label = failed ? t("sep28Settings.copyMessageFailed") : t("localizationTaskRuntime.ui_Copy_message_1b3i557");
 
   return (
     <button
       type="button"
       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      title={t("localizationTaskRuntime.ui_Copy_message_1b3i557")}
-      aria-label={t("localizationTaskRuntime.ui_Copy_message_1b3i557")}
+      title={label}
+      aria-label={label}
       onClick={() => {
-        void copyTextToClipboard(copyText)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          })
-          .catch(() => {});
+        void copy(copyText);
       }}
     >
-      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? (
+        <Check className="h-3.5 w-3.5" />
+      ) : failed ? (
+        <X className="h-3.5 w-3.5 text-destructive" />
+      ) : (
+        <Copy className="h-3.5 w-3.5" />
+      )}
     </button>
   );
 }
@@ -113,6 +115,8 @@ export function AgentBubbleActionRow({
   className?: string;
 }) {
   const { t } = useTranslation();
+  // The menu closes on click, so its copy confirmation has to outlive it.
+  const copyWithToast = useCopyToast();
   return (
     <div className={cn("mt-2 flex items-center gap-1", className)}>
       <BubbleCopyButton copyText={copyText} />
@@ -154,7 +158,7 @@ export function AgentBubbleActionRow({
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onClick={() => {
-              void copyTextToClipboard(copyText).catch(() => {});
+              void copyWithToast(copyText, t("sep28Settings.messageCopied"));
             }}
           >
             <Copy className="mr-2 h-3.5 w-3.5" />{t("localizationTaskRuntime.ui_Copy_message_1b3i557")}</DropdownMenuItem>

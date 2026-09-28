@@ -1,5 +1,5 @@
 import { i18n, t, useTranslation } from "@/i18n";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -197,6 +197,9 @@ export function validateField(
   }
   if (type === "secret-ref" && typeof value === "object") {
     return "Invalid secret reference";
+  }
+  if (type === "object" && (typeof value !== "object" || Array.isArray(value))) {
+    return "Enter a valid JSON object";
   }
 
   if (type === "string" || type === "secret-ref") {
@@ -567,7 +570,7 @@ const EnumField = React.memo(({
         onValueChange={handleChange}
         disabled={disabled}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-label={label} aria-required={isRequired}>
           <SelectValue placeholder={t("localizationSchemaForm.selectOption")} />
         </SelectTrigger>
         <SelectContent>
@@ -664,6 +667,8 @@ const SecretField = React.memo(({
     <div className="relative">
       {isVisible ? (
         <Textarea
+          aria-label={label}
+          aria-required={isRequired}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           placeholder={String(defaultValue ?? "")}
@@ -673,6 +678,8 @@ const SecretField = React.memo(({
         />
       ) : (
         <Textarea
+          aria-label={label}
+          aria-required={isRequired}
           // Render a placeholder summary instead of the secret content while
           // hidden. This avoids exposing multi-line secrets (e.g. SSH
           // private keys) on screen-shares; clicking the eye toggle reveals
@@ -710,6 +717,8 @@ const SecretField = React.memo(({
   ) : (
     <div className="relative">
       <Input
+        aria-label={label}
+        aria-required={isRequired}
         type={isVisible ? "text" : "password"}
         value={stringValue}
         onChange={(e) => onChange(e.target.value)}
@@ -839,6 +848,8 @@ const NumberField = React.memo(({
       disabled={disabled}
     >
       <Input
+        aria-label={label}
+        aria-required={isRequired}
         type="number"
         step={type === "integer" ? "1" : "any"}
         min={minimum}
@@ -904,6 +915,8 @@ const StringField = React.memo(({
     >
       {isTextArea ? (
         <Textarea
+          aria-label={label}
+          aria-required={isRequired}
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
           placeholder={String(defaultValue ?? "")}
@@ -913,6 +926,8 @@ const StringField = React.memo(({
         />
       ) : (
         <Input
+          aria-label={label}
+          aria-required={isRequired}
           type="text"
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
@@ -1044,6 +1059,35 @@ const ArrayField = React.memo(({
 
 ArrayField.displayName = "ArrayField";
 
+/** MCP execution tools often accept an arbitrary object rather than fixed fields. */
+function JsonObjectField({ value, onChange, disabled, label, error }: {
+  value: unknown; onChange: (value: unknown) => void; disabled: boolean; label: string; error?: string;
+}) {
+  const { t } = useTranslation();
+  const format = (next: unknown) => typeof next === "string" ? next : JSON.stringify(next ?? {}, null, 2);
+  const [text, setText] = useState(() => format(value));
+  const emitted = useRef(value);
+  useEffect(() => {
+    if (value !== emitted.current) setText(format(value));
+    emitted.current = value;
+  }, [value]);
+  const change = (text: string) => {
+    setText(text);
+    let next: unknown = text.trim() ? text : undefined;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) next = parsed;
+    } catch { /* Preserve invalid input so validation prevents submitting stale arguments. */ }
+    emitted.current = next;
+    onChange(next);
+  };
+  return <div className="space-y-2">
+    <Textarea aria-label={t("sep28Core.jsonLabel", { label })} aria-invalid={!!error} value={text} onChange={(event) => change(event.target.value)} disabled={disabled} rows={5} className="font-mono text-sm" />
+    <p className="text-xs text-muted-foreground">{t("sep28Core.jsonHelp")}</p>
+    {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+  </div>;
+}
+
 /**
  * Specialized field for object values, handling recursive rendering of nested properties.
  */
@@ -1095,7 +1139,9 @@ const ObjectField = React.memo(({
 
       {!isCollapsed && (
         <div className="pt-2">
-          <JsonSchemaForm
+          {Object.keys(propSchema.properties ?? {}).length === 0 && propSchema.additionalProperties !== false
+            ? <JsonObjectField value={value} onChange={onChange} disabled={disabled} label={label} error={errors[path]} />
+            : <JsonSchemaForm
             schema={propSchema}
             values={(value as Record<string, unknown>) ?? {}}
             onChange={handleObjectChange}
@@ -1105,7 +1151,7 @@ const ObjectField = React.memo(({
                 .filter(([errPath]) => errPath.startsWith(`${path}/`))
                 .map(([errPath, err]) => [errPath.replace(path, ""), err]),
             )}
-          />
+          />}
         </div>
       )}
     </div>

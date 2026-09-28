@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { t, i18n, useTranslation } from "@/i18n";
 import { routineRunSourceLabel } from "@/lib/routine-run-display";
 import { useEffect, useState } from "react";
 import { Clock3, RefreshCw, Save, Trash2, Webhook, Zap } from "lucide-react";
@@ -18,8 +18,20 @@ import { ScheduleEditor } from "./ScheduleEditor";
 import { buildRoutineTriggerPatch } from "../lib/routine-trigger-patch";
 import { describeCron } from "../lib/cron-readable";
 
-const signingModes = ["bearer", "hmac_sha256", "github_hmac", "none"];
-const SIGNING_MODES_WITHOUT_REPLAY_WINDOW = new Set(["github_hmac", "none"]);
+const signingModes = ["app_webhook", "bearer", "hmac_sha256", "github_hmac", "none"];
+const SIGNING_MODES_WITHOUT_REPLAY_WINDOW = new Set(["app_webhook", "bearer", "github_hmac", "fireflies_hmac", "none"]);
+
+export function routineSigningModeLabel(mode: string) {
+  const keys: Record<string, string> = {
+    app_webhook: "sep28Routines.signingApp",
+    bearer: "sep28Routines.signingBearer",
+    hmac_sha256: "sep28Routines.signingHmac",
+    github_hmac: "sep28Routines.signingGithub",
+    fireflies_hmac: "sep28Routines.signingLegacy",
+    none: "sep28Routines.signingNone",
+  };
+  return keys[mode] ? t(keys[mode]) : mode;
+}
 
 function getLocalTimezone(): string {
   try {
@@ -66,9 +78,10 @@ export function RoutineTriggerCard({
   const KindIcon =
     trigger.kind === "schedule" ? Clock3 : trigger.kind === "webhook" ? Webhook : Zap;
   const humanCron = trigger.kind === "schedule" ? describeCron(draft.cronExpression) : null;
-  const lastResultOk =
-    trigger.lastResult != null &&
-    /succeed|success|ok|200|delivered/i.test(String(trigger.lastResult));
+  const lastResultFailed = /fail|error/i.test(trigger.lastResult ?? "");
+  const lastResultLabel = trigger.lastResult?.startsWith("Created execution issue ")
+    ? t("sep28Routines.taskCreated")
+    : trigger.lastResult;
 
   return (
     <form
@@ -90,8 +103,8 @@ export function RoutineTriggerCard({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {trigger.lastResult ? (
-            <Badge variant={lastResultOk ? "secondary" : "destructive"}>
-              {String(trigger.lastResult)}
+            <Badge variant={lastResultFailed ? "destructive" : "secondary"}>
+              {lastResultLabel}
             </Badge>
           ) : null}
           <span className="text-xs text-muted-foreground">
@@ -103,6 +116,16 @@ export function RoutineTriggerCard({
           </span>
         </div>
       </div>
+
+      {trigger.kind === "webhook" && trigger.webhookUrl && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`webhook-url-${trigger.id}`} className="text-xs">{t("localizationRoutines.webhookUrl")}</Label>
+          <Input id={`webhook-url-${trigger.id}`} value={trigger.webhookUrl} readOnly onFocus={(event) => event.target.select()} />
+          <p className="text-xs text-muted-foreground">
+            {t("sep28Routines.webhookPostHelp")}
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
@@ -141,7 +164,7 @@ export function RoutineTriggerCard({
                 <SelectContent>
                   {signingModes.map((mode) => (
                     <SelectItem key={mode} value={mode}>
-                      {mode}
+                      {routineSigningModeLabel(mode)}
                     </SelectItem>
                   ))}
                 </SelectContent>

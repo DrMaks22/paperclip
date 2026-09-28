@@ -6,6 +6,8 @@ import type { CompanyArtifact, CompanyArtifactGroup } from "@/api/artifacts";
 import { i18n } from "@/i18n";
 import { ArtifactCard } from "./ArtifactCard";
 import { ArtifactGroupCard } from "./ArtifactGroupCard";
+import { MediaArtifactCard } from "./MediaArtifactCard";
+import { IssueGalleryContext } from "@/context/IssueGalleryContext";
 
 vi.mock("@/lib/router", () => ({
   Link: ({ to, children, disableIssueQuicklook: _disableIssueQuicklook, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { to: string; disableIssueQuicklook?: boolean }) => <a href={to} {...props}>{children}</a>,
@@ -36,6 +38,27 @@ const artifact: CompanyArtifact = {
 };
 
 describe("Artifact localization", () => {
+  it.each([["video/mp4", "raw.mp4", "Video", "Видео"], ["image/png", "raw.png", "Image", "Изображение"]])("localizes %s controls without changing gallery identity", async (contentType, filename, english, russian) => {
+    mount();
+    const openGallery = vi.fn(() => true);
+    const title = "User title {{title}} /RAW_NAME";
+    const path = "/api/attachments/raw-id/content";
+    await act(async () => root?.render(<IssueGalleryContext.Provider value={openGallery}>
+      <MediaArtifactCard id="raw-id" title={title} contentPath={path} contentType={contentType} originalFilename={filename} />
+    </IssueGalleryContext.Provider>));
+    const button = container!.querySelector("button")!;
+    expect(button.getAttribute("aria-label")).toBe(`Open gallery: ${title}`);
+    expect(button.textContent).toContain(english);
+    await act(async () => { await i18n.changeLanguage("ru"); });
+    expect(button.getAttribute("aria-label")).toBe(`Открыть галерею: ${title}`);
+    expect(button.textContent).toContain(russian);
+    expect(button.textContent).toContain(title);
+    await act(async () => button.click());
+    expect(openGallery).toHaveBeenCalledWith(path);
+    await act(async () => { await i18n.changeLanguage("en"); });
+    expect(button.getAttribute("aria-label")).toBe(`Open gallery: ${title}`);
+  });
+
   it("switches card controls and dates without rewriting user text or file destinations", async () => {
     mount();
     const before = JSON.stringify(artifact);

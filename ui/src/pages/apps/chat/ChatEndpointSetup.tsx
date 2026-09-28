@@ -1,6 +1,18 @@
 import { Trans } from "react-i18next";
 import { t, useTranslation } from "@/i18n";
-import { chatUiErrorMessage, type ChatUiError } from "./chat-copy";
+import { slackAppValidationMessage, chatUiErrorMessage, type ChatUiError } from "./chat-copy";
+import { SLACK_BOT_TOOL_SCOPES } from "@paperclipai/shared";
+import { defaultSlackAppName, slackBotNameForAgent } from "./slack-app-name";
+import { GitHubChatSetup } from "./GitHubChatSetup";
+import { SlackSetupPrompt } from "./SlackSetupPrompt";
+import { GitHubAgentTrustWarning } from "@/components/GitHubAgentTrustWarning";
+import { SetupWizardFooter } from "@/components/SetupWizard";
+import { ChatSetupNavigation } from "@/components/chat/ChatSetupNavigation";
+import { SlackAvatarStep } from "./SlackAvatarStep";
+import { useSlackAvatarProgress } from "./slack-avatar-progress";
+import { agentAvatarUrl } from "@/lib/agent-avatar-url";
+import { resolveAgentAppearance } from "@paperclipai/shared";
+import { SlackIdentityStep } from "./SlackIdentityStep";
 import { PhotonConnectStep } from "./PhotonConnectStep";
 import { EmailEndpointSetup } from "./EmailEndpointSetup";
 import {
@@ -13,10 +25,12 @@ import {
   type SetStateAction,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ExternalLink, Eye, EyeOff, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, CircleHelp, ExternalLink, Eye, EyeOff, Loader2 } from "lucide-react";
 import { AgentSelect } from "@/components/AgentMultiSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -32,7 +46,8 @@ import {
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { queryKeys } from "@/lib/queryKeys";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { isAgentStatusInvokable } from "@paperclipai/shared";
+import { useCopyAction } from "@/lib/use-copy-action";
+import { isAgentStatusInvokable, slackAppConfigurationSchema, type SlackAppConfiguration } from "@paperclipai/shared";
 import { sanitizedSetupErrorMessage } from "./chat-setup-error";
 import {
   createGitHubPrivateKeyReadGuard,
@@ -54,16 +69,6 @@ const knownProviders = new Set(Object.keys(providerNames));
 
 function isProvider(value: string | null): value is ChatProvider {
   return value !== null && knownProviders.has(value);
-}
-
-function slackBotNameForAgent(agentName: string): string {
-  const safeName = agentName
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 24);
-  return safeName || "paperclip-agent";
 }
 
 function publicOrigin(value: string | null | undefined): string | null {
@@ -104,36 +109,67 @@ export function isChatEndpointRepairing(
   );
 }
 
-function SetupRail({ step }: { step: number }) {
+function ChatConnectionPurpose({ provider, onChat, onTools }: {
+  provider: ChatProvider;
+  onChat: () => void;
+  onTools: () => void;
+}) {
   useTranslation();
+  const { setBreadcrumbs } = useBreadcrumbs();
+  useEffect(() => {
+    setBreadcrumbs([{ label: t("localizationConnections.connectors16"), href: "/apps" }, { label: t("localizationConnections.chooseConnection52") }]);
+    return () => setBreadcrumbs([]);
+  }, [setBreadcrumbs, t]);
   return (
-    <ol className="space-y-2 text-sm" aria-label={t("chatUi.chatEndpointSetup.connectionSetupProgress")}>
-      {[t("chatUi.chatEndpointSetup.chooseAgent"), t("chatUi.chatEndpointSetup.connectProvider"), t("chatUi.chatEndpointSetup.tryIt")].map((label, index) => (
-        <li key={label} className="flex items-center gap-2">
-          <span
-            className={`flex h-6 w-6 items-center justify-center rounded-full border ${index < step ? "border-primary bg-primary text-primary-foreground" : index === step ? "border-foreground text-foreground" : "border-border text-muted-foreground"}`}
+      <div className="max-w-2xl space-y-6">
+        <ChatSetupNavigation labels={provider === "slack" ? [t("chatUi.chatEndpointSetup.chooseAgent"), t("sep28Apps.copy235"), t("sep28Apps.copy236"), t("sep28Apps.copy237"), t("sep28Apps.copy238"), t("sep28Apps.copy198"), t("chatUi.chatEndpointSetup.tryIt")] : undefined} step={0} availableStep={0} onSelect={onChat} />
+        <div>
+          <h1 className="text-xl font-bold">{t("chatUi.chatEndpointSetup.chooseHowToConnect")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("chatUi.chatEndpointSetup.whatShouldThisConnectionDo", { value0: providerNames[provider] })}
+          </p>
+        </div>
+        <div className="grid gap-3">
+          <button
+            type="button"
+            className="rounded-xl border border-border p-4 text-left hover:bg-accent/40"
+            onClick={onChat}
           >
-            {index < step ? <Check className="h-3.5 w-3.5" /> : index + 1}
-          </span>
-          <span
-            className={
-              index === step
-                ? "font-medium text-foreground"
-                : "text-muted-foreground"
-            }
+            <span className="block text-sm font-semibold">{t("stable916Shell.chatWithAgent")}</span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              {t("sep28Apps.chatPurpose", { provider: providerNames[provider] })}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="rounded-xl border border-border p-4 text-left hover:bg-accent/40"
+            onClick={onTools}
           >
-            {label}
-          </span>
-        </li>
-      ))}
-    </ol>
+            <span className="block text-sm font-semibold">{t("chatUi.chatEndpointSetup.useThisConnectionAsAnAgentTool")}</span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              {t("sep28Apps.toolsPurpose", { provider: providerNames[provider] })}
+            </span>
+          </button>
+        </div>
+      </div>
   );
 }
 
 export function ChatEndpointSetup() {
-  const [params] = useSearchParams();
+  useTranslation();
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  if (params.get("provider") === "github") {
+    if (params.get("purpose") === "chat" || params.get("resume")) return <GitHubChatSetup />;
+    return <ChatConnectionPurpose provider="github" onChat={() => {
+      const next = new URLSearchParams(params);
+      next.set("purpose", "chat");
+      setParams(next);
+    }} onTools={() => navigate(params.get("toolHref") || "/apps/connect?source=github")} />;
+  }
   return params.get("provider") === "agentmail" ? <EmailEndpointSetup /> : <ChatSdkEndpointSetup />;
 }
+
 function ChatSdkEndpointSetup() {
   const { i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
@@ -153,6 +189,9 @@ function ChatSdkEndpointSetup() {
     params.get("purpose") === "chat" ? "chat" : "choice",
   );
   const [agentId, setAgentId] = useState(preselectedAgent);
+  const [slackCredentialsReady, setSlackCredentialsReady] = useState(params.get("stage") === "credentials");
+  const [viewedStep, setViewedStep] = useState<number | null>(null);
+  const [slackIdentityReady, setSlackIdentityReady] = useState(false);
   const [endpoint, setEndpoint] = useState<ChatEndpoint | null>(null);
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [generatedWebhookSecret, setGeneratedWebhookSecret] = useState("");
@@ -242,6 +281,7 @@ function ChatSdkEndpointSetup() {
         assignedAgentId: agentId,
       }),
     onSuccess: (next) => {
+      setViewedStep(null);
       syncEndpointSnapshot(next);
       if (next.provider === "imessage-photon") {
         const resumed = new URLSearchParams(params);
@@ -257,22 +297,37 @@ function ChatSdkEndpointSetup() {
       }),
   });
   const setupAction = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       action,
       values,
     }: {
       action: ChatEndpointSetupAction;
       values?: Record<string, string>;
-    }) => chatEndpointsApi.setup(endpoint!.id, provider === "imessage-photon" ? {
+    }) => {
+      const endpointId = endpoint!.id;
+      try {
+        return await chatEndpointsApi.setup(endpointId, provider === "imessage-photon" ? {
       action,
       ...(values?.projectSecret ? { credentials: { projectSecret: values.projectSecret } } : {}),
       ...(values?.projectId && values.allocation === "shared" ? { photon: { allocation: "shared" as const, projectId: values.projectId } } : values?.projectId && values?.lineId ? { photon: { allocation: "dedicated" as const, projectId: values.projectId, lineId: values.lineId } } : {}),
-    } : { action, credentials: values }),
+        } : { action, credentials: values });
+      } catch (error) {
+        // Another open tab may have completed verification, or the successful
+        // response may have been lost. Read the canonical state before retrying.
+        if (action === "verify") {
+          const current = await chatEndpointsApi.get(endpointId).catch(() => null);
+          if (current?.setup?.step === "test" || current?.setup?.step === "complete") return current;
+        }
+        throw error;
+      }
+    },
     onMutate: () => setSetupError(null),
     onSuccess: (next) => {
       setSetupError(null);
+      setViewedStep(null);
       syncEndpointSnapshot(next);
       setCredentials({});
+      if (next.setup?.step !== "test" && next.setup?.step !== "complete") setSlackIdentityReady(false);
     },
     onError: (error, variables) =>
       setSetupError(error instanceof Error && error.message.trim()
@@ -344,7 +399,7 @@ function ChatSdkEndpointSetup() {
       }),
   });
   const testConnection = useMutation({
-    mutationFn: () => chatEndpointsApi.test(endpoint!.id),
+    mutationFn: () => provider === "slack" ? chatEndpointsApi.finishSlackSetup(endpoint!.id) : chatEndpointsApi.test(endpoint!.id),
     onSuccess: (next) => {
       syncEndpointSnapshot(next);
       if (next.status === "active") navigate(`/apps/chat/${next.id}/settings`);
@@ -360,6 +415,53 @@ function ChatSdkEndpointSetup() {
       }),
   });
 
+  const repairing = isChatEndpointRepairing(
+    endpoint,
+    resumeEndpointId,
+    reconnectRequested,
+  );
+  const isSlack = provider === "slack";
+  const avatarProgress = useSlackAvatarProgress(selectedCompanyId, endpoint?.id);
+  const tryStep = isSlack ? 6 : 2;
+  const availableStep = endpoint
+    ? !repairing &&
+      (endpoint.setup?.step === "test" || endpoint.setup?.step === "complete")
+      ? isSlack && endpoint.setup?.step !== "complete"
+        ? !avatarProgress.progress ? 4 : !slackIdentityReady ? 5 : tryStep
+        : tryStep
+      : isSlack && endpoint.providerAccountId && !repairing ? 3
+      : isSlack && (slackCredentialsReady || repairing) ? 2 : 1
+    : 0;
+  const step = Math.min(viewedStep ?? availableStep, availableStep);
+  const avatarAgent = useQuery({
+    queryKey: queryKeys.agents.detail(endpoint?.assignedAgentId ?? ""),
+    queryFn: () => agentsApi.get(endpoint!.assignedAgentId, endpoint!.companyId),
+    enabled: Boolean(isSlack && endpoint && step === 4),
+  });
+  const slackVerificationQuery = useQuery({
+    queryKey: ["chat-endpoint-slack-webhook-verification", endpoint?.id],
+    queryFn: () => chatEndpointsApi.get(endpoint!.id),
+    enabled: Boolean(isSlack && step === 3 && endpoint?.setup?.step === "provider_setup" &&
+      !endpoint.setup.webhookVerifiedAt && !setupAction.isPending),
+    refetchInterval: 1_500,
+  });
+  useEffect(() => {
+    const next = slackVerificationQuery.data;
+    if (!next || !endpoint || next.id !== endpoint.id || setupAction.isPending ||
+      endpoint.setup?.step !== "provider_setup" || endpoint.setup.webhookVerifiedAt ||
+      !next.setup?.webhookVerifiedAt) return;
+    setEndpoint(next);
+  }, [slackVerificationQuery.data, endpoint, setupAction.isPending]);
+  const autoVerificationAttempt = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isSlack || step !== 3 || endpoint?.setup?.step !== "provider_setup" ||
+      !endpoint.setup.webhookVerifiedAt || setupAction.isPending) return;
+    const attempt = `${endpoint.id}:${endpoint.setup.webhookVerifiedAt}`;
+    if (autoVerificationAttempt.current === attempt) return;
+    autoVerificationAttempt.current = attempt;
+    setupAction.mutate({ action: "verify" });
+  }, [isSlack, step, endpoint, setupAction]);
+
   if (!provider)
     return (
       <p className="text-sm text-destructive">{t("chatUi.chatEndpointSetup.thisChatProviderIsNotSupported")}</p>
@@ -370,75 +472,50 @@ function ChatSdkEndpointSetup() {
     );
 
   if (purpose === "choice") {
-    return (
-      <div className="max-w-2xl space-y-6">
-        <div>
-          <h1 className="text-xl font-bold">{t("chatUi.chatEndpointSetup.chooseHowToConnect")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.whatShouldThisConnectionDo", { value0: providerNames[provider] })}</p>
-        </div>
-        <div className="grid gap-3">
-          <button
-            type="button"
-            className="rounded-xl border border-border p-4 text-left hover:bg-accent/40"
-            onClick={() => setPurpose("chat")}
-          >
-            <span className="block text-sm font-semibold">{t("chatUi.chatEndpointSetup.chatWithAnAgent")}</span>
-            <span className="mt-1 block text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.peopleInCanStartAndContinuePaperclipTasks", { value0: providerNames[provider] })}</span>
-          </button>
-          <button
-            type="button"
-            className="rounded-xl border border-border p-4 text-left hover:bg-accent/40"
-            onClick={() => navigate(toolHref)}
-          >
-            <span className="block text-sm font-semibold">{t("chatUi.chatEndpointSetup.useThisConnectionAsAnAgentTool")}</span>
-            <span className="mt-1 block text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.letAgentsUseActionsAndDataWhileTheyWork", { value0: providerNames[provider] })}</span>
-          </button>
-        </div>
-      </div>
-    );
+    return <ChatConnectionPurpose provider={provider} onChat={() => setPurpose("chat")} onTools={() => navigate(toolHref)} />;
   }
 
-  const repairing = isChatEndpointRepairing(
-    endpoint,
-    resumeEndpointId,
-    reconnectRequested,
-  );
-  const step = endpoint
-    ? !repairing &&
-      (endpoint.setup?.step === "test" || endpoint.setup?.step === "complete")
-      ? 2
-      : 1
-    : 0;
-  const selectedAgent = activeAgents.find((agent) => agent.id === agentId);
+  const selectedAgent = agentsQuery.data?.find((agent) => agent.id === agentId);
   return (
-    <div className="grid max-w-4xl gap-8 md:grid-cols-(--gtc-11)">
-      <SetupRail step={step} />
-      <main className="min-w-0 space-y-6">
-        {!endpoint ? (
+    <div className="max-w-2xl space-y-6">
+      <ChatSetupNavigation
+        labels={isSlack ? [t("chatUi.chatEndpointSetup.chooseAgent"), t("sep28Apps.copy235"), t("sep28Apps.copy236"), t("sep28Apps.copy237"), t("sep28Apps.copy238"), t("sep28Apps.copy198"), t("chatUi.chatEndpointSetup.tryIt")] : undefined}
+        step={step}
+        availableStep={availableStep}
+        disabled={createEndpoint.isPending || setupAction.isPending || generateSetupSecret.isPending || testConnection.isPending}
+        onSelect={setViewedStep}
+      />
+      <div className="min-w-0 space-y-6">
+        {step === 0 ? (
           <>
             <div>
               <h1 className="text-xl font-bold">{t("chatUi.chatEndpointSetup.whichAgentDoYouWantToChatWith")}</h1>
               <p className="mt-1 text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.thisAgentIsPermanentForTheConnectionConnectAnotherChannel")}</p>
             </div>
-            <AgentSelect
+            {isSlack && <SlackSetupPrompt />}
+            {endpoint ? (
+              <Input aria-label={t("sep28Apps.copy120")} value={endpoint.assignedAgentName ?? selectedAgent?.name ?? agentId} readOnly />
+            ) : <AgentSelect
               agents={activeAgents}
               value={agentId}
               onChange={setAgentId}
               placeholder={t("chatUi.chatEndpointSetup.chooseAnActiveAgent")}
               emptyMessage={t("chatUi.chatEndpointSetup.noActiveAgentsAreAvailable")}
-            />
-            <div className="flex justify-end">
+            />}
+            {provider === "github" && <GitHubAgentTrustWarning agent={selectedAgent} />}
+            <SetupWizardFooter onSaveExit={() => navigate("/apps")}>
               <Button
                 disabled={!agentId || createEndpoint.isPending}
-                onClick={() => createEndpoint.mutate()}
+                onClick={() => endpoint ? setViewedStep(1) : createEndpoint.mutate()}
               >
                 {createEndpoint.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                )}{t("localizationOperations.ui_Continue")}</Button>
-            </div>
+                )} {t("pages.inviteLanding.actions.continue")}</Button>
+            </SetupWizardFooter>
           </>
-        ) : step === 1 ? (
-          <>
+        ) : null}
+        {endpoint && (
+          <div hidden={step !== 1 && !(isSlack && (step === 2 || step === 3))} className="space-y-6">
             {setupError ? (
               <div
                 role="alert"
@@ -451,8 +528,21 @@ function ChatSdkEndpointSetup() {
             <ProviderConnectStep
               key={`${provider}:${endpoint.id}`}
               provider={provider}
+              slackStage={step === 1 ? "app" : step === 3 ? "finish" : "credentials"}
+              onSlackCredentialsContinue={() => setViewedStep(3)}
+              onSlackVerificationContinue={() => setViewedStep(4)}
+              slackVerificationError={slackVerificationQuery.isError}
+              onSlackAppCreated={() => {
+                setSlackCredentialsReady(true);
+                setViewedStep(2);
+                const resumed = new URLSearchParams(params);
+                resumed.set("resume", endpoint.id);
+                resumed.set("stage", "credentials");
+                setParams(resumed, { replace: true });
+              }}
               agentName={selectedAgent?.name ?? endpoint.assignedAgentName}
               endpoint={endpoint}
+              onEndpointSaved={syncEndpointSnapshot}
               credentials={credentials}
               setCredentials={setCredentials}
               repairing={repairing}
@@ -464,8 +554,37 @@ function ChatSdkEndpointSetup() {
                 setupAction.mutate({ action, values })
               }
             />
-          </>
-        ) : (
+          </div>
+        )}
+        {endpoint && isSlack && step === 4 && (
+          <div className="space-y-4">
+            {avatarAgent.isPending ? <p role="status" className="text-sm text-muted-foreground">{t("sep28Apps.copy239")}</p>
+              : avatarAgent.isError ? <p role="alert" className="text-sm text-destructive">{t("sep28Apps.copy240")} <button className="underline" onClick={() => void avatarAgent.refetch()}>{t("localizationProjectRepositories.retry")}</button></p>
+              : <SlackAvatarStep
+                  agentName={avatarAgent.data?.name ?? endpoint.assignedAgentName}
+                  appName={endpoint.setup?.slackApp?.appName ?? defaultSlackAppName(avatarAgent.data?.name ?? endpoint.assignedAgentName)}
+                  avatarUrl={agentAvatarUrl(resolveAgentAppearance(avatarAgent.data?.appearance, endpoint.assignedAgentId), 512, 1, "rest")}
+                  uploaded={avatarProgress.progress === "uploaded"}
+                  onUploaded={() => { avatarProgress.save("uploaded"); setViewedStep(5); }}
+                  onSkip={() => { if (!avatarProgress.progress) avatarProgress.save("skipped"); setViewedStep(5); }}
+                  onSaveExit={() => navigate("/apps")}
+                />}
+            {(avatarAgent.isPending || avatarAgent.isError) && <SetupWizardFooter onSaveExit={() => navigate("/apps")}><Button onClick={() => { avatarProgress.save("skipped"); setViewedStep(5); }}>{t("sep28Apps.copy193")}</Button></SetupWizardFooter>}
+          </div>
+        )}
+        {endpoint && isSlack && step === 5 && (
+          <SlackIdentityStep
+            endpointId={endpoint.id}
+            command={endpoint.setup?.slackApp?.command ?? endpoint.setup?.command ?? "/paperclip"}
+            testStartedAt={endpoint.setup?.testStartedAt}
+            onSaveExit={() => navigate("/apps")}
+            onConnected={() => {
+              setSlackIdentityReady(true);
+              setViewedStep(6);
+            }}
+          />
+        )}
+        {endpoint && step === tryStep && (
           <TryStep
             endpointId={endpoint.id}
             provider={provider}
@@ -487,36 +606,49 @@ function ChatSdkEndpointSetup() {
             pending={testConnection.isPending}
             onOpenAccess={() => navigate(`/apps/chat/${endpoint.id}/access`)}
             onTest={() => testConnection.mutate()}
+            onSaveExit={() => navigate("/apps")}
           />
         )}
-        <div className="flex justify-start">
-          <Button variant="ghost" onClick={() => navigate("/apps")}>{t("chatUi.chatEndpointSetup.saveExit")}</Button>
-        </div>
-      </main>
+        {step !== 0 && !(isSlack && (step === 1 || step === 2 || step === 3 || step === 4 || step === 5 || step === 6)) && <div className="flex justify-start">
+          <Button className="text-muted-foreground" variant="ghost" onClick={() => navigate("/apps")}>{t("chatUi.chatEndpointSetup.saveExit")}</Button>
+        </div>}
+      </div>
     </div>
   );
 }
 
 function ProviderConnectStep({
   provider,
+  slackStage,
+  onSlackCredentialsContinue,
+  onSlackVerificationContinue,
+  slackVerificationError,
+  onSlackAppCreated,
   agentName,
   endpoint,
   credentials,
   setCredentials,
   repairing,
   pending,
+  onEndpointSaved,
   generatedWebhookSecret,
   generatingSetupSecret,
   onGenerateSetupSecret,
   onAction,
 }: {
   provider: ChatProvider;
+  slackStage: "app" | "credentials" | "finish";
+  onSlackCredentialsContinue: () => void;
+  onSlackVerificationContinue: () => void;
+  slackVerificationError: boolean;
+  onSlackAppCreated: () => void;
   agentName: string;
   endpoint: ChatEndpoint;
   credentials: Record<string, string>;
   setCredentials: Dispatch<SetStateAction<Record<string, string>>>;
   repairing: boolean;
   pending: boolean;
+  onEndpointSaved: (endpoint: ChatEndpoint) => void;
   generatedWebhookSecret: string;
   generatingSetupSecret: boolean;
   onGenerateSetupSecret: () => void;
@@ -527,6 +659,15 @@ function ProviderConnectStep({
 }) {
   useTranslation();
   const { pushToast } = useToast();
+  const navigate = useNavigate();
+  const slackBotToken = (credentials.botToken ?? "").trim();
+  const slackBotTokenInvalid = provider === "slack" && slackBotToken.length > 0 &&
+    !slackBotToken.startsWith("xoxb-");
+  const slackSigningSecretHasTokenPrefix = provider === "slack" &&
+    /^x[a-z0-9]*-/i.test((credentials.signingSecret ?? "").trim());
+  const slackCredentialsSaved = provider === "slack" && Boolean(endpoint.providerAccountId);
+  const continueWithSavedSlackCredentials = slackCredentialsSaved && !repairing &&
+    !slackBotToken && !credentials.signingSecret?.trim();
   const reportCopyFailure = () =>
     pushToast({
       title: t("chatUi.chatEndpointSetup.couldnTCopyToClipboard"),
@@ -563,6 +704,22 @@ function ProviderConnectStep({
     </div>
   );
   const [manifestCopied, setManifestCopied] = useState(false);
+  // A hook rather than a sticky boolean: this step stays mounted when the
+  // secret is regenerated, so a latched "copied" would keep vouching for a
+  // value the reader never copied. The status resets itself, and a refused
+  // clipboard reads as a failure instead of a success.
+  const webhookSecretCopy = useCopyAction();
+  const [openingSlackApp, setOpeningSlackApp] = useState(false);
+  const slackAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    setOpeningSlackApp(false);
+    return () => {
+      if (slackAdvanceTimer.current !== null) {
+        clearTimeout(slackAdvanceTimer.current);
+        slackAdvanceTimer.current = null;
+      }
+    };
+  }, [slackStage]);
   const [privateKeyVisible, setPrivateKeyVisible] = useState(false);
   const [privateKeyFileError, setPrivateKeyFileError] = useState<ChatUiError | null>(
     null,
@@ -611,7 +768,7 @@ function ProviderConnectStep({
     setPrivateKeyFileLoading(false);
     setCredentials((current) => ({ ...current, privateKey }));
   };
-  const slackCommand =
+  const defaultSlackCommand =
     endpoint.setup?.command ??
     `/${
       agentName
@@ -620,8 +777,30 @@ function ProviderConnectStep({
         .replace(/^-+|-+$/g, "")
         .slice(0, 24) || "paperclip"
     }`;
-  const slackBotName = slackBotNameForAgent(agentName);
-  const slackAppName = `${slackBotName.slice(0, 25)}-paperclip`;
+  const defaultSlackBotName = slackBotNameForAgent(agentName);
+  const [slackApp, setSlackApp] = useState<SlackAppConfiguration>(() =>
+    endpoint.setup?.slackApp ?? {
+      appName: defaultSlackAppName(agentName),
+      botName: defaultSlackBotName,
+      command: defaultSlackCommand,
+    },
+  );
+  const slackDetailsEditable = endpoint.status === "draft" && !endpoint.botExternalId;
+  const slackValidation = slackAppConfigurationSchema.safeParse(slackApp);
+  const saveSlackApp = useMutation({
+    scope: { id: `slack-app-details:${endpoint.id}` },
+    mutationFn: (details: SlackAppConfiguration) =>
+      chatEndpointsApi.update(endpoint.id, { slackApp: details }),
+    onSuccess: onEndpointSaved,
+  });
+  const persistSlackApp = () => {
+    if (!slackDetailsEditable || !slackValidation.success) return;
+    if (JSON.stringify(slackValidation.data) === JSON.stringify(endpoint.setup?.slackApp)) return;
+    saveSlackApp.mutate(slackValidation.data);
+  };
+  const slackAppName = slackApp.appName.trim();
+  const slackBotName = slackApp.botName.trim();
+  const slackCommand = slackApp.command.trim();
   const slackWebhookUrl =
     endpoint.setup?.webhookUrl ?? "<paperclip-webhook-url>";
   const slackManifest = `display_information:
@@ -637,7 +816,7 @@ features:
     display_name: ${JSON.stringify(slackBotName)}
   slash_commands:
     - command: ${JSON.stringify(slackCommand)}
-      description: Start or manage work with ${JSON.stringify(agentName)}
+      description: ${JSON.stringify(`Start or manage work with ${agentName}`)}
       usage_hint: ${JSON.stringify("status | new | close | <task>")}
       should_escape: false
       url: ${JSON.stringify(slackWebhookUrl)}
@@ -661,6 +840,7 @@ oauth_config:
       - reactions:read
       - reactions:write
       - users:read
+${SLACK_BOT_TOOL_SCOPES.map(scope => `      - ${scope}`).join("\n")}
 settings:
   org_deploy_enabled: false
   socket_mode_enabled: false
@@ -692,6 +872,9 @@ settings:
   interactivity:
     is_enabled: true
     request_url: ${JSON.stringify(slackWebhookUrl)}`;
+  // Slack's documented creation link accepts a URL-encoded YAML manifest.
+  const slackCreateUrl = `https://api.slack.com/apps?new_app=1&manifest_yaml=${encodeURIComponent(slackManifest)}`;
+  useEffect(() => setManifestCopied(false), [slackManifest]);
   const teamsClientId =
     credentials.clientId?.trim() || "<application-client-id>";
   const teamsManifestSettings = JSON.stringify(
@@ -730,8 +913,8 @@ settings:
       authorization: {
         permissions: {
           resourceSpecific: [
-            { name: "ChannelMessage.Read.Group", type: "Application" },
-            { name: "ChatMessage.Read.Chat", type: "Application" },
+            { name: "ChannelMessage.Read.Group", type: t("localizationTools.application15") },
+            { name: "ChatMessage.Read.Chat", type: t("localizationTools.application15") },
           ],
         },
       },
@@ -1074,11 +1257,25 @@ settings:
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    void copyTextToClipboard(generatedWebhookSecret).catch(
-                      reportCopyFailure,
-                    );
+                    // Both signals, and each covers the other's blind spot.
+                    // The toast is the loud one, the way this step's other two
+                    // copy buttons report failure — but the provider dedupes an
+                    // identical toast inside 3.5s, so a reader who clicks twice
+                    // on a blocked clipboard would see nothing the second time.
+                    // The inline state answers every click.
+                    void webhookSecretCopy
+                      .copy(generatedWebhookSecret)
+                      .then((status) => {
+                        if (status === "failed") reportCopyFailure();
+                      });
                   }}
-                >{t("chatUi.chatEndpointSetup.copyWebhookSecret")}</Button>
+                >
+                  {webhookSecretCopy.copied
+                    ? t("sep28Apps.copy131")
+                    : webhookSecretCopy.failed
+                      ? t("sep28Apps.copy132")
+                      : t("chatUi.chatEndpointSetup.copyWebhookSecret")}
+                </Button>
               </div>
               <p className="text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.copyThisValueNowPaperclipWillNotShowItAgain")}</p>
             </>
@@ -1143,103 +1340,236 @@ settings:
         </Button>
       </div>
     );
-  if (endpoint.providerAccountId && !repairing)
+  if (slackStage === "finish")
     return (
       <div className="space-y-5">
         <div>
-          <h1 className="text-xl font-bold">{t("chatUi.chatEndpointSetup.finishSlackSetup")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.pointTheSlackAppAtPaperclipNowThatItsSigning")}</p>
-        </div>
-        {endpointValue(t("chatUi.chatEndpointSetup.paperclipWebhookURL"), endpoint.setup?.webhookUrl)}
-        {endpointValue(t("chatUi.chatEndpointDetail.slackCommand"), slackCommand)}
-        <div className="rounded-lg border border-border p-3 text-sm">
-          <p className="font-medium">{t("chatUi.chatEndpointSetup.useTheRegisteredCommand")}</p>
-          <p className="mt-1 text-muted-foreground"><Trans i18nKey="chatUi.chatEndpointDetail.startWorkWithInADirectMessageUseOrSlack" components={{ code0: <code>{slackCommand} investigate this</code>, code1: <code>{slackCommand} status</code>, code2: <code>{slackCommand} new</code>, code3: <code>{slackCommand} close</code>, code4: <code>/status</code> }} /></p>
+          <h1 className="text-xl font-bold">{t("sep28Apps.copy237")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("sep28Apps.copy241")}</p>
         </div>
         <ol className="list-decimal space-y-2 pl-5 text-sm">
-          <li><Trans i18nKey="chatUi.chatEndpointSetup.returnToAppManifestInSlackAndClickSaveChanges" components={{ strong0: <strong />, strong1: <strong /> }} /></li>
+          <li><Trans i18nKey="sep28Apps.openSlackSettings" values={{ app: slackApp.appName }} components={{ settings: <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4" />, app: <strong /> }} /></li>
+          <li><Trans i18nKey="sep28Apps.slackChooseSection" values={{ section: "Event Subscriptions" }} components={{ section: <strong /> }} /></li>
+          <li><Trans i18nKey="sep28Apps.slackVerifyInstructions" components={{ url: <strong />, retry: <strong /> }} /></li>
         </ol>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => openProviderSetup("https://api.slack.com/apps")}
-          ><Trans i18nKey="chatUi.chatEndpointSetup.openSlackAppSettings" components={{ externallink0: <ExternalLink  /> }} /></Button>
-          <Button disabled={pending} onClick={() => onAction("verify")}>
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />}{t("chatUi.chatEndpointSetup.startSlackMessageTest")}</Button>
+        {endpoint.setup?.webhookVerifiedAt ? (
+          <p role="status" className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="size-4 text-(--status-task-done)" />{t("sep28Apps.copy242")}{pending ? t("sep28Apps.openingMessageTest") : ""}
+          </p>
+        ) : slackVerificationError ? (
+          <p role="alert" className="text-sm text-destructive">{t("sep28Apps.copy244")}</p>
+        ) : (
+          <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />{t("sep28Apps.copy245")}</p>
+        )}
+        <details className="text-sm">
+          <summary className="cursor-pointer text-muted-foreground">{t("sep28Apps.copy246")}</summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-muted-foreground">{t("sep28Apps.copy247")}</p>
+            {endpointValue(t("chatUi.chatEndpointSetup.paperclipWebhookURL"), endpoint.setup?.webhookUrl)}
+          </div>
+        </details>
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="ghost" className="text-muted-foreground" onClick={() => navigate("/apps")}>{t("chatUi.chatEndpointSetup.saveExit")}</Button>
+          <Button disabled={pending || !endpoint.setup?.webhookVerifiedAt} onClick={() =>
+            endpoint.setup?.step === "provider_setup" ? onAction("verify") : onSlackVerificationContinue()
+          }>
+            {pending && <Loader2 className="size-4 animate-spin" />}{t("pages.inviteLanding.actions.continue")}</Button>
         </div>
       </div>
     );
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">{t("chatUi.chatEndpointSetup.connectASlackApp")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {repairing
-            ? t("chatUi.chatEndpointSetup.reconnectVerifiesOrReplacesCredentialsForThisSameSlackApp")
-            : t("chatUi.chatEndpointSetup.bringYourOwnSlackAppTheManifestRequestsTheScopes")}
-        </p>
-      </div>
-      <ol className="list-decimal space-y-2 pl-5 text-sm">
-        <li><Trans i18nKey="chatUi.chatEndpointSetup.copyTheManifestThenCreateASlackAppFromAn" components={{ strong0: <strong /> }} /></li>
-        <li><Trans i18nKey="chatUi.chatEndpointSetup.openOAuthPermissionsInstallTheAppToTheWorkspaceAnd" components={{ strong0: <strong /> }} /></li>
-        <li><Trans i18nKey="chatUi.chatEndpointSetup.openBasicInformationAndCopyItsSigningSecret" components={{ strong0: <strong /> }} /></li>
-      </ol>
-      <div className="space-y-2 rounded-lg border border-border p-3 text-sm">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-muted-foreground">{t("chatUi.chatEndpointSetup.slackAppName")}</span>
-          <code>{slackAppName}</code>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-muted-foreground">{t("chatUi.chatEndpointSetup.botDisplayName")}</span>
-          <code>{slackBotName}</code>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-muted-foreground">{t("chatUi.chatEndpointDetail.slashCommand")}</span>
-          <code>{slackCommand}</code>
-        </div>
-      </div>
-      <label className="grid gap-2 text-sm font-medium">{t("chatUi.chatEndpointSetup.slackAppManifest")}<Textarea
-          className="min-h-56 font-mono text-xs"
-          readOnly
-          value={slackManifest}
-        />
-      </label>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            void copyTextToClipboard(slackManifest).then(
-              () => setManifestCopied(true),
-              reportCopyFailure,
-            );
-          }}
-        >
-          {manifestCopied ? t("chatUi.chatEndpointSetup.manifestCopied") : t("chatUi.chatEndpointSetup.copyManifest")}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => openProviderSetup("https://api.slack.com/apps")}
-        ><Trans i18nKey="chatUi.chatEndpointSetup.openSlackAppSettings" components={{ externallink0: <ExternalLink  /> }} /></Button>
-      </div>
-      {field("botToken", t("chatUi.chatEndpointSetup.botUserOAuthToken"))}
-      {field("signingSecret", t("chatUi.chatEndpointSetup.signingSecret"))}
       {!endpoint.setup?.webhookUrl && (
-        <p className="text-sm text-destructive">{t("chatUi.chatEndpointSetup.configureAPublicHTTPSURLForThisPaperclipInstanceBefore1436")}</p>
+        <div role="alert" className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+          <AlertTriangle className="size-5 shrink-0 text-destructive" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">{t("sep28Apps.copy248")}</p>
+            <p className="text-sm">{t("sep28Apps.copy249")}</p>
+            <a
+              href="https://docs.paperclip.ing/reference/deploy/https/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm underline underline-offset-4"
+            >{t("sep28Apps.copy123")}</a>
+          </div>
+        </div>
       )}
-      <Button
-        disabled={
-          (!repairing &&
-            (!credentials.botToken || !credentials.signingSecret)) ||
-          !endpoint.setup?.webhookUrl ||
-          pending
-        }
-        onClick={() =>
-          onAction(repairing ? "reconnect" : "configure", credentials)
-        }
-      >
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-        {repairing ? t("chatUi.chatEndpointSetup.reconnectSlackApp") : t("chatUi.chatEndpointSetup.connectSlackApp")}
-      </Button>
+      <div>
+        <h1 className="text-xl font-bold">{slackStage === "app" ? t("sep28Apps.copy250") : t("sep28Apps.copy251")}</h1>
+        {repairing && (
+          <p className="mt-1 text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.reconnectVerifiesOrReplacesCredentialsForThisSameSlackApp")}</p>
+        )}
+      </div>
+      <div hidden={slackStage !== "app"} className="space-y-5">
+        <div className="space-y-3 text-sm">
+          {([
+            ["appName", t("chatUi.chatEndpointSetup.slackAppName"), 35, t("sep28Apps.copy252")],
+            ["botName", t("chatUi.chatEndpointSetup.botDisplayName"), 80, t("sep28Apps.copy253")],
+            ["command", t("chatUi.chatEndpointDetail.slashCommand"), 32, t("sep28Apps.copy254")],
+          ] as const).map(([key, label, maxLength, help]) => (
+            <div key={key} className="grid items-center gap-2 sm:grid-cols-2">
+              <div className="flex items-center gap-1.5">
+                <label htmlFor={`slack-${key}`}>{label}</label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("sep28Apps.helpWith", { label })}
+                      className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <CircleHelp className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">{help}</TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id={`slack-${key}`}
+                className="bg-background text-foreground dark:bg-background"
+                value={slackApp[key]}
+                maxLength={maxLength}
+                readOnly={!slackDetailsEditable}
+                aria-invalid={!slackValidation.success && slackValidation.error.issues.some((issue) => issue.path[0] === key)}
+                onChange={(event) => setSlackApp({ ...slackApp, [key]: event.target.value })}
+                onBlur={persistSlackApp}
+              />
+            </div>
+          ))}
+          {!slackValidation.success && (
+            <p role="alert" className="text-sm text-destructive">{slackAppValidationMessage(slackValidation.error.issues[0])}</p>
+          )}
+          {saveSlackApp.isError && (
+            <div role="alert" className="space-y-2 text-sm text-destructive">
+              <p>{t("sep28Apps.copy255")}</p>
+              <Button variant="outline" size="sm" onClick={persistSlackApp}>{t("sep28Apps.copy256")}</Button>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="link" className="h-auto p-0 text-xs text-muted-foreground underline underline-offset-4">{t("sep28Apps.copy257")}</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>{t("chatUi.chatEndpointSetup.slackAppManifest")}</DialogTitle>
+                  <DialogDescription>{t("sep28Apps.copy258")}</DialogDescription>
+                </DialogHeader>
+                <Textarea
+                  aria-label={t("chatUi.chatEndpointSetup.slackAppManifest")}
+                  className="h-80 font-mono text-xs"
+                  readOnly
+                  value={slackManifest}
+                />
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    disabled={!slackValidation.success}
+                    onClick={() => {
+                      void copyTextToClipboard(slackManifest).then(
+                        () => setManifestCopied(true),
+                        reportCopyFailure,
+                      );
+                    }}
+                  >
+                    {manifestCopied ? t("chatUi.chatEndpointSetup.manifestCopied") : t("chatUi.chatEndpointSetup.copyManifest")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
+          <Button variant="ghost" className="text-muted-foreground" onClick={() => navigate("/apps")}>{t("chatUi.chatEndpointSetup.saveExit")}</Button>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" disabled={openingSlackApp || !endpoint.setup?.webhookUrl || !slackValidation.success || saveSlackApp.isPending || saveSlackApp.isError} onClick={onSlackAppCreated}>{t("sep28Apps.copy259")}</Button>
+            {!repairing && (
+              <Button
+                disabled={openingSlackApp || !endpoint.setup?.webhookUrl || !slackValidation.success || saveSlackApp.isPending || saveSlackApp.isError}
+                onClick={() => {
+                  window.open(slackCreateUrl, "_blank", "noopener,noreferrer");
+                  setOpeningSlackApp(true);
+                  // Let Slack open before changing the step behind its new tab.
+                  slackAdvanceTimer.current = setTimeout(() => {
+                    slackAdvanceTimer.current = null;
+                    setOpeningSlackApp(false);
+                    onSlackAppCreated();
+                  }, 1000);
+                }}
+              >{t("sep28Apps.copy235")}<ExternalLink />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+      <div hidden={slackStage !== "credentials"} className="space-y-5">
+        <p className="text-sm">{t("sep28Apps.copy260")}</p>
+        {slackCredentialsSaved && !repairing && (
+          <p className="text-sm text-muted-foreground">{t("sep28Apps.copy261")}</p>
+        )}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold"><label htmlFor="slack-bot-token">{t("chatUi.chatEndpointSetup.botUserOAuthToken")}</label></h2>
+          <ul id="slack-bot-token-help" className="list-disc space-y-1 pl-5 text-sm">
+            <li><Trans i18nKey="sep28Apps.openSlackSettings" values={{ app: slackApp.appName }} components={{ settings: <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4" />, app: <strong /> }} /></li>
+            <li><Trans i18nKey="sep28Apps.slackChooseSection" values={{ section: "OAuth & Permissions" }} components={{ section: <strong /> }} /></li>
+            <li><Trans i18nKey="sep28Apps.slackCopyField" values={{ field: "Bot OAuth Token" }} components={{ field: <strong /> }} /></li>
+          </ul>
+          <Input
+            id="slack-bot-token"
+            type="password"
+            placeholder={slackCredentialsSaved ? t("sep28Apps.copy262") : undefined}
+            value={credentials.botToken ?? ""}
+            aria-invalid={slackBotTokenInvalid || undefined}
+            aria-describedby={`slack-bot-token-help${slackBotTokenInvalid ? " slack-bot-token-warning" : ""}`}
+            onChange={(event) => setCredentials({ ...credentials, botToken: event.target.value })}
+          />
+          {slackBotTokenInvalid && (
+            <p id="slack-bot-token-warning" role="alert" className="text-sm text-destructive">
+              <Trans i18nKey="sep28Apps.slackTokenWarning" components={{ prefix: <code />, section: <strong /> }} />
+            </p>
+          )}
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold"><label htmlFor="slack-signing-secret">{t("chatUi.chatEndpointSetup.signingSecret")}</label></h2>
+          <ul id="slack-signing-secret-help" className="list-disc space-y-1 pl-5 text-sm">
+            <li><Trans i18nKey="sep28Apps.openSlackSettings" values={{ app: slackApp.appName }} components={{ settings: <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4" />, app: <strong /> }} /></li>
+            <li><Trans i18nKey="sep28Apps.slackChooseSection" values={{ section: "Basic Information" }} components={{ section: <strong /> }} /></li>
+            <li><Trans i18nKey="sep28Apps.slackCopyField" values={{ field: t("chatUi.chatEndpointSetup.signingSecret") }} components={{ field: <strong /> }} /></li>
+          </ul>
+          <Input
+            id="slack-signing-secret"
+            type="password"
+            placeholder={slackCredentialsSaved ? t("sep28Apps.copy262") : undefined}
+            value={credentials.signingSecret ?? ""}
+            aria-invalid={slackSigningSecretHasTokenPrefix || undefined}
+            aria-describedby={`slack-signing-secret-help${slackSigningSecretHasTokenPrefix ? " slack-signing-secret-warning" : ""}`}
+            onChange={(event) => setCredentials({ ...credentials, signingSecret: event.target.value })}
+          />
+          {slackSigningSecretHasTokenPrefix && (
+            <p id="slack-signing-secret-warning" role="alert" className="text-sm text-destructive">
+              <Trans i18nKey="sep28Apps.slackSecretWarning" components={{ secret: <strong /> }} />
+            </p>
+          )}
+        </section>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button variant="ghost" className="text-muted-foreground" onClick={() => navigate("/apps")}>{t("chatUi.chatEndpointSetup.saveExit")}</Button>
+          <Button
+            className="ml-auto"
+            disabled={
+              (!repairing && !slackCredentialsSaved && (!slackBotToken || !credentials.signingSecret?.trim())) ||
+              !endpoint.setup?.webhookUrl || !slackValidation.success ||
+              saveSlackApp.isPending || saveSlackApp.isError || pending || slackSigningSecretHasTokenPrefix || slackBotTokenInvalid
+            }
+            onClick={() => continueWithSavedSlackCredentials
+              ? onSlackCredentialsContinue()
+              : onAction(repairing || slackCredentialsSaved ? "reconnect" : "configure", credentials)}
+          >
+            {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {continueWithSavedSlackCredentials ? t("pages.inviteLanding.actions.continue") : repairing || slackCredentialsSaved ? t("chatUi.chatEndpointSetup.reconnectSlackApp") : t("chatUi.chatEndpointSetup.connectSlackApp")}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1256,6 +1586,7 @@ function TryStep({
   pending,
   onOpenAccess,
   onTest,
+  onSaveExit,
 }: {
   endpointId: string;
   provider: ChatProvider;
@@ -1268,8 +1599,16 @@ function TryStep({
   pending: boolean;
   onOpenAccess: () => void;
   onTest: () => void;
+  onSaveExit: () => void;
 }) {
   useTranslation();
+  const messageStatus = useQuery({
+    queryKey: ["chat-endpoint-setup-test-status", endpointId],
+    queryFn: () => chatEndpointsApi.setupTestStatus(endpointId),
+    enabled: provider === "slack", refetchInterval: 1_500,
+  });
+  const [commandCopied, setCommandCopied] = useState(false);
+  const [commandCopyError, setCommandCopyError] = useState(false);
   const principalsQuery = useQuery({
     queryKey: queryKeys.chatEndpoints.principals(endpointId),
     queryFn: () => chatEndpointsApi.listPrincipals(endpointId),
@@ -1282,7 +1621,7 @@ function TryStep({
     (identity) => identity.status !== "linked",
   );
   const freshConversationInstruction = t(`chatUi.freshConversation.${provider}`);
-  const identityGuidance = provider === "imessage-photon" && principalsQuery.isSuccess && (identities.length === 0 || unlinkedIdentities.length > 0)
+  const identityGuidance = provider === "slack" ? null : provider === "imessage-photon" && principalsQuery.isSuccess && (identities.length === 0 || unlinkedIdentities.length > 0)
     ? { tone: "info" as const, title: t("communityPhoton.linkIdentity"), body: t("communityPhoton.identityGuidance") }
     : principalsQuery.isError
     ? {
@@ -1332,6 +1671,7 @@ function TryStep({
     ? `@${normalizedBotUsername}`
     : (botLabel ?? agentName);
   const photonDedicatedDestination = botUsername ?? botLabel;
+  const slackTestMessage = `${botMention.startsWith("@") ? botMention : `@${botMention}`} you there?`;
   const instructions =
     provider === "imessage-photon" ? [
       photonAllocation === "shared" ? t("communityPhoton.tryShared")
@@ -1365,15 +1705,17 @@ function TryStep({
                 t("chatUi.chatEndpointSetup.replyOnceBeneathThePost"),
               ]
             : [
-                t("chatUi.chatEndpointSetup.openAChannelAndInviteTheBotIfNeeded"),
+                t("sep28Apps.inviteChannel", { bot: botMention }),
                 t("chatUi.mentionChannelMessage", { mention: botMention }),
                 t("chatUi.replyThread", { agent: agentName }),
               ];
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold">{t("chatUi.chatEndpointSetup.tryIn", { agentName: agentName, value0: providerNames[provider] })}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.completeThisRealConversationToFinishSetup")}</p>
+        <h1 className="text-xl font-bold">
+          {t("chatUi.chatEndpointSetup.tryIn", { agentName, value0: providerNames[provider] })}
+        </h1>
+        {provider !== "slack" && <p className="mt-1 text-sm text-muted-foreground">{t("chatUi.chatEndpointSetup.completeThisRealConversationToFinishSetup")}</p>}
       </div>
       {(!principalsQuery.isSuccess || guestIsolationState === "loading") &&
       !principalsQuery.isError ? (
@@ -1410,10 +1752,35 @@ function TryStep({
           {copyError && <p role="alert" className="text-sm text-destructive">{chatUiErrorMessage(copyError)}</p>}
         </div>
       )}
+      {provider === "slack" ? (
+        <>
+          <ol className="list-decimal space-y-4 pl-5 text-sm">
+            <li>{t("sep28Apps.inviteChannel", { bot: botMention })}</li>
+            <li>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+                <code>{slackTestMessage}</code>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  void copyTextToClipboard(slackTestMessage).then(() => { setCommandCopied(true); setCommandCopyError(false); }, () => setCommandCopyError(true));
+                }}><Copy className="size-4" />{commandCopied ? t("pages.agentDetail.copied") : t("localizationTaskRuntime.ui_Copy_message_1b3i557")}</Button>
+              </div>
+              <p className="mt-2 text-muted-foreground">{t("sep28Apps.copy263")}</p>
+            </li>
+            <li>{t("sep28Apps.copy264")}</li>
+          </ol>
+          {commandCopyError && <p role="alert" className="text-sm text-destructive">{t("sep28Apps.copy265")}</p>}
+          {messageStatus.data?.messageReceivedAt ? <p role="status" className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-4 text-(--status-task-done)" />{t("sep28Apps.copy266")}</p>
+            : <p role={messageStatus.isError ? "alert" : "status"} className="text-sm text-muted-foreground">{messageStatus.isError ? t("sep28Apps.copy267") : t("sep28Apps.copy268")}</p>}
+          <div className="flex items-center justify-between gap-3">
+            <Button variant="ghost" className="text-muted-foreground" onClick={onSaveExit}>{t("chatUi.chatEndpointSetup.saveExit")}</Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="ghost" disabled={pending} onClick={onTest}>{t("sep28Apps.copy269")}</Button>
+              <Button disabled={pending} onClick={onTest}>{pending && <Loader2 className="size-4 animate-spin" />}{t("chatUi.chatEndpointSetup.iVeSentTheTestMessage")}</Button>
+            </div>
+          </div>
+        </>
+      ) : <>
       <ol className="list-decimal space-y-2 pl-5 text-sm">
-        {instructions.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
+        {instructions.map((item) => <li key={item}>{item}</li>)}
       </ol>
       <div className="flex flex-wrap gap-2">
         {providerUrl && (
@@ -1424,6 +1791,7 @@ function TryStep({
         <Button disabled={pending} onClick={onTest}>
           {pending && <Loader2 className="h-4 w-4 animate-spin" />}{t("chatUi.chatEndpointSetup.iVeSentTheTestMessage")}</Button>
       </div>
+      </>}
     </div>
   );
 }

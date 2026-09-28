@@ -1,7 +1,7 @@
 import { t, useTranslation } from "@/i18n";
 import { Trans } from "react-i18next";
+import { AgentAvatar } from "@/components/AgentAvatar";
 import { Link } from "@/lib/router";
-import { AgentIcon } from "./AgentIconPicker";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
 import { deriveProjectUrlKey, type ActivityEvent, type Agent } from "@paperclipai/shared";
@@ -58,6 +58,7 @@ function formatVerb(
       return t("localizationActivityTail.feed_opened");
     case "issue.updated": {
       const status = details?.status;
+      if (status === "in_review" && details?.externalConversationState === "waiting") return t("localizationActivityTail.feed_status", { status: t("status.idle") });
       if (typeof status === "string") return t("localizationActivityTail.feed_status", { status: t(`status.${status}`, { defaultValue: humanize(status) }) });
       const priority = details?.priority;
       if (typeof priority === "string") return t("localizationActivityTail.feed_priority", { priority: t(`priority.${priority}`, { defaultValue: humanize(priority) }) });
@@ -153,6 +154,7 @@ function deriveTaskStatus(
       return "todo";
     case "issue.updated": {
       const status = details?.status;
+      if (status === "in_review" && details?.externalConversationState === "waiting") return "idle";
       return typeof status === "string" ? status : null;
     }
     case "issue.document_created":
@@ -392,10 +394,8 @@ function resolveContent(
 function ActorGlyph({ content }: { content: CardContent }) {
   if (content.actorType === "agent") {
     return (
-      <AgentIcon
-        icon={content.actor?.icon ?? null}
-        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-      />
+      <AgentAvatar agent={content.actor} size={16}
+        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"/>
     );
   }
   if (content.actorType === "user") {

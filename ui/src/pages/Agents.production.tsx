@@ -1,4 +1,5 @@
 import { t, useTranslation } from "@/i18n";
+import { AgentAvatar } from "@/components/AgentAvatar";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { Link, useNavigate, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
@@ -403,7 +404,7 @@ export function Agents() {
         leading={hasInvalidOrgChain ? (
           <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label={t("pages.agents.invalidReportingChain")} />
         ) : (
-          <AgentStatusCapsule status={agent.status} />
+          <AgentAvatar agent={agent} size={32} />
         )}
         secondaryRow={
           builtInCluster ? (
@@ -650,7 +651,7 @@ function OrgTreeNode({
         {hasInvalidOrgChain ? (
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-label={t("pages.agents.invalidReportingChain")} />
         ) : (
-          <AgentStatusCapsule status={node.status} />
+          <AgentAvatar agent={agent ?? node} size={24} />
         )}
         <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
           {/* Name floor + `truncate` keeps the primary identifier readable; the

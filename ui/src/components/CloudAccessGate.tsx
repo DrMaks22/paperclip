@@ -23,7 +23,7 @@ function NoBoardAccessPage() {
   );
 }
 
-export function CloudAccessGate() {
+export function CloudAccessGate({ allowMembershipRequest = false }: { allowMembershipRequest?: boolean } = {}) {
   const { t } = useTranslation();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -115,7 +115,10 @@ export function CloudAccessGate() {
     return <Navigate to={`/auth?next=${next}`} replace />;
   }
 
+  // Private invitation pages may let signed-in nonmembers request access.
+  // Their token APIs still enforce membership before granting any authority.
   if (
+    !allowMembershipRequest &&
     isAuthenticatedMode &&
     sessionQuery.data &&
     !boardAccessQuery.data?.isInstanceAdmin &&

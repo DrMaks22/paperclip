@@ -1,9 +1,9 @@
 import { useTranslation } from "@/i18n";
+import { AgentIdentity } from "@/components/AgentIdentity";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Link } from "@/lib/router";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Identity } from "./Identity";
 import {
   approvalSubject,
   typeIcon,
@@ -73,7 +73,7 @@ export function ApprovalCard({
                 {requesterAgent && (
                   <div className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                     <span>{t("pages.approvalDetail.requestedBy")}</span>
-                    <Identity name={requesterAgent.name} size="sm" className="inline-flex" />
+                    <AgentIdentity agent={requesterAgent} size="sm" className="inline-flex" />
                   </div>
                 )}
               </div>

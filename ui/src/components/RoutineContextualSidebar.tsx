@@ -14,10 +14,6 @@ import {
 import { routinesApi } from "@/api/routines";
 import { queryKeys } from "@/lib/queryKeys";
 import { useParams } from "@/lib/router";
-import {
-  auditSectionHref,
-  routineAuditHref,
-} from "@/pages/audit/audit-navigation";
 import { ContextualSidebarFrame } from "./ContextualSidebarFrame";
 import { SidebarNavItem } from "./SidebarNavItem";
 
@@ -28,6 +24,8 @@ export const ROUTINE_DETAIL_VIEWS = [
   "delivery",
   "secrets",
   "history",
+  "runs",
+  "activity",
 ] as const;
 
 export type RoutineDetailView = (typeof ROUTINE_DETAIL_VIEWS)[number];
@@ -40,7 +38,7 @@ export type RoutineContextualNavItem = {
 
 export const ROUTINE_CONTEXTUAL_NAV_ITEMS: readonly RoutineContextualNavItem[] = [
   { view: "overview", get label() { return t("localizationRoutines.overview"); }, icon: LayoutDashboard },
-  { view: "triggers", get label() { return t("localizationRoutines.schedule"); }, icon: CalendarClock },
+  { view: "triggers", get label() { return t("sep28Routines.triggers"); }, icon: CalendarClock },
   { view: "variables", get label() { return t("localizationRoutines.variables"); }, icon: Braces },
   { view: "delivery", get label() { return t("localizationRoutines.delivery"); }, icon: Send },
   { view: "secrets", get label() { return t("localizationRoutines.secrets"); }, icon: KeyRound },
@@ -54,30 +52,13 @@ export function routineDetailHref(routineId: string, view: RoutineDetailView = "
   return `/routines/${routineId}/${view}`;
 }
 
-export function routineRunsAuditHref(routineId: string) {
-  return auditSectionHref("runs", {
-    entityType: "routine",
-    entityId: routineId,
-  });
-}
-
-export function routineActivityAuditHref(routineId: string) {
-  return routineAuditHref(routineId);
-}
-
-/**
- * Canonical landing/legacy resolver used by the page and available to the
- * shell. Detail configuration stays local; immutable operational history
- * lives in scoped Audit.
- */
+/** Keep routine configuration and operations in the routine detail shell. */
 export function resolveRoutineDetailDestination(input: {
   routineId: string;
   section?: string | null;
   legacyTab?: string | null;
 }) {
   const requested = input.legacyTab ?? input.section;
-  if (requested === "runs") return routineRunsAuditHref(input.routineId);
-  if (requested === "activity") return routineActivityAuditHref(input.routineId);
   if (isRoutineDetailView(requested)) return routineDetailHref(input.routineId, requested);
   return routineDetailHref(input.routineId, "overview");
 }
@@ -121,15 +102,17 @@ export function RoutineContextualSidebar({
           ))}
         </div>
 
-        <p className="px-4 pb-1 pt-5 text-(length:--text-nano) font-mono font-medium uppercase tracking-widest text-muted-foreground/60">{t("localizationRoutines.audit")}</p>
+        <p className="px-4 pb-1 pt-5 text-(length:--text-nano) font-mono font-medium uppercase tracking-widest text-muted-foreground/60">
+          {t("localizationRoutines.operate")}
+        </p>
         <div className="flex flex-col gap-0.5">
           <SidebarNavItem
-            to={routineRunsAuditHref(routineId)}
+            to={routineDetailHref(routineId, "runs")}
             label={t("localizationRoutines.runs")}
             icon={Play}
           />
           <SidebarNavItem
-            to={routineActivityAuditHref(routineId)}
+            to={routineDetailHref(routineId, "activity")}
             label={t("localizationRoutines.activity")}
             icon={Activity}
           />

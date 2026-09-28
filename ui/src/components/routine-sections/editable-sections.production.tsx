@@ -1,6 +1,7 @@
 import { i18n, t, useTranslation } from "@/i18n";
 import { Trans } from "react-i18next";
 import { routineRunStatusLabel, routineRunSourceLabel } from "@/lib/routine-run-display";
+import { AgentAvatar } from "@/components/AgentAvatar";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -31,11 +32,10 @@ import { timeAgo } from "../../lib/timeAgo";
 import { EmptyState } from "../EmptyState";
 import { InlineEntitySelector } from "../InlineEntitySelector";
 import { DocumentAnnotationsCountChip, IssueDocumentAnnotations } from "../IssueDocumentAnnotations";
-import { AgentIcon } from "../AgentIconPicker";
 import { MarkdownEditor } from "../MarkdownEditor";
 import { ScheduleEditor, getScheduleCronValidation } from "../ScheduleEditor";
 import { RoutineVariablesEditor, RoutineVariablesHint } from "../RoutineVariablesEditor";
-import { RoutineTriggerCard } from "../RoutineTriggerCard";
+import { RoutineTriggerCard, routineSigningModeLabel } from "../RoutineTriggerCard";
 import { EnvironmentVariablesEditor } from "../environment-variables-editor";
 import { createDefaultNewTrigger, useRoutineDetail } from "./context";
 import type { EnvBinding, RoutineDetail as RoutineDetailType } from "@paperclipai/shared";
@@ -98,14 +98,16 @@ const activityGateScopeOptions = [
 ];
 
 const triggerKinds = ["schedule", "webhook"];
-const signingModes = ["bearer", "hmac_sha256", "github_hmac", "none"];
+const signingModes = ["app_webhook", "bearer", "hmac_sha256", "github_hmac", "none"];
 const signingModeDescriptions: Record<string, string> = {
-  get bearer() { return t("localizationRoutines.bearerHelp"); },
-  get hmac_sha256() { return t("localizationRoutines.hmacHelp"); },
+  get bearer() { return t("sep28Routines.bearerDetailedHelp"); },
+  get hmac_sha256() { return t("sep28Routines.hmacDetailedHelp"); },
   get github_hmac() { return t("localizationRoutines.githubHmacHelp"); },
   get none() { return t("localizationRoutines.noAuthHelp"); },
+  get app_webhook() { return t("sep28Routines.appWebhookHelp"); },
+  get fireflies_hmac() { return t("sep28Routines.legacySignedWebhook"); },
 };
-const SIGNING_MODES_WITHOUT_REPLAY_WINDOW = new Set(["github_hmac", "none"]);
+const SIGNING_MODES_WITHOUT_REPLAY_WINDOW = new Set(["app_webhook", "bearer", "github_hmac", "fireflies_hmac", "none"]);
 
 export function OverviewSection({
   defaultDescriptionAnnotationsOpen = false,
@@ -180,7 +182,7 @@ export function OverviewSection({
               option ? (
                 currentAssignee ? (
                   <>
-                    <AgentIcon icon={currentAssignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <AgentAvatar agent={currentAssignee} size={16} className="h-3.5 w-3.5 shrink-0 text-muted-foreground"/>
                     <span className="truncate">{option.label}</span>
                   </>
                 ) : (
@@ -196,7 +198,7 @@ export function OverviewSection({
               return (
                 <>
                   {assignee ? (
-                    <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <AgentAvatar agent={assignee} size={16} className="h-3.5 w-3.5 shrink-0 text-muted-foreground"/>
                   ) : null}
                   <span className="truncate">{option.label}</span>
                 </>
@@ -332,10 +334,10 @@ export function OverviewSection({
         <SummaryCard
           icon={KeyRound}
           label={t("localizationRoutines.secrets")}
-          value={boundSecrets === 0 ? "None" : `${boundSecrets} bound`}
-          hint="Manage bound secrets"
+          value={boundSecrets === 0 ? t("localizationRoutines.none") : t("sep28Routines.boundSecrets", { count: boundSecrets })}
+          hint={t("sep28Routines.manageBoundSecrets")}
           to={() => navigateToSection("secrets")}
-          ariaLabel={`${boundSecrets} secrets bound. Open secrets.`}
+          ariaLabel={t("sep28Routines.openSecrets", { count: boundSecrets })}
         />
         <SummaryCard
           icon={Play}
@@ -416,7 +418,7 @@ function SummaryCard({
 export function TriggersSection() {
   const { t } = useTranslation();
   const ctx = useRoutineDetail();
-  const { routine, newTrigger, setNewTrigger, createTrigger, updateTrigger, deleteTrigger, rotateTrigger } = ctx;
+  const { routine, newTrigger, setNewTrigger, createTrigger, updateTrigger, deleteTrigger, rotateTrigger, secretMessage, copySecretValue, setSecretMessage } = ctx;
   const [addOpen, setAddOpen] = useState(false);
   const [newScheduleEditorValid, setNewScheduleEditorValid] = useState(true);
   const newScheduleValidation = useMemo(
@@ -472,9 +474,8 @@ export function TriggersSection() {
               </SelectTrigger>
               <SelectContent>
                 {triggerKinds.map((kind) => (
-                  <SelectItem key={kind} value={kind} disabled={kind === "webhook"}>
-                    {routineRunSourceLabel(kind)}
-                    {kind === "webhook" ? t("localizationRoutines.comingSoon") : ""}
+                  <SelectItem key={routineRunSourceLabel(kind)} value={kind}>
+                    {kind}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -508,7 +509,7 @@ export function TriggersSection() {
                   <SelectContent>
                     {signingModes.map((mode) => (
                       <SelectItem key={mode} value={mode}>
-                        {mode}
+                        {routineSigningModeLabel(mode)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -551,12 +552,42 @@ export function TriggersSection() {
       </div>
       ) : null}
 
+      {secretMessage ? (
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4 text-sm">
+          <div>
+            <p className="font-medium">{secretMessage.titleKey ? t(secretMessage.titleKey, { count: secretMessage.titleCount }) : secretMessage.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("localizationRoutines.saveSecretNow")}
+            </p>
+          </div>
+          <div className="space-y-3">
+            {secretMessage.entries.map((entry, index) => (
+              <div key={`${entry.webhookUrl}-${index}`} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input aria-label={t("sep28Routines.newWebhookUrl")} value={entry.webhookUrl} readOnly className="flex-1" />
+                  <Button variant="outline" size="sm" onClick={() => copySecretValue(t("localizationRoutines.webhookUrl"), entry.webhookUrl)}>
+                    URL
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input aria-label={t("sep28Routines.newWebhookSecret")} value={entry.webhookSecret} readOnly className="flex-1" />
+                  <Button variant="outline" size="sm" onClick={() => copySecretValue(t("localizationRoutines.webhookSecret"), entry.webhookSecret)}>
+                    {t("localizationRoutines.secret")}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setSecretMessage(null)}>{t("sep28Routines.done")}</Button>
+        </div>
+      ) : null}
+
       {/* Existing triggers */}
       {routine.triggers.length === 0 ? (
         <EmptyState
           icon={Clock3}
           message={t("localizationRoutines.noTriggersEmpty")}
-          action={t("localizationRoutines.addSchedule")}
+          action={t("sep28Routines.addATrigger")}
           onAction={() => setAddOpen(true)}
         />
       ) : (
@@ -614,7 +645,7 @@ export function VariablesSection() {
 export function SecretsSection() {
   const { t } = useTranslation();
   const ctx = useRoutineDetail();
-  const { editDraft, setEditDraft, availableSecrets, createSecret, secretMessage, copySecretValue } = ctx;
+  const { editDraft, setEditDraft, availableSecrets, createSecret } = ctx;
 
   // Project/company-scoped secrets that already see real usage, surfaced as
   // quick-bind chips (§3.4). Ranked by reference count then recency.
@@ -637,30 +668,6 @@ export function SecretsSection() {
         <Trans i18nKey="localizationRoutines.secretsHelp" components={{ code: <span className="font-mono" /> }} />
       </div>
 
-      {secretMessage ? (
-        <div className="space-y-3 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 text-sm">
-          <div>
-            <p className="font-medium">{secretMessage.title}</p>
-            <p className="text-xs text-muted-foreground">{t("localizationRoutines.saveSecretNow")}</p>
-          </div>
-          <div className="space-y-3">
-            {secretMessage.entries.map((entry, index) => (
-              <div key={`${entry.webhookUrl}-${index}`} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Input value={entry.webhookUrl} readOnly className="flex-1" />
-                  <Button variant="outline" size="sm" onClick={() => copySecretValue(t("localizationRoutines.webhookUrl"), entry.webhookUrl)}>
-                    URL
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input value={entry.webhookSecret} readOnly className="flex-1" />
-                  <Button variant="outline" size="sm" onClick={() => copySecretValue(t("localizationRoutines.webhookSecret"), entry.webhookSecret)}>{t("pages.secrets.common.secret")}</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       <EnvironmentVariablesEditor
         value={(editDraft.env ?? {}) as Record<string, EnvBinding>}

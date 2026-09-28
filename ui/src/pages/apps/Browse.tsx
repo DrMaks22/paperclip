@@ -1,4 +1,5 @@
 import { t, useTranslation } from "@/i18n";
+import { isRetiredComposioConnection, RETIRED_COMPOSIO_MESSAGE } from "@paperclipai/shared";
 import { ManagedAiConnectionRow } from "@/components/ai-connections/ManagedAiConnectionDetails";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,12 +20,14 @@ import {
 import type { ToolApplication, ToolConnection } from "@paperclipai/shared";
 import {
   getAppDefinitionForUrl,
+  isMemoryConnectorId,
   getAppStoreDefinition,
   isToolConnectionAttentionHealth,
   aiSubscriptionNeedsIsolatedLogin,
 } from "@paperclipai/shared";
 import { useNavigate } from "@/lib/router";
 import { useChatConnectorsEnabled } from "@/hooks/useChatConnectorsEnabled";
+import { useMemoryConnectorsEnabled } from "@/hooks/useMemoryConnectorsEnabled";
 import { appCopyFor } from "@/lib/app-gallery-copy";
 import { photonBotLabel } from "./chat/photon-copy";
 import { useCompany } from "@/context/CompanyContext";
@@ -75,7 +78,6 @@ import {
   appSourceResumeHref,
   appSupportsToolCatalogSetup,
 } from "./app-connect-policy";
-import { composioChildParentConnectionId } from "./composio-services";
 import {
   ConnectionOwnerIdentity,
   connectionDisplayNameForOwner,
@@ -104,11 +106,12 @@ type ConnectionState = {
 };
 
 type ConnectionRemovalTarget = {
+  kind?: "chat";
   id: string;
   accountName: string;
   providerName: string;
   remainingConnectionCount: number;
-  childConnectionCount: number;
+
 };
 
 function chatProviderForSlug(slug: string): ChatProvider | null {
@@ -164,6 +167,9 @@ function additionalConnectionHref(
 }
 
 function connectionState(connection: ToolConnection): ConnectionState {
+  if (isRetiredComposioConnection(connection)) {
+    return { kind: "attention", label: t("sep28Apps.copy332"), message: RETIRED_COMPOSIO_MESSAGE };
+  }
   if (connection.status === "draft") {
     return {
       kind: "draft",
@@ -280,6 +286,7 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
   const { pushToast } = useToast();
   const { selectedCompanyId } = useCompany();
   const { enabled: chatConnectorsEnabled } = useChatConnectorsEnabled();
+  const { enabled: memoryConnectorsEnabled } = useMemoryConnectorsEnabled();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [query, setQuery] = useState("");
   const [connectionToRemove, setConnectionToRemove] =
@@ -318,11 +325,17 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
     enabled: !!selectedCompanyId,
   });
   const removeConnection = useMutation({
-    mutationFn: (target: ConnectionRemovalTarget) =>
-      toolsApi.archiveConnection(target.id, {
-        confirmComposioChildren: target.childConnectionCount > 0,
-      }),
+    mutationFn: async (target: ConnectionRemovalTarget) => {
+      if (target.kind === "chat") {
+        await chatEndpointsApi.setup(target.id, { action: "remove" });
+      } else {
+        await toolsApi.archiveConnection(target.id);
+      }
+    },
     onSuccess: (_connection, target) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chatEndpoints.list(selectedCompanyId!),
+      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.tools.connections(selectedCompanyId!),
       });
@@ -333,10 +346,13 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
         queryKey: queryKeys.apps.attention(selectedCompanyId!),
       });
       pushToast({
-        title: t("localizationApps.connectionRemoved72"),
-        body: target.remainingConnectionCount > 0
-          ? t("localizationApps.providerConnectionsRemain", { provider: target.providerName, count: target.remainingConnectionCount })
-          : t("localizationApps.providerCredentialsDeleted", { provider: target.providerName }),
+        title: t("status.endpoint_removed"),
+        body:
+          target.kind === "chat"
+            ? t("sep28Apps.providerDisconnected", { provider: target.providerName })
+            : target.remainingConnectionCount > 0
+            ? t("localizationApps.providerConnectionsRemain", { provider: target.providerName, count: target.remainingConnectionCount })
+            : t("localizationApps.providerCredentialsDeleted", { provider: target.providerName }),
         tone: "success",
       });
       setConnectionToRemove(null);
@@ -352,6 +368,7 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
   const gallery = (
     (galleryQuery.data?.apps ?? []) as AppGalleryDisplayEntry[]
   ).filter((entry) => {
+    if (!memoryConnectorsEnabled && isMemoryConnectorId(appDefinitionSlug(entry))) return false;
     const definition = getAppStoreDefinition(appDefinitionSlug(entry));
     return (
       chatConnectorsEnabled ||
@@ -528,6 +545,7 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
     for (const endpoint of chatConnectorsEnabled
       ? (chatEndpointsQuery.data ?? [])
       : []) {
+      if (endpoint.status === "archived") continue;
       let target = [...rowsBySlug.values()].find(
         (row) => chatProviderForSlug(row.slug) === endpoint.provider,
       );
@@ -676,7 +694,6 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
               renderAccountDetails={renderAccountDetails}
               key={row.key}
               row={row}
-              allConnections={connectionsQuery.data?.connections ?? []}
               userProfileById={userProfileById}
               onNavigate={navigate}
               onRequestRemove={setConnectionToRemove}
@@ -701,11 +718,12 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
             <AlertDialogTitle>{connectionToRemove ? t("localizationApps.removeAccountConnection", { name: connectionToRemove.accountName }) : t("localizationApps.removeThisConnection")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {connectionToRemove && connectionToRemove.childConnectionCount > 0
-                ? t("localizationApps.removeChildConnectionsWarning", { count: connectionToRemove.childConnectionCount })
-                : connectionToRemove && connectionToRemove.remainingConnectionCount > 0
-                ? t("localizationApps.removeConnectionOthersRemain", { provider: connectionToRemove.providerName, count: connectionToRemove.remainingConnectionCount })
-                : t("localizationApps.theSavedCredentialsAreDeletedAndAgentsLoseAcc89")}
+              {connectionToRemove?.kind === "chat"
+                ? t("sep28Apps.removeChat", { provider: connectionToRemove.providerName })
+                : connectionToRemove &&
+                    connectionToRemove.remainingConnectionCount > 0
+                  ? t("localizationApps.removeConnectionOthersRemain", { provider: connectionToRemove.providerName, count: connectionToRemove.remainingConnectionCount })
+                  : t("localizationApps.theSavedCredentialsAreDeletedAndAgentsLoseAcc89")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -732,7 +750,6 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
 export function ConnectorCard({
   renderAccountDetails,
   row,
-  allConnections,
   userProfileById,
   onNavigate,
   onRequestRemove,
@@ -741,7 +758,6 @@ export function ConnectorCard({
 }: {
   renderAccountDetails?: (connection: ToolConnection) => ReactNode;
   row: ConnectorRowModel;
-  allConnections: ToolConnection[];
   userProfileById: ReadonlyMap<string, ConnectionOwnerProfile>;
   onNavigate: (href: string) => void;
   onRequestRemove: (target: ConnectionRemovalTarget) => void;
@@ -820,11 +836,6 @@ export function ConnectorCard({
                       candidate.status === "active" &&
                       candidate.enabled,
                   ).length,
-                  childConnectionCount: allConnections.filter(
-                    (candidate) =>
-                      composioChildParentConnectionId(candidate) ===
-                      connection.id,
-                  ).length,
                 });
               }}
             />
@@ -859,19 +870,42 @@ export function ConnectorCard({
               <span className="text-xs text-muted-foreground">
                 {chatLabel(endpoint.status)}
               </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  onNavigate(
-                    endpoint.status === "draft"
-                      ? `/apps/chat/connect?provider=${endpoint.provider}&purpose=chat&resume=${endpoint.id}`
-                      : `/apps/chat/${endpoint.id}/settings`,
-                  )
-                }
-              >
-                {endpoint.status === "draft" ? t("pages.apps.connect.install.finish") : t("localizationAgents.ui44_Manage")}
-              </Button>
+              <div className="flex items-center gap-2">
+                {endpoint.status === "draft" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onNavigate(`/apps/chat/connect?provider=${endpoint.provider}&purpose=chat&resume=${endpoint.id}`)}
+                  >{t("pages.apps.connect.install.finish")}</Button>
+                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("sep28Apps.manageChat", { agent: endpoint.assignedAgentName, provider: row.name })}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onNavigate(`/apps/chat/${endpoint.id}/settings`)}>{t("localizationAgents.ui44_Manage")}</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => onRequestRemove({
+                        kind: "chat",
+                        id: endpoint.id,
+                        accountName: `${endpoint.assignedAgentName} · ${row.name}`,
+                        providerName: row.name,
+                        remainingConnectionCount: 0,
+                      })}
+                    >
+                      <Trash2 /> {t("localizationApps.removeConnection91")}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           ))}
         </div>

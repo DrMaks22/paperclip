@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t, useTranslation } from "@/i18n";
 import { appDefinitionText } from "@/pages/apps/app-definition-display";
 /**
  * Prosumer copy for the Apps surface (PAP-10856).
@@ -67,6 +67,10 @@ const APP_COPY: Record<string, AppCopy> = {
   notion: {
     get tagline() { return t("localizationApps.readAndUpdatePagesInYourWorkspace767"); },
     get short() { return t("localizationApps.readAndUpdatePagesInYourWorkspace767"); },
+  },
+  railway: {
+    get tagline() { return t("sep28Apps.copy333"); },
+    get short() { return t("sep28Apps.copy334"); },
   },
   posthog: {
     get tagline() { return t("localizationApps.exploreProductUsageErrorsFlagsAndExperiments768"); },

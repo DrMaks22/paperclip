@@ -15,9 +15,7 @@ import { Button } from "@/components/ui/button";
 import { createIssueDetailLocationState } from "@/lib/issueDetailBreadcrumb";
 import { Link } from "@/lib/router";
 import {
-  routineActivityAuditHref,
   routineDetailHref,
-  routineRunsAuditHref,
 } from "./RoutineContextualSidebar";
 import { useRoutineDetail } from "./routine-sections/context";
 
@@ -42,6 +40,14 @@ export function summarizeRoutineSchedule(triggers: RoutineTrigger[]): RoutineSch
     .sort((left, right) => left.getTime() - right.getTime())[0] ?? null;
 
   if (schedules.length === 0) {
+    const webhooks = triggers.filter((trigger) => trigger.kind === "webhook" && trigger.enabled);
+    if (webhooks.length > 0) {
+      return {
+        label: t("sep28Routines.activeWebhooks", { count: webhooks.length }),
+        detail: t("sep28Routines.incomingRequests"),
+        nextRunAt: null,
+      };
+    }
     return { label: t("localizationRoutines.noActiveSchedule"), detail: t("localizationRoutines.manualOnly"), nextRunAt: null };
   }
 
@@ -137,6 +143,7 @@ export function RoutineOverview() {
   const { t } = useTranslation();
   const { routine, routineRuns, currentAssignee, hasLiveRun } = useRoutineDetail();
   const schedule = summarizeRoutineSchedule(routine.triggers);
+  const hasWebhook = routine.triggers.some((trigger) => trigger.kind === "webhook" && trigger.enabled);
   const sortedRuns = [...(routineRuns ?? [])].sort(
     (left, right) => new Date(right.triggeredAt).getTime() - new Date(left.triggeredAt).getTime(),
   );
@@ -160,25 +167,25 @@ export function RoutineOverview() {
           icon={Repeat}
           label={t("pages.secrets.import.columns.state")}
           value={<StatusBadge status={automationState} />}
-          detail={hasLiveRun ? "A run is active now" : "No active run"}
+          detail={hasLiveRun ? t("sep28Routines.runActiveNow") : t("sep28Routines.noActiveRun")}
         />
         <OverviewFact
           icon={CalendarClock}
-          label={t("localizationRoutines.schedule")}
+          label={t("localizationRoutines.triggers")}
           value={schedule.label}
           detail={<span className="font-mono">{schedule.detail}</span>}
         />
         <OverviewFact
           icon={Clock3}
           label={t("localizationRoutines.nextRun")}
-          value={schedule.nextRunAt ? formatRoutineTimestamp(schedule.nextRunAt) : "Not scheduled"}
-          detail={schedule.nextRunAt ? "Scheduled" : "Add or enable a schedule"}
+          value={schedule.nextRunAt ? formatRoutineTimestamp(schedule.nextRunAt) : hasWebhook ? t("sep28Routines.onWebhookDelivery") : t("sep28Routines.notScheduled")}
+          detail={schedule.nextRunAt ? t("sep28Routines.scheduled") : hasWebhook ? t("sep28Routines.waitingRequest") : t("sep28Routines.addEnableSchedule")}
         />
         <OverviewFact
           icon={Play}
           label={t("localizationRoutines.lastRun")}
           value={lastRun ? <StatusBadge status={lastRun.status} /> : t("localizationRoutines.noRunsYet")}
-          detail={lastRun ? formatRoutineTimestamp(lastRun.triggeredAt) : "Run manually or wait for the schedule"}
+          detail={lastRun ? formatRoutineTimestamp(lastRun.triggeredAt) : t("sep28Routines.manualOrTrigger")}
         />
       </div>
 
@@ -212,7 +219,7 @@ export function RoutineOverview() {
         <div className="flex items-center justify-between gap-3">
           <h2 id="routine-recent-runs-heading" className="text-sm font-semibold">{t("localizationActivity.recentRuns")}</h2>
           <Button variant="ghost" size="sm" asChild>
-            <Link to={routineRunsAuditHref(routine.id)}>{t("localizationRoutines.viewAllRuns")}</Link>
+            <Link to={routineDetailHref(routine.id, "runs")}>{t("localizationRoutines.viewAllRuns")}</Link>
           </Button>
         </div>
         {recentRuns.length === 0 ? (
@@ -235,14 +242,14 @@ export function RoutineOverview() {
             ) : (
               <div key={run.id} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-sm">
                 <StatusBadge status={run.status} />
-                <span className="min-w-0 flex-1 truncate">{run.trigger?.label ?? "Routine run"}</span>
+                <span className="min-w-0 flex-1 truncate">{run.trigger?.label ?? t("sep28Routines.routineRun")}</span>
                 <span className="shrink-0 font-mono text-xs text-muted-foreground">{formatRoutineTimestamp(run.triggeredAt)}</span>
               </div>
             ))}
           </div>
         )}
         <Button variant="link" size="sm" className="w-fit px-0" asChild>
-          <Link to={routineActivityAuditHref(routine.id)}>{t("localizationRoutines.viewRoutineActivity")}</Link>
+          <Link to={routineDetailHref(routine.id, "activity")}>{t("localizationRoutines.viewRoutineActivity")}</Link>
         </Button>
       </section>
     </div>

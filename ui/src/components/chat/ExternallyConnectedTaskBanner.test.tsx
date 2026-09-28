@@ -171,6 +171,44 @@ describe("ExternallyConnectedTaskBanner publication truth", () => {
     vi.restoreAllMocks();
   });
 
+  it("localizes Slack forwarding guidance without changing the draft or delivery identity", async () => {
+    mockChatEndpointsApi.publishBoardMessage.mockResolvedValue({
+      id: "publication-localized", state: "published", attempts: 1,
+    });
+    await renderBanner();
+    await act(() => findButton(container, "Send to channel").click());
+    const textarea = container.querySelector("textarea")!;
+    const externalLink = container.querySelector('a[href="https://example.slack.com/archives/channel-1"]');
+    await act(() => setTextareaValue(textarea, "Original draft /RAW {{value}}"));
+    try {
+      for (const language of ["ru", "en", "ru"]) {
+        await act(async () => { await i18n.changeLanguage(language); });
+        await flushReact();
+        expect(container.querySelector("textarea")).toBe(textarea);
+        expect(textarea.value).toBe("Original draft /RAW {{value}}");
+        expect(container.querySelector('a[href="https://example.slack.com/archives/channel-1"]')).toBe(externalLink);
+        expect(container.textContent).toContain(language === "ru"
+          ? "#paperclip · Ваши сообщения в этом чате и ответы агента также публикуются в Slack."
+          : "#paperclip · Messages you send here and agent replies are also posted to Slack.");
+        expect(container.textContent).toContain(language === "ru"
+          ? "Сообщение публикуется в Slack от вашего имени и запускает агента."
+          : "Your message is posted to Slack with your name and starts the agent.");
+        expect(mockChatEndpointsApi.publishBoardMessage).not.toHaveBeenCalled();
+      }
+    } finally {
+      await act(async () => { await i18n.changeLanguage("en"); });
+    }
+    await act(() => {
+      [...container.querySelectorAll("button")]
+        .filter((button) => button.textContent?.trim() === "Send to channel")
+        .at(-1)?.click();
+    });
+    await flushReact();
+    expect(mockChatEndpointsApi.publishBoardMessage).toHaveBeenCalledExactlyOnceWith(
+      "endpoint-1", "conversation-1", "Original draft /RAW {{value}}", expect.any(String), [],
+    );
+  });
+
   it("only reports success and clears the draft after confirmed publication", async () => {
     mockChatEndpointsApi.publishBoardMessage.mockResolvedValue({
       id: "publication-1",

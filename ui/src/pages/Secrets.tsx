@@ -106,6 +106,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "../lib/utils";
 import { copyTextToClipboard } from "../lib/clipboard";
+import { useCopyAction } from "../lib/use-copy-action";
 import { PageTabBar } from "../components/PageTabBar";
 import { AgentSelect } from "../components/AgentMultiSelect";
 import { ImportFromVaultDialog } from "./secrets/ImportFromVaultDialog";
@@ -4277,6 +4278,20 @@ function AwsProviderVaultDiscoveryPanel({
   );
 }
 
+/**
+ * Copy the safe error payload out of a failure panel. People copy this to paste
+ * into a bug report, so the button has to confirm the clipboard took it.
+ */
+function CopyDetailsButton({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const { copied, failed, copy } = useCopyAction();
+  return (
+    <Button type="button" variant="ghost" size="sm" onClick={() => void copy(text)}>
+      {copied ? t("localizationSkills.copied213") : failed ? t("sep28Settings.copyFailed") : t("pages.secrets.actions.copy")}
+    </Button>
+  );
+}
+
 function AwsProviderVaultDiscoveryError({
   form,
   error,
@@ -4302,10 +4317,6 @@ function AwsProviderVaultDiscoveryError({
     safeAlternative: details?.safeAlternative,
   };
   const detailsText = JSON.stringify(safeDetails, null, 2);
-
-  const copyDetails = () => {
-    void copyTextToClipboard(detailsText).catch(() => {});
-  };
 
   return (
     <div
@@ -4355,12 +4366,8 @@ function AwsProviderVaultDiscoveryError({
           </dl>
           <div className="rounded-md border border-destructive/20 bg-background/70 p-2 text-foreground">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="font-medium text-muted-foreground">
-                {t("pages.secrets.discovery.safeDetails")}
-              </span>
-              <Button type="button" variant="ghost" size="sm" onClick={copyDetails}>
-                {t("pages.secrets.actions.copy")}
-              </Button>
+              <span className="font-medium text-muted-foreground">{t("pages.secrets.discovery.safeDetails")}</span>
+              <CopyDetailsButton text={detailsText} />
             </div>
             <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words font-mono text-(length:--text-micro) leading-relaxed">
               {detailsText}
@@ -4459,17 +4466,8 @@ function SecretCreateError({
           </dl>
           <div className="rounded-md border border-destructive/20 bg-background/70 p-2 text-foreground">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="font-medium text-muted-foreground">
-                {t("pages.secrets.discovery.safeDetails")}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => void copyTextToClipboard(detailsText).catch(() => {})}
-              >
-                {t("pages.secrets.actions.copy")}
-              </Button>
+              <span className="font-medium text-muted-foreground">{t("pages.secrets.discovery.safeDetails")}</span>
+              <CopyDetailsButton text={detailsText} />
             </div>
             <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words font-mono text-(length:--text-micro) leading-relaxed">
               {detailsText}

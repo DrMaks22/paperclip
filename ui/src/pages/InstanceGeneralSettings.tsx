@@ -79,19 +79,16 @@ export function InstanceGeneralSettings({ embedded = false }: { embedded?: boole
   }
 
   const censorUsernameInLogs = generalQuery.data?.censorUsernameInLogs === true;
-  const keyboardShortcuts = generalQuery.data?.keyboardShortcuts === true;
   const feedbackDataSharingPreference = generalQuery.data?.feedbackDataSharingPreference ?? "prompt";
   const backupRetention: BackupRetentionPolicy = generalQuery.data?.backupRetention ?? DEFAULT_BACKUP_RETENTION;
   const hiddenSettings = new Set(healthQuery.data?.hiddenSettings ?? []);
   const showDeploymentStatus = !hiddenSettings.has("instance.general.deploymentStatus");
   const showCensorUsernameInLogs = !hiddenSettings.has("instance.general.censorUsernameInLogs");
-  const showKeyboardShortcuts = !hiddenSettings.has("instance.general.keyboardShortcuts");
   const showBackupRetention = !hiddenSettings.has("instance.general.backupRetention");
   const showFeedbackDataSharing = !hiddenSettings.has("instance.general.feedbackDataSharingPreference");
   const showSignOut = !hiddenSettings.has("instance.general.signOut");
   const visibleTopics = [
     ...(showCensorUsernameInLogs ? [t("localizationSettings.topicLogs")] : []),
-    ...(showKeyboardShortcuts ? [t("localizationSettings.topicShortcuts")] : []),
     ...(showBackupRetention ? [t("localizationSettings.topicRetention")] : []),
     ...(showFeedbackDataSharing ? [t("localizationSettings.topicSharing")] : []),
   ];
@@ -173,25 +170,6 @@ export function InstanceGeneralSettings({ embedded = false }: { embedded?: boole
             onCheckedChange={() => updateGeneralMutation.mutate({ censorUsernameInLogs: !censorUsernameInLogs })}
             disabled={updateGeneralMutation.isPending || signOutMutation.isPending}
             aria-label={t("localizationSettings.censorAria")}
-          />
-        </div>
-      </section>
-      )}
-
-      {showKeyboardShortcuts && (
-      <section>
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold">{t("localizationSettings.shortcutsTitle")}</h2>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {t("localizationSettings.shortcutsDescription")}
-            </p>
-          </div>
-          <ToggleSwitch
-            checked={keyboardShortcuts}
-            onCheckedChange={() => updateGeneralMutation.mutate({ keyboardShortcuts: !keyboardShortcuts })}
-            disabled={updateGeneralMutation.isPending || signOutMutation.isPending}
-            aria-label={t("localizationSettings.shortcutsAria")}
           />
         </div>
       </section>

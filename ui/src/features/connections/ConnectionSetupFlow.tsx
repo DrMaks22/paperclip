@@ -1,9 +1,11 @@
 import { t, useTranslation } from "@/i18n";
 import { chatUiErrorMessage, type ChatUiError } from "@/pages/apps/chat/chat-copy";
 import { Trans } from "react-i18next";
+import { RemoteMcpProductionSetup } from "./remote-mcp/RemoteMcpProductionSetup";
+import { useMemoryConnectorsEnabled } from "@/hooks/useMemoryConnectorsEnabled";
 import { AiConnectionCredentialStep } from "@/components/ai-connections/AiConnectionCredentialStep";
 import { ConnectionChoiceList } from "./ConnectionChoiceList";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
@@ -22,7 +24,6 @@ import {
   UsersRound,
 } from "lucide-react";
 import type {
-  Agent,
   AppDefinition,
   ConnectionGrantKind,
   ConnectionIntentSetupConnection,
@@ -38,6 +39,9 @@ import type {
 } from "@paperclipai/shared";
 import {
   aiConnectionMetadataSchema,
+  isRemoteMcpConnectorId,
+  isMemoryConnectorId,
+  isRemoteMcpConnectorMethod,
   connectionMethodAcceptsCustomerOAuthClient,
   connectionMethodRequiresConfiguration,
   connectionMethodSupportsAutomaticOAuth,
@@ -59,8 +63,7 @@ import { ApiError } from "@/api/client";
 import { toolsApi } from "@/api/tools";
 import { agentsApi } from "@/api/agents";
 import { appCopyFor, credentialFieldLabel } from "@/lib/app-gallery-copy";
-import { AgentIcon } from "@/components/AgentIconPicker";
-import { AgentMultiSelect } from "@/components/AgentMultiSelect";
+import { AgentMultiSelect, type AgentMultiSelectOption } from "@/components/AgentMultiSelect";
 import { InlineBanner } from "@/components/InlineBanner";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -69,7 +72,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { useCopyAction } from "@/lib/use-copy-action";
 import { resolveAuthorizationTarget } from "@/lib/authorizationUrl";
 import { navigateTopLevel } from "@/lib/browserNavigation";
 import { prepareOAuthNavigation, savePendingCloudHandoff } from "@/lib/oauthHandoff";
@@ -322,6 +325,9 @@ const SELECTED_APP_STEP_INDEX: Record<Exclude<Step, "gallery" | "success">, numb
 function zapierStepLabelsForCurrentLanguage() {
   return [t("localizationConnections.access5"), t("localizationConnections.addMCPURL7")];
 }
+function oauthSignInStepLabelsForCurrentLanguage() {
+  return [t("localizationConnections.access5"), t("localizationConnections.signIn53")];
+}
 
 /**
  * Which identity a fresh connection should default to (PAP-17835).
@@ -507,6 +513,7 @@ export function readConnectionIntentOAuthOutcome(
 }
 
 export interface ConnectionSetupFlowProps {
+  upstreamServiceName?: string;
   aiConnection?: import("@paperclipai/shared").AiConnectionBinding;
   /** Provider-specific authentication inside the existing access/setup shell. Undefined retains the standard credential form. */
   renderCredentialStep?: (context: { app: AppDefinition; name: string; grantKind: ConnectionGrantKind; agentIds: string[]; allAgents: boolean; onBack: () => void }) => ReactNode;
@@ -532,7 +539,39 @@ export interface ConnectionSetupFlowProps {
  * callbacks; provider fields, validation, OAuth, access, and finishing remain
  * here so a provider can never drift between entry points.
  */
-export function ConnectionSetupFlow({
+export function ConnectionSetupFlow(props: ConnectionSetupFlowProps = {}) {
+  useTranslation();
+  const [searchParams] = useSearchParams();
+  const params = useParams<{ appKey?: string }>();
+  const { selectedCompanyId } = useCompany();
+  const memory = useMemoryConnectorsEnabled();
+  const interactionId = props.interactionId || searchParams.get("intent") || undefined;
+  const source = props.serviceSlug || searchParams.get("source") || params.appKey || searchParams.get("appKey");
+  const draftId = useMemo(() => {
+    if (interactionId && isRemoteMcpConnectorId(source)) {
+      try { return sessionStorage.getItem(`paperclip:mcp-intent-draft:${selectedCompanyId}:${interactionId}`); } catch { /* Storage may be disabled. */ }
+    }
+    return null;
+  }, [interactionId, selectedCompanyId, source]);
+  const existingId = props.configuredConnection?.id || searchParams.get("resume") || searchParams.get("reconnect") || draftId;
+  const lookup = Boolean(existingId && (!source || isRemoteMcpConnectorId(source) || isMemoryConnectorId(source)));
+  const existing = useQuery({ queryKey: ["tools", "connection", existingId], queryFn: () => toolsApi.getConnection(existingId!), enabled: lookup });
+  const provider = source || existing.data?.config?.sourceTemplateKey;
+  const method = searchParams.get("method") || existing.data?.config?.connectionMethodKey;
+  if (lookup && existing.isPending) return <p className="p-6 text-sm text-muted-foreground">{t("chatUi.chatEndpointDetail.loadingConnection")}</p>;
+  if (lookup && existing.isError) return <div role="alert" className="space-y-3 p-6"><p>{t("sep28Apps.copy270")}</p><Button variant="outline" onClick={() => void existing.refetch()}>{t("localizationProjectRepositories.retry")}</Button></div>;
+  if (isMemoryConnectorId(provider) && !(existing.data && existing.data.status !== "draft" && existing.data.config?.sourceTemplateKey === provider)) {
+    if (!memory.loaded) return <p className="p-6 text-sm text-muted-foreground">{t("sep28Apps.copy271")}</p>;
+    if (!memory.enabled) return <p role="status" className="p-6 text-sm text-muted-foreground">{t("sep28Apps.copy272")}</p>;
+  }
+  if (!props.byoOnly && (props.credentialSource ?? "paperclip_vault") === "paperclip_vault"
+    && isRemoteMcpConnectorId(provider) && (!method || isRemoteMcpConnectorMethod(provider, method))) {
+    return <RemoteMcpProductionSetup key={`${interactionId || "page"}:${provider}`} {...props} interactionId={interactionId} providerId={provider} connection={existing.data} />;
+  }
+  return <StandardConnectionSetupFlow {...props} />;
+}
+
+function StandardConnectionSetupFlow({
   byoOnly = false,
   credentialSource = "paperclip_vault",
   host = "page",
@@ -560,6 +599,7 @@ export function ConnectionSetupFlow({
   const routeParams = useParams<{ appKey?: string }>();
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { enabled: chatConnectorsEnabled } = useChatConnectorsEnabled();
+  const { enabled: memoryConnectorsEnabled } = useMemoryConnectorsEnabled();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
   const [searchParams] = useSearchParams();
@@ -854,6 +894,10 @@ export function ConnectionSetupFlow({
    * definition — the generic path stays available either way.
    */
   const useMatchedGalleryEntry = (picked: AppDefinition) => {
+    if (host === "page" && !connectionIntentId && credentialSource === "paperclip_vault" && isRemoteMcpConnectorId(picked.slug)) {
+      navigate(`/apps/connect?source=${picked.slug}`);
+      return;
+    }
     if (picked.slug === "zapier") {
       setEntry(null);
       setGalleryName("");
@@ -934,12 +978,12 @@ export function ConnectionSetupFlow({
   // Use the same visible catalog for cards and every branded URL shortcut.
   // Generic custom URLs remain usable without selecting a hidden provider.
   const visibleGalleryApps = useMemo(
-    () => (galleryQuery.data?.apps ?? []).filter((app) =>
+    () => (galleryQuery.data?.apps ?? []).filter((app) => memoryConnectorsEnabled || !isMemoryConnectorId(app.slug)).filter((app) =>
       chatConnectorsEnabled ||
       !app.methods.some((method) => method.transport === "chat_sdk") ||
       appSupportsToolCatalogSetup(app),
     ),
-    [galleryQuery.data, chatConnectorsEnabled],
+    [galleryQuery.data, chatConnectorsEnabled, memoryConnectorsEnabled],
   );
   const fullRequestedDefinition = requestedAppKey
     ? getConnectableAppDefinition(requestedAppKey)
@@ -1698,7 +1742,7 @@ export function ConnectionSetupFlow({
   });
 
   if (!selectedCompanyId) {
-    return <div className="p-6 text-sm text-muted-foreground">{t("localizationConnections.selectACompanyToConnectApps29")}</div>;
+    return <div className="p-6 text-sm text-muted-foreground">{t("pages.apps.connect.selectOrganization")}</div>;
   }
 
   if (
@@ -1733,7 +1777,7 @@ export function ConnectionSetupFlow({
     return (
       <div className="mx-auto max-w-xl rounded-xl border border-border bg-card p-6">
         <h2 className="text-lg font-semibold text-foreground">{t("localizationConnections.thisSetupCanTBeResumed33")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{t("localizationConnections.theSavedConnectionNoLongerExistsOrIsNotAvaila34")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("sep28Apps.copy273")}</p>
         <Button type="button" variant="outline" className="mt-5" onClick={() => navigate("/apps")}>{t("pages.apps.common.backToApps")}</Button>
       </div>
     );
@@ -1750,7 +1794,7 @@ export function ConnectionSetupFlow({
         <h2 className="text-lg font-semibold text-foreground">{t("localizationConnections.thisConnectionCanTBeReconnected35")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {!reconnectConnection
-            ? t("localizationConnections.theRetainedConnectionNoLongerExistsOrIsNotAva36")
+            ? t("sep28Apps.copy274")
             : t("localizationConnections.thisReconnectLinkDoesNotMatchTheRetainedConne37")}
         </p>
         <Button type="button" variant="outline" className="mt-5" onClick={() => navigate("/apps")}>{t("pages.apps.common.backToApps")}</Button>
@@ -1971,6 +2015,9 @@ export function ConnectionSetupFlow({
           name: linkName.trim() || endpointHost(linkUrl) || t("localizationConnections.thisServer50"),
           unverifiedHost: endpointHost(linkUrl),
         }}
+        // A pasted endpoint walks the generic three-step wizard, so keep that
+        // model rather than dropping to the curated two-step one.
+        steps={{ labels: stepLabelsForCurrentLanguage(), activeIndex: STEP_INDEX.key }}
         phase={oauthPhase}
         error={chatUiErrorMessage(oauthError)}
         authorizationHost={authorizationHost}
@@ -2333,6 +2380,15 @@ export function ConnectionSetupFlow({
       )}
 
       {step === "access" && (
+        <>
+        {entry?.slug === "railway" && (
+          <div className="mb-6 space-y-3 text-sm text-muted-foreground">
+            <p>{accessStepMethod?.guidanceMd}</p>
+            <ul className="list-disc space-y-2 pl-5">
+              {accessStepMethod?.warnings?.map((warning) => <li key={warning}>{warning}</li>)}
+            </ul>
+          </div>
+        )}
         <AccessStep
           companyId={selectedCompanyId}
           authKind={accessStepAuthKind}
@@ -2366,6 +2422,7 @@ export function ConnectionSetupFlow({
             else setStep("key");
           }}
         />
+        </>
       )}
 
       {step === "success" && (
@@ -2387,7 +2444,9 @@ export function ConnectionSetupFlow({
   );
 }
 
-function StepHeader({
+export function StepHeader({
+  title,
+  headingRef,
   subtitle,
   step,
   activeIndex,
@@ -2396,6 +2455,8 @@ function StepHeader({
   unverifiedHost,
   onCancel,
 }: {
+  title?: string;
+  headingRef?: Ref<HTMLHeadingElement>;
   subtitle: string;
   step: Step;
   activeIndex: number;
@@ -2407,7 +2468,7 @@ function StepHeader({
    * just on the screen where they pasted the address.
    */
   unverifiedHost?: string | null;
-  onCancel: () => void;
+  onCancel?: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -2418,27 +2479,35 @@ function StepHeader({
             <AppLogo name={appIdentity.name} logoUrl={appIdentity.logoUrl} darkLogoUrl={appIdentity.darkLogoUrl} size={44} />
           ) : null}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {appIdentity ? t("localizationConnections.connectApp", { app: appIdentity.name }) : t("pages.apps.connect.gallery.connectOwnServer")}
+            <h1 ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-bold tracking-tight outline-none">
+              {title ?? (appIdentity ? t("localizationConnections.connectApp", { app: appIdentity.name }) : t("pages.apps.connect.gallery.connectOwnServer"))}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
             {unverifiedHost ? <UnverifiedServerBadge host={unverifiedHost} className="mt-2" /> : null}
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>{t("localizationConnections.cancel49")}</Button>
+        {onCancel && <Button variant="ghost" size="sm" onClick={onCancel}>{t("pages.cliAuth.cancel")}</Button>}
       </div>
       {step !== "gallery" && (
-        <div className="mt-4">
-          <div className="flex gap-2">
+        // A landmark with stable hooks, so the step model can be read without
+        // guessing at Tailwind classes. The dots are decoration — the label
+        // line below already says the same thing, so announcing both would
+        // read every step name twice.
+        <nav className="mt-4" aria-label={t("sep12Connections.setupProgress")} data-testid="wizard-stepper">
+          <ol className="flex gap-2" aria-hidden="true">
             {labels.map((label, i) => (
-              <div
+              <li
                 key={label}
+                data-testid="wizard-step-dot"
+                data-step-active={i === activeIndex ? "true" : undefined}
                 className={cn("h-1 w-20 rounded-full", i <= activeIndex ? "bg-foreground" : "bg-border")}
               />
             ))}
+          </ol>
+          <div className="mt-2 text-xs text-muted-foreground" data-testid="wizard-step-labels">
+            {labels.join("   ·   ")}
           </div>
-          <div className="mt-2 text-xs text-muted-foreground">{labels.join("   ·   ")}</div>
-        </div>
+        </nav>
       )}
     </div>
   );
@@ -2453,6 +2522,7 @@ export function OAuthConnectStateScreen({
   recoveryActions,
   authorizationHost,
   authorizationUrl,
+  steps = { labels: oauthSignInStepLabelsForCurrentLanguage(), activeIndex: 1 },
   onRetry,
   onOpenAuthorization,
   onBack,
@@ -2475,6 +2545,12 @@ export function OAuthConnectStateScreen({
   authorizationHost?: string | null;
   /** Already validated by prepareOAuthNavigation; used for a native browser link. */
   authorizationUrl?: string | null;
+  /**
+   * Step model of the flow that opened this screen, so the stepper keeps the
+   * shape it had on the previous screen. Defaults to the two-step curated
+   * sign-in model for hosts that have no wizard of their own.
+   */
+  steps?: { labels: string[]; activeIndex: number };
   onOpenAuthorization?: () => void;
   onRetry: () => void;
   onBack: () => void;
@@ -2514,8 +2590,8 @@ export function OAuthConnectStateScreen({
       <StepHeader
         subtitle={t("pages.apps.connect.oauth.subtitle")}
         step="key"
-        activeIndex={1}
-        labels={[t("localizationConnections.access5"), t("localizationConnections.signIn53"), t("localizationConnections.ready79")]}
+        activeIndex={steps.activeIndex}
+        labels={steps.labels}
         appIdentity={entry ? { name: entry.name, logoUrl: entry.branding.logoUrl, darkLogoUrl: entry.branding.darkLogoUrl } : undefined}
         unverifiedHost={unverifiedHost}
         onCancel={onCancel}
@@ -3304,7 +3380,7 @@ function KeyStep({
     : methods;
   const fields = (method?.credentialFields ?? []).map((field) => ({
     ...field,
-    configPath: credentialConfigPath(field),
+    configPath: credentialConfigPath(field, method),
     helpUrl: method?.consoleLinks?.keys ?? method?.consoleLinks?.docs ?? "",
   }));
   const vercelReview = method?.credentialSources?.vercelConnect ?? null;
@@ -3426,13 +3502,7 @@ function KeyStep({
                 >
                   {robotEmail}
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={() => void copyTextToClipboard(robotEmail).catch(() => {})}
-                >
-                  <Copy className="mr-2 h-4 w-4" />{t("localizationConnections.copy136")}</Button>
+                <CopyValueButton value={robotEmail} ariaLabel={t("sep28Apps.copy275")} />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">{t("pages.apps.connect.googleSheets.shareInstructions")}</p>
             </div>
@@ -3582,12 +3652,12 @@ function KeyStep({
                 {credentialFieldLabel(entry.name, appDefinitionText(entry, field.label), fields.length)}
               </label>
               <Input
-                type="password"
+                type={field.type === "text" && field.secret === false ? "text" : "password"}
                 aria-label={credentialFieldLabel(entry.name, field.label, fields.length)}
                 autoComplete="off"
                 value={values[field.configPath] ?? ""}
                 onChange={(e) => onChange({ ...values, [field.configPath]: e.target.value })}
-                placeholder="••••••••••••••••"
+                placeholder={field.type === "text" && field.secret === false ? field.placeholder : "••••••••••••••••"}
                 className="mt-2 h-11 font-mono"
               />
               {field.helpUrl && (
@@ -3619,6 +3689,28 @@ function KeyStep({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The Copy button beside a value the operator has to paste into another
+ * product's console. Both of those values are long and opaque, so the button
+ * has to say whether the clipboard actually took it.
+ */
+function CopyValueButton({ value, ariaLabel }: { value: string; ariaLabel: string }) {
+  useTranslation();
+  const { copied, failed, copy } = useCopyAction();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="shrink-0"
+      aria-label={ariaLabel}
+      onClick={() => void copy(value)}
+    >
+      {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+      {copied ? t("pages.agentDetail.copied") : failed ? t("pages.agentDetail.copyFailed") : t("pages.agentDetail.copy")}
+    </Button>
   );
 }
 
@@ -3673,13 +3765,7 @@ function OAuthClientFields({
             >
               {callbackUrl}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0"
-              onClick={() => void copyTextToClipboard(callbackUrl).catch(() => {})}
-            >
-              <Copy className="mr-2 h-4 w-4" />{t("localizationConnections.copy136")}</Button>
+            <CopyValueButton value={callbackUrl} ariaLabel={t("sep28Apps.copy276")} />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {t("localizationConnections.exactCallbackRequired", { app: entry.name })}
@@ -3781,8 +3867,19 @@ function MethodConfigField({
  * so the reader understands the identity and the reach the secret is about to
  * get. Hick's Law: two choices, not a matrix. Both use full-row radio targets.
  */
-export function AccessStep({
-  companyId,
+export function AccessStep({ companyId, ...props }: Omit<Parameters<typeof AccessStepContent>[0], "agents" | "agentsLoading"> & { companyId: string }) {
+  useTranslation();
+  const agentsQuery = useQuery({
+    queryKey: queryKeys.agents.list(companyId),
+    queryFn: () => agentsApi.list(companyId),
+  });
+  return <AccessStepContent {...props} agents={(agentsQuery.data ?? []).filter((agent) => agent.status !== "terminated")} agentsLoading={agentsQuery.isLoading} />;
+}
+
+/** Shared Gmail access presentation; callers supply agents so review stories stay offline. */
+export function AccessStepContent({
+  agents: allAgents,
+  agentsLoading = false,
   authKind,
   grantKinds,
   grantKind,
@@ -3802,7 +3899,8 @@ export function AccessStep({
   onBack,
   onContinue,
 }: {
-  companyId: string;
+  agents: AgentMultiSelectOption[];
+  agentsLoading?: boolean;
   authKind: ToolConnectionAuthKind;
   grantKinds?: ConnectionGrantKind[];
   grantKind: ConnectionGrantKind;
@@ -3831,11 +3929,6 @@ export function AccessStep({
   onContinue: () => void;
 }) {
   const { t } = useTranslation();
-  const agentsQuery = useQuery({
-    queryKey: queryKeys.agents.list(companyId),
-    queryFn: () => agentsApi.list(companyId),
-  });
-  const allAgents: Agent[] = (agentsQuery.data ?? []).filter((a) => a.status !== "terminated");
   // "Only agents I choose" / "Just agents I pick" means agents this person may actually edit. When the server
   // has not told us, fall back to every live agent rather than an empty list —
   // an empty picker would read as "you have no agents".
@@ -3905,7 +3998,7 @@ export function AccessStep({
                       ? githubIdentity ? t("localizationConnections.myGitHubAccount173") : t("localizationConnections.justMe174")
                       : allowedGrantKinds[0] === "agent"
                         ? t("localizationConnections.aDedicatedAccountForAnAgent175")
-                        : githubIdentity ? t("localizationConnections.sharedCompanyGitHubAccountAdvanced176") : t("localizationConnections.anyHumanInTheCompany177")}
+                        : githubIdentity ? t("sep28Apps.copy277") : t("sep28Apps.anyHumanOrganization")}
                   </div>
                   {githubIdentity ? (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -3950,14 +4043,14 @@ export function AccessStep({
                   },
                   {
                     value: "organization",
-                    title: githubIdentity ? t("localizationConnections.sharedCompanyGitHubAccountAdvanced176") : t("localizationConnections.anyHumanInTheCompany177"),
+                    title: githubIdentity ? t("sep28Apps.copy277") : t("sep28Apps.anyHumanOrganization"),
                     description: githubIdentity
                       ? t("localizationConnections.eligibleAgentsUseOneSharedCredentialRegardles180")
                       : undefined,
                     icon: <UsersRound className="h-4 w-4" aria-hidden="true" />,
                     accessibleLabel: canCreateOrganizationGrant
-                      ? githubIdentity ? t("localizationConnections.sharedCompanyGitHubAccountAdvanced176") : t("localizationConnections.anyHumanInTheCompany177")
-                      : t("localizationConnections.unavailableOption", { option: githubIdentity ? t("localizationConnections.sharedCompanyGitHubAccountAdvanced176") : t("localizationConnections.anyHumanInTheCompany177"), reason: capabilities?.organizationGrantReason ?? t("localizationConnections.onlyAConnectionManagerCanShareThisCredentialW182") }),
+                      ? githubIdentity ? t("sep28Apps.copy277") : t("sep28Apps.anyHumanOrganization")
+                      : t("localizationConnections.unavailableOption", { option: githubIdentity ? t("sep28Apps.copy277") : t("sep28Apps.anyHumanOrganization"), reason: capabilities?.organizationGrantReason ?? t("localizationConnections.onlyAConnectionManagerCanShareThisCredentialW182") }),
                     tooltip: canCreateOrganizationGrant
                       ? undefined
                       : capabilities?.organizationGrantReason ??
@@ -4035,7 +4128,7 @@ export function AccessStep({
                   onChange={(next) => setInstallAgentIds(
                     grantKind === "agent" && next.size > 1 ? new Set([[...next].at(-1)!]) : next,
                   )}
-                  loading={agentsQuery.isLoading}
+                  loading={agentsLoading}
                   emptyMessage={t("localizationConnections.youCannotEditAnyAgentsYet198")}
                   showSelectionPreview={false}
                 />
