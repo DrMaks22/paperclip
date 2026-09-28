@@ -32,8 +32,17 @@ const WAIT_MESSAGE_KEYS = new Map<string, string>([
   ["Project is paused because its budget hard-stop was reached.", "projectBudgetPaused"],
 ]);
 
+const TAIL_RUNTIME_WAIT_MESSAGE_KEYS = new Map<string, string>([
+  ["Verify safe workspace staging or repair before continuing. Your message is saved.", "workspaceRepairRequired"],
+  ["Send a new message after the previous provider has stopped.", "cleanupQuarantined"],
+  ["Waiting for the previous provider and its tools to stop. Your message is saved.", "providerStopping"],
+  ["The previous provider cleanup changed. Your message is saved.", "providerCleanupChanged"],
+]);
+
 /** Display-only projection for IssueQueuedCommentQueue.executionWait.message. */
 export function queuedMessageWaitMessage(message: string): string {
+  const tailKey = TAIL_RUNTIME_WAIT_MESSAGE_KEYS.get(message);
+  if (tailKey) return t(`sep28TailRuntime.queue.${tailKey}`, { defaultValue: message });
   const key = WAIT_MESSAGE_KEYS.get(message);
   return key ? t(`sep13QueueMetadata.${key}`) : message;
 }

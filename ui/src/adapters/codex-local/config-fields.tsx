@@ -24,6 +24,7 @@ import {
   isPaperclipRunnerProvider,
   resolvePaperclipRunnerIdleTimeoutMs,
   resolvePaperclipRunnerPermissionMode,
+  type PaperclipRunnerPermissionCapability,
   type PaperclipRunnerPermissionMode,
   type PaperclipRunnerProvider,
 } from "@paperclipai/adapter-utils";
@@ -35,6 +36,22 @@ const defaultOpenCodeRunnerModel = "openrouter/deepseek/deepseek-v4-flash-0731";
 const defaultAcpxClaudeModel = "claude-sonnet-5";
 const defaultClaudeManagedModel = "claude-sonnet-5";
 const defaultAwsAgentCoreModel = "global.anthropic.claude-sonnet-4-6";
+
+/** Resolve metadata at render time; mode values and permission validation stay native. */
+export function runnerPermissionCapabilityForDisplay(provider: PaperclipRunnerProvider): PaperclipRunnerPermissionCapability {
+  const capability = PAPERCLIP_RUNNER_PERMISSION_CAPABILITIES[provider];
+  const description = t(`localizationAgents.runnerDescription_${provider}`, { defaultValue: capability.description });
+  if (!capability.configurable) return { ...capability, description };
+  return {
+    ...capability,
+    description,
+    options: capability.options.map(option => ({
+      ...option,
+      label: t(`localizationAgents.runnerPermission_${option.value}`, { defaultValue: option.label }),
+      description: t(`localizationAgents.runnerPermissionDescription_${option.value}`, { defaultValue: option.description }),
+    })),
+  };
+}
 
 export function CodexLocalConfigFields({
   section,
@@ -68,8 +85,8 @@ export function CodexLocalConfigFields({
     ? configuredRunnerProvider
     : "codex";
   const runnerPermissionCapability =
-    PAPERCLIP_RUNNER_PERMISSION_CAPABILITIES[runnerProvider];
-  const runnerPermissionDescription = t(`localizationAgents.runnerDescription_${runnerProvider}`);
+    runnerPermissionCapabilityForDisplay(runnerProvider);
+  const runnerPermissionDescription = runnerPermissionCapability.description;
   const configuredRunnerPermissionMode =
     runnerManaged && runnerPermissionCapability.configurable
       ? isCreate
@@ -409,9 +426,7 @@ export function CodexLocalConfigFields({
               <SelectValue>
                 {runnerPermissionModeUnsupported
                   ? t("localizationAgents.ui342_Unsupported_saved_mode_select_a_qualified_mode")
-                  : t(`localizationAgents.runnerPermission_${runnerPermissionMode}`, {
-                      defaultValue: runnerPermissionCapability.options.find((option) => option.value === runnerPermissionMode)?.label ?? runnerPermissionMode,
-                    })}
+                  : runnerPermissionCapability.options.find((option) => option.value === runnerPermissionMode)?.label ?? runnerPermissionMode}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -422,7 +437,7 @@ export function CodexLocalConfigFields({
               )}
               {runnerPermissionCapability.options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {t(`localizationAgents.runnerPermission_${option.value}`, { defaultValue: option.label })}
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>

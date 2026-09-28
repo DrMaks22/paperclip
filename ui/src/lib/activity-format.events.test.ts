@@ -15,6 +15,9 @@ const formatterSource = readFileSync(new URL("./activity-format.ts", import.meta
 const fallbackActions = [...formatterSource
   .match(/const LOCALIZED_FALLBACK_ACTIVITY_ACTIONS = new Set<string>\(\[([\s\S]*?)\n\]\);/)![1]
   .matchAll(/"([a-z_.]+)"/g)].map((match) => match[1]);
+const tailRuntimeActions = [...formatterSource
+  .match(/const TAIL_RUNTIME_ACTIVITY_ACTIONS = new Set<string>\(\[([\s\S]*?)\n\]\);/)![1]
+  .matchAll(/"([a-z_.]+)"/g)].map((match) => match[1]);
 
 function readActionTable(name: string): Map<string, string> {
   const body = formatterSource.match(new RegExp(`const ${name}: Record<string, string> = \\{([\\s\\S]*?)\\n\\};`))![1];
@@ -36,6 +39,57 @@ const eventKey = (action: string) => action.replace(/\./g, "_");
 afterEach(async () => { await i18n.changeLanguage("en"); });
 
 describe("activity event fallback localization", () => {
+  it("covers the exact new runtime action identities in both catalogs", () => {
+    const keys = tailRuntimeActions.map(eventKey);
+    expect(tailRuntimeActions).toHaveLength(18);
+    expect(new Set(tailRuntimeActions).size).toBe(tailRuntimeActions.length);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(Object.keys(en.sep28TailRuntime.activity).sort()).toEqual([...keys].sort());
+    expect(Object.keys(ru.sep28TailRuntime.activity).sort()).toEqual([...keys].sort());
+  });
+
+  it.each(tailRuntimeActions)("projects %s RU → EN → RU without changing raw payloads or near-match actions", async (action) => {
+    const details = Object.freeze({
+      provider: "OpenAI", title: "RAW user title", action: "Keep_raw.action", reason: "User-provided English reason",
+      receipt: Object.freeze({ operation: "RawOperation", stateRevision: 3 }),
+    });
+    const event = Object.freeze({ action, details });
+    const original = JSON.stringify(event);
+    const key = eventKey(action);
+    for (const locale of ["ru", "en", "ru"]) {
+      await i18n.changeLanguage(locale);
+      const catalog: Record<string, string> = locale === "ru" ? ru.sep28TailRuntime.activity : en.sep28TailRuntime.activity;
+      const expected = catalog[key];
+      expect(expected).toBeTruthy();
+      if (locale === "en") expect(expected).toBe(action.replace(/[._]/g, " "));
+      else expect(expected).toMatch(/[А-Яа-яЁё]/);
+      for (const format of [formatActivityVerb, formatIssueActivityAction]) {
+        expect(format(action, details)).toBe(expected);
+        for (const unknown of [action.replace(/\./g, "_"), `${action}.custom`, `custom.${action}`]) {
+          expect(format(unknown, details)).toBe(unknown.replace(/[._]/g, " "));
+        }
+      }
+      expect(JSON.stringify(event)).toBe(original);
+    }
+  });
+
+  it("keeps English activity status casing while projecting settled conversations in RU → EN → RU", async () => {
+    const settled = Object.freeze({ status: "in_review", externalConversationState: "waiting" });
+    const review = Object.freeze({ status: "in_review" });
+    const raw = Object.freeze({ status: "User_RAW_Status", priority: "User_RAW_Priority" });
+    const original = JSON.stringify([settled, review, raw]);
+    for (const locale of ["ru", "en", "ru"]) {
+      await i18n.changeLanguage(locale);
+      const idle = locale === "en" ? "idle" : t("status.idle");
+      const inReview = locale === "en" ? "in review" : t("status.in_review");
+      expect(formatActivityVerb("issue.updated", settled)).toBe(t("localizationActivity.changed_status_Verb", { to: idle }));
+      expect(formatIssueActivityAction("issue.updated", settled)).toBe(t("localizationActivity.changed_status_Action", { to: idle }));
+      expect(formatActivityVerb("issue.updated", review)).toBe(t("localizationActivity.changed_status_Verb", { to: inReview }));
+      expect(formatActivityVerb("issue.updated", raw)).toContain("User RAW Status");
+      expect(JSON.stringify([settled, review, raw])).toBe(original);
+    }
+  });
+
   it("localizes announcement dismissal by its exact first-party action without changing event details", async () => {
     const details = Object.freeze({ title: "Keep this English announcement title", announcementId: "announcement.release.v1" });
     const original = JSON.stringify(details);
@@ -155,7 +209,7 @@ function literalActionCandidates(source: string): string[] {
 }
 
 describe("activity event coverage", () => {
-  const known = new Set([...fallbackActions, ...rowActions.keys(), ...detailActions.keys()]);
+  const known = new Set([...fallbackActions, ...tailRuntimeActions, ...rowActions.keys(), ...detailActions.keys()]);
 
   it("requires labels when a new static or conditional server action is added", () => {
     const root = fileURLToPath(new URL("../../../server/src/", import.meta.url));

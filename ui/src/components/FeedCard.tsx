@@ -1,4 +1,4 @@
-import { t, useTranslation } from "@/i18n";
+import { i18n, t, useTranslation } from "@/i18n";
 import { Trans } from "react-i18next";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { Link } from "@/lib/router";
@@ -36,6 +36,12 @@ function humanize(value: unknown): string {
   return typeof value === "string" ? value.replace(/_/g, " ") : String(value ?? "");
 }
 
+function feedFieldLabel(group: "status" | "priority", value: string): string {
+  // English activity sentences retain upstream's lower-case enum wording.
+  // Opaque values keep the same fallback; do not change the event payload.
+  return i18n.language === "en" ? humanize(value) : t(`${group}.${value}`, { defaultValue: humanize(value) });
+}
+
 function approvalTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     hire_agent: t("localizationActivityTail.approvalType_hire_agent"),
@@ -58,10 +64,10 @@ function formatVerb(
       return t("localizationActivityTail.feed_opened");
     case "issue.updated": {
       const status = details?.status;
-      if (status === "in_review" && details?.externalConversationState === "waiting") return t("localizationActivityTail.feed_status", { status: t("status.idle") });
-      if (typeof status === "string") return t("localizationActivityTail.feed_status", { status: t(`status.${status}`, { defaultValue: humanize(status) }) });
+      if (status === "in_review" && details?.externalConversationState === "waiting") return t("localizationActivityTail.feed_status", { status: feedFieldLabel("status", "idle") });
+      if (typeof status === "string") return t("localizationActivityTail.feed_status", { status: feedFieldLabel("status", status) });
       const priority = details?.priority;
-      if (typeof priority === "string") return t("localizationActivityTail.feed_priority", { priority: t(`priority.${priority}`, { defaultValue: humanize(priority) }) });
+      if (typeof priority === "string") return t("localizationActivityTail.feed_priority", { priority: feedFieldLabel("priority", priority) });
       return t("localizationActivityTail.feed_updated");
     }
     case "issue.document_created":

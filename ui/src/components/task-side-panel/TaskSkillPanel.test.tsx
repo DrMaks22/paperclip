@@ -109,7 +109,7 @@ describe("TaskSkillPanel", () => {
     await vi.waitFor(() => expect(container.textContent).toContain("Загружаем навык…"));
     expect(container.querySelector("button")).toBeNull();
     await act(async () => finish({ ...(skill as object), markdown: "", currentVersion: null } as Awaited<ReturnType<typeof companySkillsApi.detail>>));
-    await vi.waitFor(() => expect(container.textContent).toContain("Инструкции навыка пусты."));
+    await vi.waitFor(() => expect(container.textContent).toContain("В навыке нет инструкций."));
     expect(container.textContent).toContain("Текущая версия");
     expect(companySkillsApi.detail).toHaveBeenCalledTimes(2);
   });

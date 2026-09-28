@@ -2,11 +2,35 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { i18n } from "@/i18n";
+import en from "@/i18n/locales/en.json";
+import ru from "@/i18n/locales/ru.json";
 import { queuedMessageWaitMessage } from "./queued-message-display";
 
 afterEach(async () => { await i18n.changeLanguage("en"); });
 
 describe("queuedMessageWaitMessage", () => {
+  it.each([
+    ["workspace_repair_required", "Verify safe workspace staging or repair before continuing. Your message is saved.", "workspaceRepairRequired"],
+    ["cleanup_quarantined", "Send a new message after the previous provider has stopped.", "cleanupQuarantined"],
+    ["local_cleanup", "Waiting for the previous provider and its tools to stop. Your message is saved.", "providerStopping"],
+    ["local_cleanup", "The previous provider cleanup changed. Your message is saved.", "providerCleanupChanged"],
+  ] as const)("projects the exact %s message RU → EN → RU while preserving the saved queue", async (reason, message, key) => {
+    const wait = Object.freeze({ reason, message });
+    const queue = Object.freeze({ executionWait: wait, body: "RAW saved user message", provider: "OpenAI" });
+    const original = JSON.stringify(queue);
+    expect(en.sep28TailRuntime.queue[key]).toBe(message);
+    for (const locale of ["ru", "en", "ru"]) {
+      await i18n.changeLanguage(locale);
+      const expected = locale === "ru" ? ru.sep28TailRuntime.queue[key] : message;
+      expect(queuedMessageWaitMessage(wait.message)).toBe(expected);
+      if (locale === "ru") expect(expected).toMatch(/[А-Яа-яЁё]/);
+      for (const unknown of [` ${message}`, `${message} Additional provider detail.`, message.toLowerCase()]) {
+        expect(queuedMessageWaitMessage(unknown)).toBe(unknown);
+      }
+      expect(JSON.stringify(queue)).toBe(original);
+    }
+  });
+
   it("distinguishes manual cleanup from automatic recovery for the same reason through language changes", async () => {
     const manual = {
       reason: "controller_settling",
@@ -38,6 +62,7 @@ describe("queuedMessageWaitMessage", () => {
       const display = queuedMessageWaitMessage(message);
       expect(display, message).toMatch(/[А-Яа-яЁё]/);
       expect(display, message).not.toContain("sep13QueueMetadata.");
+      expect(display, message).not.toContain("sep28TailRuntime.");
     }
   });
 

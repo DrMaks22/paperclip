@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailEndpointSummary, EmailMessage, EmailPublicationSummary } from "@paperclipai/shared";
+import { SidebarProvider } from "@/context/SidebarContext";
 import { i18n } from "@/i18n";
 import { formatDateTime } from "@/lib/utils";
 import { EmailEndpointSetup, EmailEndpointSettings } from "@/pages/apps/chat/EmailEndpointSetup";
@@ -63,7 +64,7 @@ async function flush() {
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 }
 async function mount(node: ReactNode) {
-  await act(async () => root!.render(<QueryClientProvider client={cache}>{node}</QueryClientProvider>));
+  await act(async () => root!.render(<QueryClientProvider client={cache}><SidebarProvider>{node}</SidebarProvider></QueryClientProvider>));
   await flush();
   await flush();
 }
@@ -84,6 +85,7 @@ async function typeInto(input: HTMLInputElement, value: string) {
 
 beforeEach(async () => {
   vi.resetAllMocks();
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   await i18n.changeLanguage("en");
   mocks.list.mockResolvedValue([inbox]);
   mocks.listAgents.mockResolvedValue([]);
@@ -105,6 +107,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => root?.unmount());
   cache.clear();
+  vi.unstubAllGlobals();
   container.remove();
   await i18n.changeLanguage("en");
 });
@@ -128,7 +131,7 @@ describe("Email localization boundaries", () => {
     await mount(<EmailConnectionAccess companyId="company-raw" connectionId="connection-raw" agents={[]} />);
     for (const locale of ["en", "ru", "en"] as const) {
       await language(locale);
-      expect(container.textContent).toContain(locale === "ru" ? "Любой пользователь в организации" : "Any human in the company");
+      expect(container.textContent).toContain(i18n.t("sep28Apps.anyHumanOrganization"));
       expect(container.textContent).toContain(locale === "ru" ? "Какие агенты могут использовать это подключение?" : "Which agents can use this connection?");
       const selected = container.querySelector('[role="radio"][aria-checked="true"]');
       expect(selected?.textContent).toBe(locale === "ru" ? "Только выбранные агенты" : "Just agents I pick");

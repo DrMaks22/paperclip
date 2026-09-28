@@ -6153,7 +6153,16 @@
     "signalLabel": "(signal: {{signal}})",
     "changedKeys": "Changed: {{keys}}",
     "environmentCheckHint": "Hint: {{hint}}",
-    "kubernetesEnvironmentName": "{{name}} · Kubernetes sandbox"
+    "kubernetesEnvironmentName": "{{name}} · Kubernetes sandbox",
+    "runnerPermission_approve-paperclip": "Automatic Paperclip actions",
+    "runnerPermissionDescription_never": "Run without Codex approval pauses while Paperclip keeps its independent workspace, network, and environment restrictions.",
+    "runnerPermissionDescription_allow": "Allow OpenCode operations without approval pauses.",
+    "runnerPermissionDescription_ask": "Prompt before protected OpenCode operations.",
+    "runnerPermissionDescription_deny": "Reject protected OpenCode operations.",
+    "runnerPermissionDescription_approve-all": "Approve ACPX operations without approval pauses.",
+    "runnerPermissionDescription_approve-paperclip": "Automatically run assigned Paperclip planning and task tools, including reassignment. Company permissions and approval requirements still apply. Other operations require permission.",
+    "runnerPermissionDescription_approve-reads": "Automatically allow assigned Paperclip read tools. Other operations stop with an approval-required message because this runner has no interactive approval handler.",
+    "runnerPermissionDescription_deny-all": "Reject harness permission requests."
   },
   "localizationSkills": {
     "skillsShManaged2": "skills.sh managed",
@@ -18367,5 +18376,33 @@
     "authorizationInsecure": "This server's sign-in address is not secure (https), so Paperclip stopped.",
     "authorizationCredentials": "This server's sign-in address hides a different site behind a username, so Paperclip stopped.",
     "authorizationFragment": "This server's sign-in address is malformed for sign-in, so Paperclip stopped."
+  },
+  "sep28TailRuntime": {
+    "activity": {
+      "user_preferences_updated": "user preferences updated",
+      "routine_trigger_removed": "routine trigger removed",
+      "routine_trigger_restored": "routine trigger restored",
+      "routine_trigger_setup_finished": "routine trigger setup finished",
+      "tool_connection_railway_ssh_updated": "tool connection railway ssh updated",
+      "chat_setup_completed": "chat setup completed",
+      "chat_slack_identity_discovered": "chat slack identity discovered",
+      "chat_github_app_connected": "chat github app connected",
+      "chat_github_configuration_updated": "chat github configuration updated",
+      "chat_github_identity_confirmed": "chat github identity confirmed",
+      "chat_github_registration_started": "chat github registration started",
+      "chat_github_published": "chat github published",
+      "routine_webhook_ignored": "routine webhook ignored",
+      "chat_slack_search_configured": "chat slack search configured",
+      "chat_slack_search_connected": "chat slack search connected",
+      "chat_slack_search_disconnected": "chat slack search disconnected",
+      "chat_slack_tool_executed": "chat slack tool executed",
+      "issue_reassigned": "issue reassigned"
+    },
+    "queue": {
+      "workspaceRepairRequired": "Verify safe workspace staging or repair before continuing. Your message is saved.",
+      "cleanupQuarantined": "Send a new message after the previous provider has stopped.",
+      "providerStopping": "Waiting for the previous provider and its tools to stop. Your message is saved.",
+      "providerCleanupChanged": "The previous provider cleanup changed. Your message is saved."
+    }
   }
 }

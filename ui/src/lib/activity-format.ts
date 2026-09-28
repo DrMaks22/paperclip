@@ -552,8 +552,32 @@ const LOCALIZED_FALLBACK_ACTIVITY_ACTIONS = new Set<string>([
   "workspace_runtime.exposure_reservation_drift",
 ]);
 
+const TAIL_RUNTIME_ACTIVITY_ACTIONS = new Set<string>([
+  "user.preferences_updated",
+  "routine.trigger_removed",
+  "routine.trigger_restored",
+  "routine.trigger_setup_finished",
+  "tool_connection.railway_ssh_updated",
+  "chat.setup_completed",
+  "chat.slack_identity_discovered",
+  "chat_github.app_connected",
+  "chat_github.configuration_updated",
+  "chat_github.identity_confirmed",
+  "chat_github.registration_started",
+  "chat_github.published",
+  "routine.webhook_ignored",
+  "chat.slack_search.configured",
+  "chat.slack_search.connected",
+  "chat.slack_search.disconnected",
+  "chat.slack_tool.executed",
+  "issue.reassigned",
+]);
+
 function formatFallbackActivityAction(action: string): string {
   const fallback = action.replace(/[._]/g, " ");
+  if (TAIL_RUNTIME_ACTIVITY_ACTIONS.has(action)) {
+    return t(`sep28TailRuntime.activity.${action.replace(/\./g, "_")}`, { defaultValue: fallback });
+  }
   if (!LOCALIZED_FALLBACK_ACTIVITY_ACTIONS.has(action)) return fallback;
   return t(`localizationActivityEvents.${action.replace(/\./g, "_")}`, { defaultValue: fallback });
 }
@@ -776,6 +800,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function humanizeValue(value: unknown): string {
+  // English activity prose uses raw lowercase status/priority values, not the
+  // title-cased labels used by standalone badges and menus.
+  if (i18n.resolvedLanguage === "en") {
+    return typeof value === "string" ? value.replace(/_/g, " ") : String(value ?? "none");
+  }
   if (typeof value !== "string") return String(value ?? t("status.none"));
   return i18n.exists(`status.${value}`) ? t(`status.${value}`) : i18n.exists(`priority.${value}`) ? t(`priority.${value}`) : value.replace(/_/g, " ");
 }

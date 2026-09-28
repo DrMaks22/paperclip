@@ -191,7 +191,7 @@ describe("ExternallyConnectedTaskBanner publication truth", () => {
           ? "#paperclip · Ваши сообщения в этом чате и ответы агента также публикуются в Slack."
           : "#paperclip · Messages you send here and agent replies are also posted to Slack.");
         expect(container.textContent).toContain(language === "ru"
-          ? "Сообщение публикуется в Slack от вашего имени и запускает агента."
+          ? "Сообщение публикуется в Slack с указанием вашего имени и запускает агента."
           : "Your message is posted to Slack with your name and starts the agent.");
         expect(mockChatEndpointsApi.publishBoardMessage).not.toHaveBeenCalled();
       }
