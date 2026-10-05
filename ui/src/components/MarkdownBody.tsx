@@ -732,6 +732,15 @@ function MarkdownScrollableTable({ node: _node, style, children, ...tableProps }
   );
 }
 
+function MarkdownImageReference({ src, alt, title }: React.ComponentProps<"img">) {
+  const { t } = useTranslation();
+  return (
+    <span data-markdown-image-reference title={title}>
+      {t("oct5Core.imageReference", { alt: alt || t("oct5Core.untitledImage"), source: src ? ` (${src})` : "" })}
+    </span>
+  );
+}
+
 function MarkdownBodyImpl({
   children,
   className,
@@ -748,7 +757,6 @@ function MarkdownBodyImpl({
   mediaMode = "render",
   resolveWorkspaceFileRef,
 }: MarkdownBodyProps) {
-  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   // Read company prefixes non-throwingly: MarkdownBody renders in surfaces that
   // may lack a CompanyProvider. A null context (or no companies yet) leaves
@@ -776,6 +784,8 @@ function MarkdownBodyImpl({
   // scroll position and text selection and causes visible flashing when a
   // parent re-renders frequently (see PAP-10767). Memoize both so re-renders
   // that don't change the inputs are cheap and non-destructive.
+  // Localized chrome subscribes inside stable child components so changing
+  // language does not rebuild this map or reset code-block interaction state.
   const remarkPlugins = useMemo<NonNullable<Options["remarkPlugins"]>>(() => {
     const plugins: NonNullable<Options["remarkPlugins"]> = [remarkGfm, remarkDropHtmlComments];
     if (enableWikiLinks) {
@@ -937,11 +947,7 @@ function MarkdownBodyImpl({
     },
     };
     if (mediaMode === "reference") {
-      map.img = ({ src, alt, title }) => (
-        <span data-markdown-image-reference title={title}>
-          {t("oct5Core.imageReference", { alt: alt || t("oct5Core.untitledImage"), source: src ? ` (${src})` : "" })}
-        </span>
-      );
+      map.img = MarkdownImageReference;
     } else if (resolveImageSrc || onImageClick) {
       map.img = ({ node: _node, src, alt, ...imgProps }) => {
         const resolved = resolveImageSrc && src ? resolveImageSrc(src) : null;
@@ -958,7 +964,7 @@ function MarkdownBodyImpl({
       };
     }
     return map;
-  }, [theme, linkIssueReferences, linkCaseReferences, externalReferenceLookup, resolveImageSrc, onImageClick, mediaMode, i18n.resolvedLanguage, t]);
+  }, [theme, linkIssueReferences, linkCaseReferences, externalReferenceLookup, resolveImageSrc, onImageClick, mediaMode]);
 
   return (
     <div

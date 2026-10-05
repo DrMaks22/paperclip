@@ -177,7 +177,7 @@ describe("October 5 core presentation", () => {
     for (const language of ["ru", "en"]) {
       await i18n.changeLanguage(language);
       expect(EFFORT_LABELS.high).toBe(language === "ru" ? "Высокая" : "High");
-      expect(taskChatDisplayLabel("Naming the task")).toBe(language === "ru" ? "Задание названия задачи" : "Naming the task");
+      expect(taskChatDisplayLabel("Naming the task")).toBe(language === "ru" ? "Задаём название задачи…" : "Naming the task");
       expect(taskChatDisplayLabel("Custom: Naming the task")).toBe("Custom: Naming the task");
       expect(mergeComposerRunSettings(null, "codex_local", settings)).toEqual(before);
       expect(before?.adapterConfig).toMatchObject({ model: "model/RAW", modelReasoningEffort: "high" });

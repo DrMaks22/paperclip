@@ -194,8 +194,8 @@ describe("default AI account names", () => {
       expect(personalAiDefault([account], requirement, "alice")?.name).toBe("Personal Claude");
     }
     await i18n.changeLanguage("ru");
-    expect(defaultAiConnectionName("Dotta", "openai", "subscription")).toBe("Подписка ChatGPT — Dotta");
-    expect(defaultAiConnectionName(undefined, "anthropic", "subscription")).toBe("Моя подписка Claude");
+    expect(defaultAiConnectionName("Dotta", "openai", "subscription")).toBe("Аккаунт ChatGPT с подпиской — Dotta");
+    expect(defaultAiConnectionName(undefined, "anthropic", "subscription")).toBe("Мой аккаунт Claude с подпиской");
   });
   it("uses provider and method labels with a personal fallback", () => {
     expect(defaultAiConnectionName("dotta", "anthropic", "api_key")).toBe("dotta's Claude API account");
