@@ -76,6 +76,10 @@ const APP_COPY: Record<string, AppCopy> = {
     get tagline() { return t("localizationApps.exploreProductUsageErrorsFlagsAndExperiments768"); },
     get short() { return t("localizationApps.signInWithPostHogProjectPinningAndAccessContr769"); },
   },
+  neon: {
+    get tagline() { return t("oct5Apps.neonTagline"); },
+    get short() { return t("oct5Apps.neonShort"); },
+  },
   linear: {
     get tagline() { return t("localizationApps.createUpdateAndReadTickets770"); },
     get short() { return t("localizationApps.createUpdateAndReadTickets770"); },

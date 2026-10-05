@@ -5,6 +5,8 @@ import type { TaskChatMaterializedResourceItem } from "./task-chat-model";
 // Only call these helpers for built-in presentation metadata. Protocol models,
 // provider payloads, user messages, source code, and persisted content stay raw.
 const DISPLAY_KEYS: Readonly<Record<string, string>> = {
+  "Naming the task": "oct5Core.namingTask",
+  "Named the task": "oct5Core.namedTask",
   "Workspace restore failed": "sep28ChatDynamic.workspaceRestoreFailedLabel",
   "Approval required": "stable916Tasks.approvalRequired",
   "Couldn't start": "stable916Tasks.couldntStart",

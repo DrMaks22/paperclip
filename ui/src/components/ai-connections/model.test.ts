@@ -5,6 +5,7 @@ import {
   AI_CONNECTION_STATUS,
   aiMethodLabel,
   aiConnectionProblem,
+  defaultAiConnectionName,
   bindingProblem,
   matchesAiRequirement,
   personalAiDefault,
@@ -178,4 +179,28 @@ it("localizes live helper output while retaining canonical defaults and raw diag
   }
   await i18n.changeLanguage("ru");
   expect(aiConnectionProblem({ ...account, unavailableReason: "Reconnect with a separate sign-in to protect your existing terminal login." })).toContain("сохранить текущую авторизацию в терминале");
+});
+
+describe("default AI account names", () => {
+  it("localizes only newly suggested names and retains existing custom names", async () => {
+    for (const [locale, suggested] of [
+      ["en", "Alice's Claude API account"],
+      ["ru", "Аккаунт Claude API — Alice"],
+      ["en", "Alice's Claude API account"],
+    ]) {
+      await i18n.changeLanguage(locale);
+      expect(defaultAiConnectionName("Alice", "anthropic", "api_key")).toBe(suggested);
+      expect(account.name).toBe("Personal Claude");
+      expect(personalAiDefault([account], requirement, "alice")?.name).toBe("Personal Claude");
+    }
+    await i18n.changeLanguage("ru");
+    expect(defaultAiConnectionName("Dotta", "openai", "subscription")).toBe("Подписка ChatGPT — Dotta");
+    expect(defaultAiConnectionName(undefined, "anthropic", "subscription")).toBe("Моя подписка Claude");
+  });
+  it("uses provider and method labels with a personal fallback", () => {
+    expect(defaultAiConnectionName("dotta", "anthropic", "api_key")).toBe("dotta's Claude API account");
+    expect(defaultAiConnectionName("Dotta", "openai", "subscription")).toBe("Dotta's ChatGPT subscription account");
+    expect(defaultAiConnectionName("You", "openai", "api_key")).toBe("My OpenAI API account");
+    expect(defaultAiConnectionName(undefined, "openrouter", "api_key")).toBe("My OpenRouter API account");
+  });
 });

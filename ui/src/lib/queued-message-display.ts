@@ -4,6 +4,7 @@ import { t } from "@/i18n";
 // controller_settling can mean automatic recovery or required manual cleanup.
 // The stored queue and arbitrary provider messages retain their original text.
 const WAIT_MESSAGE_KEYS = new Map<string, string>([
+  ["Inspect the stopped run and send a new message to continue.", "cancelledByOperator"],
   ["A pending approval or question must be resolved before this message can start.", "decisionPending"],
   ["The stopped run could not be identified. Your message is saved.", "sourceMissing"],
   ["The previous execution has not finished or its owner changed. Your message is saved.", "sourceUnavailable"],

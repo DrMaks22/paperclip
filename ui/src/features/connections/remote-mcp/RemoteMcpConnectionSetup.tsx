@@ -11,11 +11,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RemoteMcpManagement } from "./RemoteMcpManagement";
-import { AccessStepContent, StepHeader } from "../ConnectionSetupFlow";
+import {
+  AccessStepContent,
+  ConnectionAccessDefaults,
+  connectionDefaultSummarySentence,
+  StepHeader,
+} from "../ConnectionSetupFlow";
 import type { RemoteMcpProvider } from "./providers";
 import type { RemoteMcpSetupActions, RemoteMcpSetupState } from "./types";
 
-const steps = ["access", "connect"] as const;
+/**
+ * PAP-659 C0: the connect path is one screen. `access` is still a real screen,
+ * but only as management after the connection exists — the way in states the
+ * resolved default and puts its controls in the Advanced disclosure, the same
+ * as every catalog connector.
+ */
+const steps = ["connect"] as const;
 const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
 function FieldHelp({ label, children }: { label: string; children: ReactNode }) {
@@ -28,12 +39,15 @@ function FieldHelp({ label, children }: { label: string; children: ReactNode }) 
 }
 
 function ExternalAction({ onClick, children }: { onClick: () => void; children?: ReactNode }) {
+  useTranslation();
   return <Button type="button" variant="link" className="h-auto p-0 text-sm text-current underline" onClick={onClick}>{children}<ExternalLink className="size-3.5" aria-hidden="true" /></Button>;
 }
 
 /** Controlled presentation shared by provider setup, configuration imports and review stories.
  * Authentication, persistence and calls belong to the controller, never these views. */
-export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agents, connectionId, fixedGrantKind, lockedAgentId, host = "page", authorizationUrl, upstreamServiceName }: {
+export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agents, companyId, connectionId, fixedGrantKind, lockedAgentId, host = "page", authorizationUrl, upstreamServiceName, onCancel }: {
+  companyId: string;
+  onCancel?: () => void;
   upstreamServiceName?: string;
   host?: "page" | "dialog";
   lockedAgentId?: string;
@@ -56,12 +70,54 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
   const currentStep = steps.indexOf(s.step as typeof steps[number]);
   const busy = s.connectStatus === "connecting";
   const change = (patch: Partial<RemoteMcpSetupState>) => a.edit(patch);
-  const external = (purpose: Parameters<typeof a.openProvider>[0], text: string) => <Button type="button" variant="link" className="h-auto p-0 text-sm text-current underline" onClick={() => a.openProvider(purpose)}>{text}<ExternalLink className="size-3.5" aria-hidden="true" /></Button>;
+  const external = (purpose: Parameters<typeof a.openProvider>[0], text: string) => <Button type="button" variant="link" className="h-auto max-w-full whitespace-normal p-0 text-left text-sm text-current underline" onClick={() => a.openProvider(purpose)}>{text}<ExternalLink className="size-3.5 shrink-0" aria-hidden="true" /></Button>;
   const boundary = <InlineBanner compact><Trans i18nKey="sep28Apps.permissionBoundary" values={{ provider: provider.name }} components={{ providerLink: <ExternalAction onClick={() => a.openProvider("manage")} /> }} /></InlineBanner>;
   const footer = (children: ReactNode) => <SetupWizardFooter onSaveExit={a.saveExit} disabled={busy}>{children}</SetupWizardFooter>;
 
+  /**
+   * The stated default and the one Advanced disclosure (PAP-659 C0).
+   *
+   * Step 1 of this work learned the lesson the hard way on Gmail: adding an
+   * access disclosure beside a connector's existing "Advanced authentication"
+   * panel leaves two of them on one screen, which is worse than the step it
+   * replaced. So the provider's authentication settings are passed in here as
+   * `extra` and share a single panel with the access controls.
+   */
+  // Deliberately not derived from `s.auth`. A gateway URL can carry a personal
+  // token even when the method declares `auth: "none"`, so the shared-vs-mine
+  // credential choice has to stay offered; deriving "none" here would silently
+  // remove it and pin every Zapier connection to the organization.
+  const authKind = "oauth";
+  const defaults = (extra: ReactNode) => <ConnectionAccessDefaults
+    companyId={companyId}
+    {...(companyId ? {} : { agents })}
+    sentence={connectionDefaultSummarySentence({
+      grantKind: s.grantKind,
+      authKind,
+      installChoice: s.allAgents ? "all" : "specific",
+      installCount: s.agentIds.length,
+      lockedAgentId,
+      preserveAgentAccess: s.setupComplete,
+    })}
+    extra={extra}
+    // Something inside is load-bearing: the operator has already chosen a
+    // non-default sign-in method, or the provider just rejected a credential.
+    forceOpen={s.auth !== (provider.supportsBrowserAuth ? "auto" : "none") || s.connectStatus === "rejected"}
+    disabled={busy}
+    authKind={authKind}
+    grantKinds={fixedGrantKind ? [fixedGrantKind] : undefined}
+    grantKind={s.grantKind}
+    setGrantKind={(grantKind) => { if (grantKind !== "agent") change({ grantKind }); }}
+    installChoice={s.allAgents ? "all" : "specific"}
+    setInstallChoice={(choice) => change({ allAgents: choice === "all" })}
+    installAgentIds={new Set(s.agentIds)}
+    setInstallAgentIds={(ids) => change({ agentIds: [...ids] })}
+    lockedAgentId={lockedAgentId}
+    preserveAgentAccess={s.setupComplete}
+  />;
+
   const error = s.connectStatus === "invalid_url" ? { title: t("sep28Apps.validMcpUrl"), body: t("sep28Apps.completeMcpUrl") }
-    : s.connectStatus === "oauth_failed" ? { title: t("sep28Apps.providerCouldNotConnect", { provider: provider.name }), body: t("sep28Apps.authorizationIncomplete") }
+    : s.connectStatus === "oauth_failed" ? { title: t("sep28Apps.providerCouldNotConnect", { provider: provider.name }), body: t("localizationConnections.authorizationDidNotCompleteYourSavedConnectio3") }
     : s.connectStatus === "rejected" ? { title: t("sep28Apps.credentialsRejected"), body: t("sep28Apps.checkCredentials", { provider: provider.name }) }
     : s.connectStatus === "unreachable" ? { title: t("sep28Apps.serverUnreachable"), body: t("sep28Apps.checkEndpoint") }
     : null;
@@ -69,8 +125,8 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
   return <div className={host === "dialog" ? "min-w-0 text-foreground" : "mx-auto max-w-6xl p-4 text-foreground sm:p-8"} data-remote-mcp-provider={provider.id}>
     <StepHeader headingRef={heading} appIdentity={{ name: provider.name, logoUrl: null }}
       title={upstreamServiceName ? t("sep28Apps.connectThrough", { service: upstreamServiceName, provider: provider.name }) : s.step === "draft" ? t("sep28Apps.continueSetup") : s.setupComplete ? s.step === "access" ? t("sep28Apps.whoCanUse") : s.step === "connect" ? t("sep28Apps.reconnectProvider", { provider: provider.name }) : provider.name : undefined}
-      subtitle={currentStep >= 0 && !s.setupComplete ? t("localizationConnections.step", { current: currentStep + 1, total: 2 }) : s.step === "draft" ? t("sep28Apps.setupReady", { provider: provider.name }) : s.step === "permissions" ? s.identity ? t("sep28Apps.identityActions", { identity: s.identity, count: s.tools.length }) : t("sep28Apps.connectedActions", { count: s.tools.length }) : t("sep28Apps.manageConnection", { provider: provider.name })}
-      step={currentStep >= 0 && !s.setupComplete ? "access" : "gallery"} activeIndex={currentStep} labels={[t("sep28Chat.access"), t("sep13Connections.connect")]} onCancel={busy || s.step === "management" || s.step === "permissions" || s.step === "draft" ? undefined : a.saveExit} />
+      subtitle={currentStep >= 0 && !s.setupComplete ? t("oct5Apps.usesProvider", { provider: provider.name }) : s.step === "draft" ? t("sep28Apps.setupReady", { provider: provider.name }) : s.step === "permissions" ? (s.identity ? t("sep28Apps.identityActions", { identity: s.identity, count: s.tools.length }) : t("sep28Apps.connectedActions", { count: s.tools.length })) : t("sep28Apps.manageConnection", { provider: provider.name })}
+      step={currentStep >= 0 && !s.setupComplete ? "key" : "gallery"} activeIndex={currentStep} labels={steps.map(() => t("pages.apps.connections.connect"))} onCancel={busy || s.step === "management" || s.step === "permissions" || s.step === "draft" ? undefined : onCancel ?? a.saveExit} />
     <main className="space-y-6">
         {upstreamServiceName && <InlineBanner compact>{t("sep28Apps.externalConnect", { provider: provider.name, service: upstreamServiceName })}</InlineBanner>}
         {s.notice && <p role="status" className="text-sm text-muted-foreground">{chatUiErrorMessage(s.notice)}</p>}
@@ -87,7 +143,7 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
             enabledIds={new Set(s.tools.filter((entry) => s.permissions[entry.id] !== "off").map((entry) => entry.id))}
             askFirstIds={new Set(s.tools.filter((entry) => s.permissions[entry.id] === "ask_first").map((entry) => entry.id))}
             disabled={!s.connected} refreshPending={s.refreshing} canConfigure
-            onSetPermission={(id, next) => change({ permissions: { ...s.permissions, [id]: next === "ask" ? "ask_first" : next } })}
+            onSetPermission={(ids, next) => change({ permissions: { ...s.permissions, ...Object.fromEntries(ids.map((id) => [id, next === "ask" ? "ask_first" : next])) } })}
             onReviewQuarantined={() => {}} onRefreshActions={a.refresh} />
         </>}
         <div className="mx-auto max-w-2xl space-y-6">
@@ -109,12 +165,11 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
                 <Input id={`${uid}-url`} type="password" autoComplete="off" spellCheck={false} placeholder={provider.placeholder} value={s.url} aria-invalid={s.connectStatus === "invalid_url"} aria-describedby={`${uid}-url-help`} onChange={(event) => change({ url: event.target.value })} />
                 <p id={`${uid}-url-help`} className="text-xs text-muted-foreground">{provider.urlHelp}</p>
               </div>
-              <details open={s.advanced} onToggle={(event) => { if (event.currentTarget.open !== s.advanced) change({ advanced: event.currentTarget.open }); }}>
-                <summary className="cursor-pointer text-sm font-medium">{t("sep28Apps.advancedAuthentication")}</summary>
-                <div className="space-y-4 pt-4">
+              {defaults(<div className="space-y-4">
+                  <p className="text-sm font-medium text-foreground">{t("localizationApps.authentication264")}</p>
                   <p className="text-sm text-muted-foreground">{provider.authHelp}</p>
-                  <div className="space-y-2"><Label htmlFor={`${uid}-auth`}>{t("localizationApps.authentication264")}</Label><select id={`${uid}-auth`} className={selectClass} value={s.auth} onChange={(event) => change({ auth: event.target.value as RemoteMcpSetupState["auth"] })}>
-                    {provider.supportsBrowserAuth && <option value="auto">{t("sep28Apps.automaticAuth")}</option>}<option value="bearer">{t("sep28Routines.signingBearer")}</option><option value="headers">{t("sep28Apps.customHeaders")}</option><option value="none">{t("sep28Apps.noAuthentication")}</option>
+                  <div className="space-y-2"><Label htmlFor={`${uid}-auth`}>{t("oct5Apps.copy054")}</Label><select id={`${uid}-auth`} className={selectClass} value={s.auth} onChange={(event) => change({ auth: event.target.value as RemoteMcpSetupState["auth"] })}>
+                    {provider.supportsBrowserAuth && <option value="auto">{t("sep28Apps.automaticAuth")}</option>}<option value="bearer">{t("sep28Routines.signingBearer")}</option><option value="headers">{t("localizationConnections.customHeaders124")}</option><option value="none">{t("sep28Apps.noAuthentication")}</option>
                   </select></div>
                   {s.auth === "bearer" && <div className="space-y-2"><div className="flex items-center gap-2"><Label htmlFor={`${uid}-token`}>{t("sep28Routines.signingBearer")}</Label><FieldHelp label={t("sep28Routines.signingBearer")}>{t("sep28Apps.tokenHelp")}</FieldHelp></div><Input id={`${uid}-token`} type="password" autoComplete="off" value={s.token} onChange={(event) => change({ token: event.target.value })} /></div>}
                   {(s.auth === "bearer" || s.auth === "headers") && <div className="space-y-3">
@@ -126,11 +181,10 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
                     </div>)}
                     <Button type="button" variant="outline" size="sm" onClick={() => change({ headers: [...s.headers, { id: crypto.randomUUID(), name: "", value: "" }] })}><Plus className="size-4" />{t("sep28Apps.addHeader")}</Button>
                   </div>}
-                </div>
-              </details>
+                </div>)}
             </fieldset>
             {busy && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="size-4 animate-spin motion-reduce:animate-none" />{t("sep28Apps.discoveringTools")}</p>}
-            {footer(<><Button type="button" variant="outline" disabled={busy} onClick={() => s.setupComplete ? a.finish() : a.navigate("access")}>{t("sep28Routines.back")}</Button><Button type="submit" disabled={busy || !s.url.trim()}>{busy ? t("sep13Connections.connecting") : error || s.connectStatus === "cancelled" ? t("sep13Connections.tryAgain") : t("sep13Connections.connect")}</Button></>)}
+            {footer(<>{s.setupComplete ? <Button type="button" variant="outline" disabled={busy} onClick={a.finish}>{t("pages.secrets.actions.back")}</Button> : <span />}<Button type="submit" disabled={busy || !s.url.trim()}>{busy ? t("sep12Connections.connecting") : error || s.connectStatus === "cancelled" ? t("localizationProjectRepositories.retry") : t("localizationConnections.connectApp", { app: provider.name })}</Button></>)}
           </form>}
         </>}
 

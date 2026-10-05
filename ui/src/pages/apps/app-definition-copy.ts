@@ -1,5 +1,57 @@
 /** Built-in UI copy only. Both the app slug and exact upstream text must match. */
 export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
+  "cognee": {
+    "Add/process knowledge and manage authorized datasets. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.cogneeKey",
+  },
+  "browser-use-cloud": {
+    "Create/stop browser sessions and run browser tasks under the API key. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.browserKey",
+    "Delegate browser tasks and watch them live in Paperclip.": "oct5Metadata.browserDescription",
+    "Use credentials from your provider account.": "oct5Metadata.providerCredentials",
+    "Create an API key in [Browser Use settings](https://cloud.browser-use.com/settings) and paste it below. Your agents can browse websites while you watch and interact from the task's Browser tab.": "oct5Metadata.browserGuidance",
+    "API key": "localizationApps.metadata7",
+  },
+  "github-code-review-bot": {
+    "Have an agent review pull requests and respond to GitHub mentions.": "oct5Apps.copy060",
+    "Chat with an agent": "communityPhoton.metadataMethod",
+    "Let people in GitHub start and continue work with one Paperclip agent.": "oct5Metadata.githubAgentChat",
+    "GitHub App ID": "chatUi.chatEndpointSetup.githubAppID",
+    "Private key (PEM)": "chatUi.chatEndpointSetup.privateKeyPEM",
+    "Generate the webhook secret in Paperclip, then create one private GitHub App with active SSL-verified webhooks, Issues and Pull requests read/write permission, and the selectable issue_comment and pull_request_review_comment events. GitHub sends installation and installation_repositories automatically. Install the App only on repositories where people may mention the agent.": "oct5Metadata.githubBotGuidance",
+  },
+  "neon": {
+    "A Neon account. The hosted server grants broad project and database management, so use a development project and review write actions before connecting production data.": "oct5MetadataAddendum.neonAccountWarning",
+    "Neon recommends its hosted server for development and testing. Review write and destructive actions before execution.": "oct5MetadataAddendum.neonDevelopmentWarning",
+    "Optional. Restrict this connection to one project. Copy the project ID from Neon Console → Project settings → General.": "oct5MetadataAddendum.neonProjectHelp",
+    "Enable this to limit SQL to SELECT queries and schema inspection.": "oct5MetadataAddendum.neonReadOnlyHelp",
+    "Project, branch, compute, snapshot, SQL and schema changes within the key’s reach. A project-scoped key limits access to one project with Editor rights; personal and organization keys reach every project they can access. Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.neonKey",
+    "Manage Postgres projects and branches, run SQL, and inspect schemas in Neon.": "oct5Metadata.neonDescription",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Connect Neon in the browser. Open Advanced to pin one project or enable read-only mode. Write tools start enabled and remain governed by Paperclip's action policies.": "oct5Metadata.neonOAuthGuidance",
+    "Sign in with Neon": "oct5Metadata.neonSignIn",
+    "Pin to project ID": "localizationApps.metadata247",
+    "Optional Neon project ID": "oct5Metadata.neonProjectPlaceholder",
+    "Read-only mode": "localizationApps.metadata250",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
+    "Use a customer-created Neon API key. Prefer a project-scoped key for one development project; personal and organization keys reach every project they can access. Write tools start enabled and remain governed by Paperclip's action policies.": "oct5Metadata.neonApiGuidance",
+    "Use an API key": "localizationApps.metadata24",
+    "Neon API key": "oct5Metadata.neonApiKey",
+  },
+  "fireflies": {
+    "Use an API key for an account with write access to the meetings your agents need to share, rename, move or turn into soundbites. Paperclip cannot increase the key’s permissions.": "oct5MetadataAddendum.firefliesKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use an API key": "localizationApps.metadata24",
+  },
+  "honcho": {
+    "Create peers/sessions and save memory under the API key project. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.honchoKey",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
+    "Use an API key": "localizationApps.metadata24",
+  },
+  "youcom": {
+    "None: search, contents and research tools (usage may be billed). A read-only key is sufficient.": "oct5MetadataAddendum.youKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
+    "Use an API key": "localizationApps.metadata24",
+  },
   "imessage-photon": {
     "Message a Paperclip agent from Apple Messages using Photon Cloud. Pro supports DMs; dedicated lines also support groups.": "communityPhoton.metadataDescription",
     "Chat with an agent": "communityPhoton.metadataMethod",
@@ -16,6 +68,7 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Connect an AgentMail API key, then create or select an inbox for your agent. WebSocket receiving works without a public URL.": "sep12Metadata.agentmailGuidance"
   },
   "airtable": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Airtable's provider-hosted MCP server.": "localizationApps.metadata0",
     "Sign in with Airtable": "localizationApps.metadata3"
   },
@@ -55,11 +108,17 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Enter API key": "sep13AiMetadata.apiKeyPlaceholder"
   },
   "api-key-generic": {
+    "Actions depend on the operator-supplied API and key; grant read/write on the required resources at the provider. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.genericKey",
+    "Use credentials from your provider account.": "oct5Metadata.providerCredentials",
     "API key": "localizationApps.metadata7",
     "Connect an API using a key from your provider.": "localizationApps.metadata9",
     "Paste the API key": "localizationApps.metadata11"
   },
   "asana": {
+    "Connect your Asana account with Paperclip's app.": "oct5Metadata.asanaAccount",
+    "Sign in to Asana with Paperclip. Asana gives this connection access to the workspaces available to your account.": "oct5Metadata.asanaGuidance",
+    "Sign in with Asana": "oct5Metadata.asanaSignIn",
+    "Create an MCP app in Asana, then add the callback URL below under OAuth. Under Manage distribution, select your workspace and save. API apps do not work with Asana MCP.": "oct5Metadata.asanaOwnApp",
     "Connect Asana's provider-hosted MCP server.": "localizationApps.metadata12",
     "Use your own OAuth app": "localizationApps.metadata15"
   },
@@ -72,10 +131,14 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Connect Xero's provider-hosted MCP server.": "localizationApps.metadata347"
   },
   "beehiiv": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect beehiiv's provider-hosted MCP server.": "localizationApps.metadata16",
     "Sign in with beehiiv": "localizationApps.metadata18"
   },
   "bitly": {
+    "Create/manage links in authorized groups. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.bitlyKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Connect Bitly's provider-hosted MCP server.": "localizationApps.metadata19",
     "Sign in with Bitly": "localizationApps.metadata21",
     "Use an API key": "localizationApps.metadata24",
@@ -83,6 +146,9 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste your Bitly API token": "localizationApps.metadata26"
   },
   "cloudflare": {
+    "Cloudflare API actions selected at provider consent or on the API token. Identity scopes alone do not grant account writes. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.cloudflareKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Cloudflare's provider-hosted MCP server.": "localizationApps.metadata42",
     "Sign in with Cloudflare": "localizationApps.metadata44",
@@ -90,6 +156,9 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste your Cloudflare API token": "localizationApps.metadata47"
   },
   "coda": {
+    "Modify documents/tables permitted by the account. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.codaKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Coda's provider-hosted MCP server.": "localizationApps.metadata51",
     "Sign in with Coda": "localizationApps.metadata53",
@@ -97,6 +166,9 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste your Coda API token": "localizationApps.metadata56"
   },
   "kernel": {
+    "Launch/manage browsers, profiles, apps and browser automation. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.kernelKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Kernel's provider-hosted MCP server.": "localizationApps.metadata183",
     "Sign in with Kernel": "localizationApps.metadata185",
@@ -104,11 +176,16 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste your Kernel API key": "localizationApps.metadata188"
   },
   "mem0": {
+    "Add/update/delete memories under the API key account. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.mem0Key",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Mem0's provider-hosted MCP server.": "localizationApps.metadata200",
     "Mem0 API key": "localizationApps.metadata202"
   },
   "oreilly": {
+    "None: content discovery and retrieval. A read-only key is sufficient.": "oct5MetadataAddendum.oreillyKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect O'Reilly's provider-hosted MCP server.": "localizationApps.metadata221",
     "Sign in with O'Reilly": "localizationApps.metadata223",
@@ -116,6 +193,9 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste your O'Reilly API token": "localizationApps.metadata226"
   },
   "razorpay": {
+    "Provider-authorized payment/account tools; financial policy gates remain. Live verification outstanding. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.razorpayKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Razorpay's provider-hosted MCP server.": "localizationApps.metadata278",
     "Sign in with Razorpay": "localizationApps.metadata280",
@@ -123,24 +203,35 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste the base64-encoded key ID and secret": "localizationApps.metadata283"
   },
   "sanity": {
+    "Edit content permitted by project role; global is MCP authorization, not a bypass of project ACLs. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.sanityKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Sanity's provider-hosted MCP server.": "localizationApps.metadata287",
     "Sign in with Sanity": "localizationApps.metadata289",
     "Sanity API key": "localizationApps.metadata291"
   },
   "similarweb": {
+    "None: analytics retrieval; subscription entitlements apply. A read-only key is sufficient.": "oct5MetadataAddendum.similarwebKey",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Similarweb's provider-hosted MCP server.": "localizationApps.metadata306",
     "Similarweb API key": "localizationApps.metadata308",
     "Paste your Similarweb API key": "localizationApps.metadata309"
   },
   "stripe": {
+    "Account- and sandbox-specific writes selected during Stripe consent; financial approvals and restricted-key permissions remain. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.stripeKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Connect Stripe's provider-hosted MCP server.": "localizationApps.metadata312",
     "Sign in with Stripe": "localizationApps.metadata314",
     "Stripe API key": "localizationApps.metadata316"
   },
   "supabase": {
+    "Project/database/environment/storage changes and Edge Function deployment. Project selection and optional read-only configuration remain authoritative. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.supabaseKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Use an API key": "localizationApps.metadata24",
     "Read-only mode": "localizationApps.metadata250",
     "Feature groups": "localizationApps.metadata252",
@@ -153,20 +244,24 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Supabase API key": "localizationApps.metadata328"
   },
   "brex": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Brex's provider-hosted MCP server.": "localizationApps.metadata30",
     "Sign in with Brex": "localizationApps.metadata32"
   },
   "candid": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Candid's provider-hosted MCP server.": "localizationApps.metadata33",
     "Sign in with Candid": "localizationApps.metadata35"
   },
   "clickhouse": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect ClickHouse's provider-hosted MCP server.": "localizationApps.metadata36",
     "Sign in with ClickHouse": "localizationApps.metadata38",
     "ClickHouse Cloud service ID": "localizationApps.metadata39",
     "Copy the service ID from ClickStack → Team Settings → API & Agents.": "localizationApps.metadata41"
   },
   "cloudinary": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Cloudinary's provider-hosted MCP server.": "localizationApps.metadata48",
     "Sign in with Cloudinary": "localizationApps.metadata50"
   },
@@ -183,10 +278,14 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Sign in with Egnyte": "localizationApps.metadata67"
   },
   "embat": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Embat's provider-hosted MCP server.": "localizationApps.metadata68",
     "Sign in with Embat": "localizationApps.metadata70"
   },
   "github": {
+    "Repository contents, issues, pull requests and other granted toolsets; selected repos and installation/PAT permissions apply. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.githubKey",
+    "Give agents access to GitHub repositories, issues, and pull requests.": "oct5Metadata.githubDescription",
+    "Connect GitHub": "localizationProjectRepositories.connectGithub",
     "Read code and pull requests, and coordinate repository work.": "localizationApps.metadata71",
     "Connect with GitHub": "localizationApps.metadata72",
     "Personal access token (advanced)": "localizationApps.metadata75",
@@ -273,6 +372,7 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Search Gmail, Drive, Calendar, and Chat without write access.": "localizationApps.metadata172"
   },
   "hugging-face": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Hugging Face's provider-hosted MCP server.": "localizationApps.metadata177",
     "Sign in with Hugging Face": "localizationApps.metadata179"
   },
@@ -281,9 +381,11 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Sign in with Jira": "localizationApps.metadata182"
   },
   "linear": {
+    "Connect Linear for issues and projects. Paperclip registers its own OAuth client with Linear's MCP server, so no developer-console setup is needed.": "oct5Metadata.linearGuidance",
     "Create, update, and read Linear issues.": "localizationApps.metadata189"
   },
   "local-falcon": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Local Falcon's provider-hosted MCP server.": "localizationApps.metadata191",
     "Sign in with Local Falcon": "localizationApps.metadata193"
   },
@@ -292,18 +394,22 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Sign in with Make": "localizationApps.metadata196"
   },
   "manufact": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Manufact's provider-hosted MCP server.": "localizationApps.metadata197",
     "Sign in with Manufact": "localizationApps.metadata199"
   },
   "miro": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Miro's provider-hosted MCP server.": "localizationApps.metadata204",
     "Sign in with Miro": "localizationApps.metadata206"
   },
   "mixpanel": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Mixpanel's provider-hosted MCP server.": "localizationApps.metadata207",
     "Sign in with Mixpanel": "localizationApps.metadata209"
   },
   "netlify": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Netlify's provider-hosted MCP server.": "localizationApps.metadata210",
     "Sign in with Netlify": "localizationApps.metadata212"
   },
@@ -318,6 +424,8 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Paste the client secret": "localizationApps.metadata220"
   },
   "pagerduty": {
+    "Incident and on-call changes require a full-access API key and role access. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.pagerdutyKey",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Connect PagerDuty's provider-hosted MCP server.": "localizationApps.metadata227",
     "US service region": "localizationApps.metadata229",
     "PagerDuty API key": "localizationApps.metadata230",
@@ -325,6 +433,11 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "EU service region": "localizationApps.metadata232"
   },
   "planetscale": {
+    "Read and write": "oct5Metadata.readWrite",
+    "Query and change the databases you authorize in PlanetScale.": "oct5Metadata.planetscaleWrite",
+    "Read only": "localizationApps.metadata82",
+    "Inspect database performance with the insights-only server.": "oct5Metadata.planetscaleRead",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect PlanetScale's provider-hosted MCP server.": "localizationApps.metadata233",
     "Database access": "localizationApps.metadata235",
     "Project or database": "localizationApps.metadata236",
@@ -336,6 +449,7 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Insights only": "localizationApps.metadata243"
   },
   "posthog": {
+    "Analytics objects, feature flags, experiments, error triage and other enabled product actions. readonly/feature/tool filters remain enforced. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.posthogKey",
     "Analyze product usage, errors, feature flags, and experiments with PostHog's hosted MCP server.": "localizationApps.metadata244",
     "Pin to project ID": "localizationApps.metadata247",
     "Optional numeric project ID": "localizationApps.metadata248",
@@ -355,6 +469,9 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "PostHog personal API key": "localizationApps.metadata263"
   },
   "postman": {
+    "Collection/workspace/API actions supported by the selected minimal/code/full endpoint and account role. Create a key with read and write permissions for these actions; Paperclip cannot increase an existing key’s permissions.": "oct5MetadataAddendum.postmanKey",
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
+    "Use a restricted customer-owned key when browser sign-in is not suitable.": "oct5Metadata.restrictedKey",
     "Connect Postman's provider-hosted MCP server.": "localizationApps.metadata265",
     "US · Browser sign-in": "localizationApps.metadata267",
     "Minimal": "localizationApps.metadata268",
@@ -367,6 +484,7 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Postman API key": "localizationApps.metadata276"
   },
   "resend": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Resend's provider-hosted MCP server.": "localizationApps.metadata284",
     "Sign in with Resend": "localizationApps.metadata286"
   },
@@ -381,6 +499,10 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Storefront policies and compatibility tools": "localizationApps.metadata304"
   },
   "slack": {
+    "Use this connection as an agent tool": "chatUi.chatEndpointSetup.useThisConnectionAsAnAgentTool",
+    "Chat with an agent": "communityPhoton.metadataMethod",
+    "Bot User OAuth Token": "chatUi.chatEndpointSetup.botUserOAuthToken",
+    "Signing Secret": "chatUi.chatEndpointSetup.signingSecret",
     "Search channels and coordinate team communication.": "localizationApps.metadata310"
   },
   "ticket-tailor": {
@@ -388,10 +510,12 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Sign in with Ticket Tailor": "localizationApps.metadata332"
   },
   "ticktick": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect TickTick's provider-hosted MCP server.": "localizationApps.metadata333",
     "Sign in with TickTick": "localizationApps.metadata335"
   },
   "todoist": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Todoist's provider-hosted MCP server.": "localizationApps.metadata336",
     "Sign in with Todoist": "localizationApps.metadata338"
   },
@@ -403,6 +527,7 @@ export const APP_DEFINITION_COPY: Record<string, Record<string, string>> = {
     "Sign in with Webflow": "localizationApps.metadata343"
   },
   "wix": {
+    "Use browser sign-in for the provider-hosted MCP server.": "oct5Metadata.providerBrowserSignIn",
     "Connect Wix's provider-hosted MCP server.": "localizationApps.metadata344",
     "Sign in with Wix": "localizationApps.metadata346"
   },

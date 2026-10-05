@@ -122,7 +122,7 @@ it("updates the provider-scoped default account copy without changing account id
     onMakeDefault={onMakeDefault} onReconnect={onReconnect} onRevoke={onRevoke}
   />));
   for (const [locale, description] of [
-    ["ru", "Для ваших задач с Claude"], ["en", "For your Claude tasks"],
+    ["ru", "Личное подключение по умолчанию"], ["en", "Personal default"],
   ]) {
     flushSync(() => { void i18n.changeLanguage(locale); });
     expect(host.textContent).toContain(description);

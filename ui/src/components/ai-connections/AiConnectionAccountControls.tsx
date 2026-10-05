@@ -1,12 +1,12 @@
 import { useTranslation } from "@/i18n";
 import { chatUiErrorMessage, type ChatUiError } from "@/pages/apps/chat/chat-copy";
 import { useState, type ReactNode } from "react";
-import { CheckCircle2, RefreshCw, Star, TriangleAlert, Unplug } from "lucide-react";
+import { RefreshCw, Star, Unplug } from "lucide-react";
 import type { ConnectionGrant } from "@paperclipai/shared";
 import { RevokeGrantDialog } from "@/pages/apps/app-detail/IdentitiesSection";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { AI_PROVIDERS, aiMethodLabel, type AiConnectionSummary } from "./model";
+import type { AiConnectionSummary } from "./model";
 
 /** AI-only account controls; identity, access and navigation belong to AppDetail. */
 export function AiConnectionAccountControls({
@@ -37,25 +37,16 @@ export function AiConnectionAccountControls({
         )}>
           <div className="flex items-center gap-3">
             <Star aria-hidden className={cn("size-5 shrink-0", activeDefault ? "fill-current text-(--status-task-icon-done)" : "text-muted-foreground")} />
-            <div>
-              <h3 className="text-sm font-semibold">{t("sep13Connections.personalDefault")}</h3>
-              <p className="text-xs text-muted-foreground">{t("stable916Ai.forYourTasks", { provider: AI_PROVIDERS[account.provider].name })}</p>
-            </div>
+            <h3 role={account.isDefault ? "status" : undefined} className={cn("text-sm font-semibold", account.isDefault && !available && "text-destructive")}>{account.isDefault && !available ? t("sep13Connections.defaultUnavailable") : t("sep13Connections.personalDefault")}</h3>
           </div>
-          {account.isDefault ? (
-            <span role="status" className={cn("inline-flex items-center gap-1.5 text-sm font-medium", available ? "text-(--status-task-icon-done)" : "text-destructive")}>
-              {available ? <CheckCircle2 className="size-4" aria-hidden /> : <TriangleAlert className="size-4" aria-hidden />}
-              {available ? t("sep13Connections.yourDefault") : t("sep13Connections.defaultUnavailable")}
-            </span>
-          ) : !readOnly ? (
-            <Button variant="outline" size="sm" disabled={!available} onClick={onMakeDefault}>{t("sep13Connections.makeDefault")}</Button>
-          ) : <span className="text-xs text-muted-foreground">{t("sep13Connections.notYourDefault")}</span>}
+          {!account.isDefault && (!readOnly ? (
+            <Button variant="outline" size="sm" disabled={!available} onClick={onMakeDefault}>{t("pages.secrets.actions.makeDefault")}</Button>
+          ) : <span className="text-xs text-muted-foreground">{t("oct5Apps.copy001")}</span>)}
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 text-sm">
-          <p className="font-medium">{aiMethodLabel(account.provider, account.method)}</p>
-          {account.accountLabel && <p className="break-words text-xs text-muted-foreground">{account.accountLabel}</p>}
+          <p className="break-words text-xs text-muted-foreground">{account.method === "subscription" ? t("localizationCommon.billingType.subscription_included") : t("localizationAgents.ui386_API_key")}{account.accountLabel ? ` · ${account.accountLabel}` : ""}</p>
         </div>
         {!readOnly && grant.capabilities?.canRevoke && (
           <div className="flex flex-wrap items-center gap-2">

@@ -3,6 +3,7 @@ import { t, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { REMOTE_MCP_CONNECTOR_METHODS, type ToolConnection } from "@paperclipai/shared";
+import { askFirstCatalogEntryIdsFor } from "../connection-defaults";
 import { RemoteMcpAccountChoice } from "./RemoteMcpAccountChoice";
 import { readConnectionIntentOAuthOutcome, type ConnectionSetupFlowProps } from "../ConnectionSetupFlow";
 import { agentsApi } from "@/api/agents";
@@ -50,11 +51,14 @@ export function RemoteMcpProductionSetup({ providerId, connection, host = "page"
   const busy = useRef(false);
   const authorizationUrl = useRef<string | undefined>(undefined);
   const [state, setState] = useState<RemoteMcpSetupState>(() => ({
-    step: connection ? "connect" : "access", grantKind: connection ? connection.credentialPolicy === "per_user" ? "user" : "organization" : requestedAgentId ? "user" : "organization",
+    // PAP-659 C0: there is no Access step on the way in. The resolved default
+    // is stated on the connect screen and changed in its Advanced disclosure;
+    // `access` survives only as a management screen reached after connecting.
+    step: "connect", grantKind: connection ? connection.credentialPolicy === "per_user" ? "user" : "organization" : requestedAgentId ? "user" : "organization",
     setupComplete: Boolean(connection && connection.status !== "draft"),
     url: typeof connection?.config?.url === "string" ? connection.config?.url : provider.defaultUrl,
     auth: connection?.config?.mcpAuthMode === "bearer" ? "bearer" : connection?.authKind === "api_key" ? "headers" : provider.supportsBrowserAuth ? "auto" : "none",
-    token: "", headers: [], advanced: false, connectStatus: oauthOutcome === "denied" ? "cancelled" : oauthOutcome === "failed" ? "oauth_failed" : "idle", connected: false,
+    token: "", headers: [], connectStatus: oauthOutcome === "denied" ? "cancelled" : oauthOutcome === "failed" ? "oauth_failed" : "idle", connected: false,
     identity: null, allAgents: true, agentIds: [], permissions: {}, tools: [], notice: connection?.authKind === "api_key" ? { key: "sep28Apps.savedCredentials" } : null, refreshing: false,
     ...(!connection ? readAccessDraft(accessDraftKey) : {}),
     ...(requestedAgentId ? { allAgents: false, agentIds: [requestedAgentId] } : {}),
@@ -154,9 +158,14 @@ export function RemoteMcpProductionSetup({ providerId, connection, host = "page"
       popup.current = null;
       // The server retains existing permissions when reconnecting. Only a fresh setup enables everything.
       {
+        const enabled = new Set(result.catalog.filter((tool) => tool.status === "active").map((tool) => tool.id));
         await toolsApi.finishApp(selectedCompanyId, result.connectionId, {
-          enabledCatalogEntryIds: result.catalog.filter((tool) => tool.status === "active").map((tool) => tool.id),
-          askFirstCatalogEntryIds: [], access: requestedAgentId ? { agentIds: [requestedAgentId] } : state.allAgents ? "all_agents" : { agentIds: state.agentIds },
+          enabledCatalogEntryIds: [...enabled],
+          // PAP-659 C6a/C7: this path used to send an empty list, so the four
+          // gateway connectors were the one place the armed write gate did not
+          // apply. The policy now comes from the same helper as the catalog flow.
+          askFirstCatalogEntryIds: askFirstCatalogEntryIdsFor(result, (id) => enabled.has(id)),
+          access: requestedAgentId ? { agentIds: [requestedAgentId] } : state.allAgents ? "all_agents" : { agentIds: state.agentIds },
           ...(requestedAgentId ? { preserveExistingAccess: true } : {}),
         });
       }
@@ -191,6 +200,8 @@ export function RemoteMcpProductionSetup({ providerId, connection, host = "page"
       setChoicePending(id); setChoiceError(null);
       void onUseExisting(id).catch((error) => { setChoiceError(error instanceof Error ? error.message : { key: "sep28Apps.useConnectionFailed" }); setChoicePending(null); });
     }} />;
-  if (connection && !installs.data) return <div className="space-y-3 p-8"><p>{installs.isError ? t("sep28Apps.loadAccessFailed") : t("sep28Apps.loadingAccess")}</p>{installs.isError && <button type="button" className="text-primary underline" onClick={() => void installs.refetch()}>{t("sep13Connections.tryAgain")}</button>}</div>;
-  return <RemoteMcpConnectionSetup upstreamServiceName={upstreamServiceName} host={host} lockedAgentId={requestedAgentId} authorizationUrl={host === "dialog" ? authorizationUrl.current : undefined} provider={provider} connectionId={savedConnection.current?.id ?? ""} fixedGrantKind={savedConnection.current ? savedConnection.current.credentialPolicy === "per_user" ? "user" : "organization" : undefined} state={state} actions={actions} agents={agents.data ?? []} />;
+  if (connection && !installs.data) return <div className="space-y-3 p-8"><p>{installs.isError ? t("sep28Apps.loadAccessFailed") : t("sep28Apps.loadingAccess")}</p>{installs.isError && <button type="button" className="text-primary underline" onClick={() => void installs.refetch()}>{t("localizationProjectRepositories.retry")}</button>}</div>;
+  // Header Cancel abandons unsaved input, including invalid URLs. The separate
+  // Save & exit action persists a resumable draft through actions.saveExit.
+  return <RemoteMcpConnectionSetup companyId={selectedCompanyId!} onCancel={onCancel ?? (() => navigate("/apps"))} upstreamServiceName={upstreamServiceName} host={host} lockedAgentId={requestedAgentId} authorizationUrl={host === "dialog" ? authorizationUrl.current : undefined} provider={provider} connectionId={savedConnection.current?.id ?? ""} fixedGrantKind={savedConnection.current ? savedConnection.current.credentialPolicy === "per_user" ? "user" : "organization" : undefined} state={state} actions={actions} agents={agents.data ?? []} />;
 }

@@ -1,6 +1,8 @@
 import { t, useTranslation } from "@/i18n";
 import { Trans } from "react-i18next";
 import { skillStatusReason } from "@/lib/skill-studio";
+import { SkillBinaryFile } from "../components/SkillBinaryFile";
+import { SkillSourceProvenance } from "../components/SkillSourceProvenance";
 import { AgentIdentity } from "@/components/AgentIdentity";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { useEffect, useMemo, useRef, useState, type SVGProps } from "react";
@@ -1270,7 +1272,11 @@ export function DiscoveryGrid({
               <DropdownMenuItem onSelect={onCreate}>
                 <Pencil className="mr-2 h-4 w-4" />{t("localizationSkills.createNewSkill87")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={onBrowseCatalog}>
-                <Boxes className="mr-2 h-4 w-4" />{t("localizationSkills.browseCatalog416")}</DropdownMenuItem>
+                <Boxes className="mr-2 h-4 w-4" />
+                {t("localizationSkills.browseCatalog416")}
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild><Link to="/skills/sources/new"><GithubIcon className="mr-2 h-4 w-4" />{t("oct5Core.importGitHub")}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link to="/skills/sources">{t("oct5Core.manageSources")}</Link></DropdownMenuItem>
               <DropdownMenuItem onSelect={onImport}>
                 <Globe className="mr-2 h-4 w-4" />{t("localizationSkills.importFromPathOrURL88")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={onImportFromProject}>
@@ -1326,7 +1332,7 @@ export function DiscoveryGrid({
         ) : null}
 
         {/* Tab strip — Bundled/required lives at the end */}
-        <div className="border-b border-border px-4">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4">
           <Tabs value={tab} onValueChange={(value) => onTabChange(value as DiscoveryTab)}>
             <TabsList variant="line" className="p-0">
               <TabsTrigger value="all" className="px-3">
@@ -1347,6 +1353,7 @@ export function DiscoveryGrid({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          <Button variant="ghost" size="sm" asChild><Link to="/skills/sources">{t("oct5Core.s0308")}</Link></Button>
         </div>
 
         {/* Grid body */}
@@ -1406,8 +1413,12 @@ export function DiscoveryGrid({
               {totalCount === 0 ? (
                 <div className="mt-3 flex flex-col items-center gap-2">
                   <Button size="sm" onClick={onBrowseCatalog}>
-                    <Boxes className="mr-1.5 h-3.5 w-3.5" />{t("localizationSkills.browseCatalog416")}</Button>
-                  <Button size="sm" variant="ghost" onClick={onCreate}>{t("localizationSkills.createASkill101")}</Button>
+                    <Boxes className="mr-1.5 h-3.5 w-3.5" /> {t("localizationSkills.browseCatalog416")}
+                  </Button>
+                  <Button size="sm" variant="outline" asChild><Link to="/skills/sources/new">{t("oct5Core.importGitHub")}</Link></Button>
+                  <Button size="sm" variant="ghost" onClick={onCreate}>
+                    {t("localizationSkills.createASkill101")}
+                  </Button>
                 </div>
               ) : (search || activeCategory || sourceFilterActive) ? (
                 <div className="mt-3 flex justify-center">
@@ -3022,7 +3033,9 @@ export function SkillDetailPage({
                   onClick={onFork}
                   title={skill.editableReason ?? t("localizationSkills.forkThisSkillToEditIt225")}
                 >
-                  <GitFork className="mr-1.5 h-3.5 w-3.5" />{t("localizationSkills.fork226")}</Button>
+                  <GitFork className="mr-1.5 h-3.5 w-3.5" />
+                  {skill.sourceType === "github" ? t("oct5Core.makeCopy") : t("localizationSkills.fork226")}
+                </Button>
               ) : null}
             </div>
           </div>
@@ -3030,7 +3043,7 @@ export function SkillDetailPage({
             <PageSkeleton variant="detail" />
           ) : !file ? (
             <div className="text-sm text-muted-foreground">{t("localizationSkills.selectAFileToInspect158")}</div>
-          ) : editMode && file.editable ? (
+          ) : file.encoding === "base64" ? <SkillBinaryFile file={file} /> : editMode && file.editable ? (
             file.markdown ? (
               <MarkdownEditor value={draft} onChange={setDraft} bordered={false} className="min-h-(--sz-520px)" />
             ) : (
@@ -3087,7 +3100,9 @@ export function SkillDetailPage({
                 <>
                   <span>{t("pages.apps.connect.actions.readOnly")}</span>
                   <Button type="button" variant="outline" size="xs" onClick={onFork}>
-                    <GitFork className="mr-1 h-3 w-3" />{t("localizationSkills.fork226")}</Button>
+                    <GitFork className="mr-1 h-3 w-3" />
+                    {skill.sourceType === "github" ? t("oct5Core.makeCopy") : t("localizationSkills.fork226")}
+                  </Button>
                 </>
               )}
             </div>
@@ -3314,7 +3329,7 @@ export function SkillDetailPage({
                 title={t("localizationSkills.forkThisSkill250")}
               >
                 <GitFork className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{t("localizationSkills.fork226")}</span>
+                <span className="hidden sm:inline">{skill.sourceType === "github" ? t("oct5Core.makeCopy") : t("localizationSkills.fork226")}</span>
                 <span className="font-medium text-foreground">{detail.forkCount}</span>
               </button>
             </div>
@@ -3343,6 +3358,7 @@ export function SkillDetailPage({
         </main>
 
         <aside className="min-w-0 space-y-6 border-t border-border pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+          <SkillSourceProvenance skill={detail} />
           <SkillLocationCard
             folderPath={folderDisplayPath ?? skillFolderPathDisplayFallback(detail.folderPath)}
             onMove={onMoveToFolder}

@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t, useTranslation } from "@/i18n";
 import { documentDisplayTitle } from "@/lib/issue-artifacts";
 import type { WorkspaceFileSelector } from "@paperclipai/shared";
 import type { SidePanelTabRecord, SidePanelTabsState } from "@/components/side-panel";
@@ -13,6 +13,8 @@ export function taskPanelTabLabelDisplay(tab: SidePanelTabRecord<TaskSidePanelTa
     "properties": "localizationIssuePanels.ui_Properties_100clx8",
     "subtasks": "localizationIssuePanels.ui_Subtasks_hx67r1",
     "artifacts": "localizationIssuePanels.ui_Artifacts_dvv9u8",
+    "agent-tasks": "sep12Screens.tasks",
+    "browser": "oct5Core.s0159",
     "files-browser": "localizationIssuePanels.ui_Files_1s4j38w",
   };
   return keys[tab.payload.kind] ? t(keys[tab.payload.kind]) : tab.label;
@@ -49,9 +51,12 @@ export function openSkillPanelState(
 }
 
 export type TaskSidePanelTabPayload =
+  | { kind: "browser"; browserId: string }
   | { kind: "properties" }
   | { kind: "subtasks" }
   | { kind: "artifacts" }
+  | { kind: "agent-tasks" }
+  | { kind: "attachment"; attachmentId: string }
   | { kind: "skill"; skillId: string; defaultLabel?: true }
   | { kind: "issue-document"; documentKey: string }
   | {
@@ -107,9 +112,14 @@ function parsePayload(value: unknown): TaskSidePanelTabPayload | null {
   const input = record(value);
   if (!input) return null;
   const kind = input.kind;
+  if (kind === "browser") return typeof input.browserId === "string" && /^[0-9a-f-]{36}$/i.test(input.browserId) ? { kind, browserId: input.browserId } : null;
   if (kind === "properties") return { kind };
   if (kind === "subtasks") return { kind };
   if (kind === "artifacts") return { kind };
+  if (kind === "agent-tasks") return { kind };
+  if (kind === "attachment") {
+    return typeof input.attachmentId === "string" && input.attachmentId.length > 0 ? { kind, attachmentId: input.attachmentId } : null;
+  }
   if (kind === "skill") {
     return typeof input.skillId === "string" && input.skillId.length > 0
       ? { kind, skillId: input.skillId, ...(input.defaultLabel === true ? { defaultLabel: true as const } : {}) }
@@ -240,6 +250,11 @@ export function taskPanelSubtasksTab(): SidePanelTabRecord<TaskSidePanelTabPaylo
   return { id: "subtasks", type: "subtasks", label: "Subtasks", closable: true, contentMode: "padded", payload: { kind: "subtasks" } };
 }
 
+/** Agent chats only: every task the conversation's agent has worked on. */
+export function taskPanelAgentTasksTab(): SidePanelTabRecord<TaskSidePanelTabPayload> {
+  return { id: "agent-tasks", type: "agent-tasks", label: "Tasks", closable: true, contentMode: "padded", payload: { kind: "agent-tasks" } };
+}
+
 export function taskPanelArtifactsTab(): SidePanelTabRecord<TaskSidePanelTabPayload> {
   return { id: "artifacts", type: "artifacts", label: "Artifacts", closable: true, contentMode: "padded", payload: { kind: "artifacts" } };
 }
@@ -298,4 +313,12 @@ export function taskPanelWorkspaceFileTab(input: {
       column: input.column ?? null,
     },
   };
+}
+
+export function taskPanelAttachmentTab(attachmentId: string, title: string): SidePanelTabRecord<TaskSidePanelTabPayload> {
+  return { id: `attachment:${attachmentId}`, type: "attachment", label: title, closable: true, contentMode: "full-bleed", payload: { kind: "attachment", attachmentId } };
+}
+
+export function taskPanelBrowserTab(browserId: string): SidePanelTabRecord<TaskSidePanelTabPayload> {
+  return { id: `browser:${browserId}`, type: "browser", label: "Browser", closable: true, contentMode: "full-bleed", payload: { kind: "browser", browserId } };
 }

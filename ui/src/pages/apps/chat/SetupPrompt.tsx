@@ -1,9 +1,4 @@
-import { t, useTranslation } from "@/i18n";
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { copyTextToClipboard } from "@/lib/clipboard";
+export { AgentSetupPrompt as SetupPrompt } from "@/components/AgentSetupPrompt";
 
 export function buildSetupPrompt(instanceUrl: string, instructions: string) {
   let instanceOrigin: string | null = null;
@@ -17,40 +12,4 @@ export function buildSetupPrompt(instanceUrl: string, instructions: string) {
     ? `Paperclip instance URL: ${instanceOrigin}\nUse this instance for setup. Do not ask me for its URL again unless it is unavailable or I ask to use a different instance.`
     : "Paperclip instance URL is unavailable. Ask me for it before starting setup.";
   return `${context}\n\n${instructions}`;
-}
-
-export function SetupPrompt({ prompt }: { prompt: string }) {
-  useTranslation();
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
-  return (
-    <div className="space-y-2">
-      <Button
-        type="button"
-        variant="outline"
-        className="gap-2 border-dashed text-muted-foreground"
-        onClick={async () => {
-          try {
-            await copyTextToClipboard(prompt);
-            setStatus("copied");
-          } catch {
-            setStatus("failed");
-          }
-        }}
-      >
-        <span className="flex -space-x-1" aria-hidden="true">
-          <img src="/brands/claude-color.svg" alt="" className="size-4 rounded-full bg-background ring-2 ring-background" />
-          <img src="/brands/codex-color.svg" alt="" className="size-4 rounded-full bg-background ring-2 ring-background" />
-        </span>
-        {status === "copied" ? t("sep28Apps.copy176") : t("sep28Apps.copy177")}
-        {status === "copied" ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      </Button>
-      <span className="sr-only" role="status">{status === "copied" ? t("sep28Apps.copy178") : ""}</span>
-      {status === "failed" && (
-        <div className="space-y-2">
-          <p role="alert" className="text-sm text-muted-foreground">{t("sep28Apps.copy179")}</p>
-          <Textarea aria-label={t("sep28Apps.copy180")} readOnly value={prompt} onFocus={(event) => event.currentTarget.select()} rows={8} />
-        </div>
-      )}
-    </div>
-  );
 }

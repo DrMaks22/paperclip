@@ -1,6 +1,7 @@
 import { t, useTranslation, i18n } from "@/i18n";
 import { Trans } from "react-i18next";
 import { formatMonitorOffset } from "@/lib/issue-monitor";
+import { isNativeWorkspaceExportRepairCause } from "@paperclipai/shared";
 import { useWorkspaceIsolationControls } from "@/hooks/useWorkspaceIsolationControls";
 import { requiresExecutionReconciliation } from "@paperclipai/shared";
 import { useMemo, useState } from "react";
@@ -894,15 +895,21 @@ function formatTimeAbsolute(value: string | Date | null | undefined): string | n
 }
 
 /**
- * Headline for an action carrying a bounded retry lineage. It names who keeps the task in
- * every phase, because a manager owning the repair must never read as a manager owning
- * the deliverable.
+ * Headline for an action carrying a bounded retry lineage. It describes the recovery
+ * state and next step without implying that a repair owner owns the deliverable.
  */
 function lineageHeadline(lineage: RecoveryRetryLineage): string {
+  if (lineage.lane === "native_run") {
+    if (lineage.liveRunId) return t("oct5Core.s0415");
+    if (lineage.exhausted) return t("oct5Core.s0416");
+    if (lineage.retryExpired) return t("oct5Core.s0417");
+    if (lineage.nextRetryAt) return t("oct5Core.s0418");
+    return t("oct5Core.s0419");
+  }
   // An attempt that came due and never ran leaves nobody working on this task, even though
   // attempts remain on paper. Say so before any lane wording that ends in "no action needed".
   if (lineage.retryExpired) {
-    return t("localizationTaskRuntime.ui_This_task_s_automatic_retry_came_due_and_did_not_run_so_nothing_i_4d8aka");
+    return t("oct5Core.retryMissed");
   }
   if (lineage.lane === "source_owner") {
     return lineage.exhausted
@@ -1019,7 +1026,7 @@ export function IssueRecoveryActionCard({
   // the budget ran out or the scheduled attempt simply never fired.
   const wakeSummary = lineage?.retryExpired
     ? t("localizationTaskRuntime.ui_The_scheduled_retry_did_not_run_a_retry_or_a_decision_is_needed_j4ypro")
-    : lineage?.exhausted && lineage.lane !== "board"
+    : lineage?.exhausted && !lineage.liveRunId && lineage.lane !== "board"
     ? t("localizationTaskRuntime.ui_Automatic_retries_are_finished_a_decision_is_needed_1rx4rqk")
     : readWakePolicySummary(action);
   const evidenceSummary = pickEvidenceSummary(action);
@@ -1051,12 +1058,13 @@ export function IssueRecoveryActionCard({
 
   const ariaState = t(`localizationTaskRuntime.state_${cardState}`);
 
-  const showResolveActions = onResolve !== undefined && cardState !== "resolved";
   const visibleResolveOptions = RESOLVE_OPTIONS.filter((option) => {
+    if (isNativeWorkspaceExportRepairCause(action.cause) && ["todo", "done", "in_review"].includes(option.outcome)) return false;
     if (option.outcome === "todo" && requiresExecutionReconciliation(action.cause)) return false;
     if (option.boardOnly && !canFalsePositive) return false;
     return true;
   });
+  const showResolveActions = onResolve !== undefined && cardState !== "resolved" && visibleResolveOptions.length > 0;
   const reissueBaseRef = divergence?.reissueBaseRef ?? null;
   const showReissueAction =
     workspaceIsolationControlsVisible &&
@@ -1103,7 +1111,7 @@ export function IssueRecoveryActionCard({
     showBreakGlass ||
     showRepairAction;
 
-  if (requiresExecutionReconciliation(action.cause)) return null;
+  if (requiresExecutionReconciliation(action.cause) || action.cause === "native_workspace_sync_out_unsafe_archive") return null;
 
   return (
     <section
@@ -1169,7 +1177,12 @@ export function IssueRecoveryActionCard({
                 className="inline-flex flex-wrap items-center gap-1.5"
                 data-testid="recovery-recovery-owner"
               >
-                {recoveryOwnerIsSourceOwner ? (
+                {lineage.lane === "native_run" && (action.ownerType !== "board" || Boolean(lineage.liveRunId)) ? (
+                  <>
+                    <span className="font-medium">Paperclip</span>
+                    <span className="text-muted-foreground">{t("oct5Core.recoversRun")}</span>
+                  </>
+                ) : recoveryOwnerIsSourceOwner ? (
                   <span className="font-medium">{t("localizationTaskRuntime.ui_Original_owner_retrying_itself_byem4o")}</span>
                 ) : action.ownerType === "agent" && action.ownerAgentId ? (
                   <>

@@ -6,6 +6,7 @@ import { activityApi } from "../api/activity";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "./ui/button";
 import { Link } from "../lib/router";
+import { executionRecoveryText } from "../lib/recovery-display";
 
 export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried }: {
   companyId: string;
@@ -15,7 +16,7 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data: runs } = useQuery({
+  const { data: runs, error: runsError } = useQuery({
     queryKey: queryKeys.issues.runs(issueId),
     queryFn: () => activityApi.runsForIssue(issueId),
   });
@@ -24,7 +25,7 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
   const requiresInspection = blocker.cause === "native_continuation_requires_reconciliation" ||
     blocker.cause === "native_session_cleanup_quarantined";
   const retry = useMutation({
-    mutationFn: () => agentsApi.retryFailedRun(failedRun!.agentId, failedRun!.runId, companyId),
+    mutationFn: () => agentsApi.retryFailedRun(blocker.agentId!, blocker.runId!, companyId),
     onSuccess: () => {
       onRetried();
       for (const queryKey of [queryKeys.issues.detail(issueId), queryKeys.issues.runs(issueId),
@@ -35,22 +36,28 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
   });
   return (
     <div role="status" aria-label={t("sep13Recovery.label")} className="mx-(--sz-execution-blocker-inline) my-(--sz-execution-blocker-block) flex flex-wrap items-center justify-between execution-blocker-notice border border-border bg-muted text-foreground">
-      <span>{blocker.cause === "legacy_execution_requires_reconciliation"
-        ? t("sep13Recovery.stopped")
-        : requiresInspection ? t("sep28Core.recoveryNeeded", { nextAction: blocker.nextAction }) : blocker.nextAction}</span>
-      {requiresInspection && blocker.agentId && blocker.runId && (
+      <div className="min-w-0 flex-1 break-words">
+        <p>{t("oct5Core.recoveryNeeded")}{blocker.runError ? ` ${executionRecoveryText(blocker.runError)}` : ""}</p>
+        <p>{executionRecoveryText(blocker.nextAction)}</p>
+        {Boolean(blocker.savedMessageCount) && (
+          <p>{t("oct5Core.savedMessages", { count: blocker.savedMessageCount })}</p>
+        )}
+      </div>
+      {blocker.agentId && blocker.runId && (
         <Button variant="outline" size="sm" asChild>
           <Link to={`/agents/${blocker.agentId}/runs/${blocker.runId}`}>{t("localizationAgents.ui73_Inspect_run")}</Link>
         </Button>
       )}
-      {!requiresInspection && failedRun && (
+      {(!requiresInspection || blocker.canRetry) && blocker.agentId && blocker.runId &&
+        ((blocker.cause === "legacy_execution_requires_reconciliation" && failedRun) || blocker.canContinue || blocker.canRetry) && (
         <Button variant="outline" size="sm" disabled={retry.isPending} onClick={() => retry.mutate()}>
-          {retry.isPending ? t("sep12Screens.retrying") : t("sep12Screens.retry")}
+          {retry.isPending ? t("oct5Core.starting") : blocker.canContinue ? t("oct5Core.continue") : t("sep12Screens.retry")}
         </Button>
       )}
       {retry.isError && (
         <p role="alert" className="w-full text-destructive">{retry.error.message}</p>
       )}
+      {runsError && <p role="alert" className="w-full text-destructive">{runsError.message}</p>}
     </div>
   );
 }

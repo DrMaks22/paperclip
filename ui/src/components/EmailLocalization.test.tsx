@@ -14,7 +14,7 @@ import { EmailConnectionAccess } from "./EmailConnectionAccess";
 import { EmailSafetyNotice } from "./EmailSafetyNotice";
 
 const mocks = vi.hoisted(() => ({
-  list: vi.fn(), connect: vi.fn(), reconnect: vi.fn(), control: vi.fn(), resolve: vi.fn(),
+  list: vi.fn(), connect: vi.fn(), reconnect: vi.fn(), control: vi.fn(), resolve: vi.fn(), credentials: vi.fn(), inspect: vi.fn(),
   thread: vi.fn(), listAttachments: vi.fn(), listAgents: vi.fn(), navigate: vi.fn(),
   listConnectionGrants: vi.fn(), getConnectionInstalls: vi.fn(), putConnectionInstalls: vi.fn(),
 }));
@@ -26,7 +26,7 @@ vi.mock("@/api/tools", () => ({ toolsApi: mocks }));
 vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ selectedCompanyId: "company-raw" }) }));
 vi.mock("@/lib/router", () => ({
   useNavigate: () => mocks.navigate,
-  useSearchParams: () => [new URLSearchParams()],
+  useSearchParams: () => [new URLSearchParams("agentId=agent-raw")],
   Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
 }));
 vi.mock("@/features/connections/ConnectionSetupFlow", () => ({
@@ -85,10 +85,14 @@ async function typeInto(input: HTMLInputElement, value: string) {
 
 beforeEach(async () => {
   vi.resetAllMocks();
+  sessionStorage.clear();
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   await i18n.changeLanguage("en");
   mocks.list.mockResolvedValue([inbox]);
-  mocks.listAgents.mockResolvedValue([]);
+  mocks.listAgents.mockResolvedValue([{ id: "agent-raw", name: "Custom Agent", status: "idle", permissions: {} }]);
+  mocks.credentials.mockResolvedValue([]);
+  mocks.inspect.mockResolvedValue({ scope: { scope_type: "organization" }, inboxes: [], domains: [] });
   mocks.listAttachments.mockResolvedValue([{ id: "attachment-raw", originalFilename: "Original attachment name.txt" }]);
   mocks.connect.mockRejectedValue(new Error("Raw provider key error"));
   mocks.reconnect.mockRejectedValue(new Error("Raw reconnect diagnostic"));
@@ -149,24 +153,23 @@ describe("Email localization boundaries", () => {
 
   it("preserves an unsaved API key and setup step across EN/RU/EN without connecting", async () => {
     await mount(<EmailEndpointSetup />);
-    await act(async () => button("Continue").click());
-    const input = container.querySelector<HTMLInputElement>("#email-api-key")!;
+    const input = container.querySelector<HTMLInputElement>('input[type="password"]')!;
     await typeInto(input, "raw-api-key-test-fixture");
     for (const locale of ["ru", "en"] as const) {
       await language(locale);
-      expect(container.querySelector<HTMLInputElement>("#email-api-key")).toBe(input);
+      expect(container.querySelector<HTMLInputElement>('input[type="password"]')).toBe(input);
       expect(input.value).toBe("raw-api-key-test-fixture");
-      expect(input.placeholder).toBe(locale === "ru" ? "Вставьте API-ключ AgentMail" : "Paste your AgentMail API key");
-      expect(container.textContent).toContain(locale === "ru" ? "Добавьте API-ключ AgentMail" : "Add your AgentMail API key");
-      const help = container.querySelector<HTMLAnchorElement>('a[href="https://console.agentmail.to"]');
-      expect(help?.textContent?.trim()).toBe(locale === "ru" ? "Получить ключ в AgentMail ↗" : "Get a key in AgentMail ↗");
+      expect(input.placeholder).toBe(locale === "ru" ? "Вставьте ключ API AgentMail" : "Paste your AgentMail API key");
+      expect(container.textContent).toContain(locale === "ru" ? "Создать адрес электронной почты для агента" : "Give an agent an email address");
+      const help = container.querySelector<HTMLAnchorElement>('a[href="https://console.agentmail.to/dashboard/api-keys"]');
+      expect(help?.textContent?.trim()).toBe(locale === "ru" ? "Получить ключ API AgentMail ↗" : "Get an AgentMail API key ↗");
       expect(mocks.connect).not.toHaveBeenCalled();
     }
-    await act(async () => button("Connect AgentMail").click());
+    await act(async () => button("Continue").click());
     await flush();
     expect(mocks.connect).toHaveBeenCalledTimes(1);
     expect(mocks.connect).toHaveBeenCalledWith("company-raw", {
-      apiKey: "raw-api-key-test-fixture", grantKind: "user", allAgents: false, agentIds: [], idempotencyKey: expect.any(String),
+      apiKey: "raw-api-key-test-fixture", grantKind: "organization", allAgents: false, agentIds: ["agent-raw"], idempotencyKey: expect.any(String),
     });
     await language("ru");
     expect(container.textContent).toContain("Raw provider key error");
@@ -176,8 +179,8 @@ describe("Email localization boundaries", () => {
 
   it("retains reconnect drafts, protocol enum values, and provider diagnostics across EN/RU/EN", async () => {
     const original = JSON.stringify(inbox);
-    await mount(<EmailEndpointSettings endpointId="endpoint-raw" companyId="company-raw" />);
-    const input = container.querySelector<HTMLInputElement>("#email-reconnect-key")!;
+    await mount(<EmailEndpointSettings endpointId="endpoint-raw" companyId="company-raw" assignedAgentName="Custom Agent" />);
+    const input = container.querySelector<HTMLInputElement>('input[type="password"]')!;
     const select = container.querySelector<HTMLSelectElement>("#email-reconnect-mode")!;
     await typeInto(input, "raw-replacement-key");
     await act(async () => {
@@ -190,7 +193,7 @@ describe("Email localization boundaries", () => {
       expect(select.value).toBe("webhook");
       expect(container.textContent).toContain(inbox.address);
       expect(container.textContent).toContain(inbox.lastError);
-      expect(container.textContent).toContain(formatDateTime(inbox.lastSyncAt!, { includeSeconds: true }));
+      expect(container.textContent).toContain(formatDateTime(inbox.lastSyncAt!));
       expect(container.textContent).toContain(locale === "ru" ? "Повторно подключить ящик" : "Reconnect inbox");
       expect(mocks.reconnect).not.toHaveBeenCalled();
       expect(mocks.control).not.toHaveBeenCalled();

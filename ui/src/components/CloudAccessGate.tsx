@@ -1,14 +1,54 @@
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
+import { useEffect, useRef, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accessApi } from "@/api/access";
 import { ApiError } from "@/api/client";
 import { authApi } from "@/api/auth";
 import { healthApi } from "@/api/health";
+import { isTemporaryApiError } from "@/api/response";
 import { queryKeys } from "@/lib/queryKeys";
 import { BootstrapPendingPage } from "@/components/BootstrapPendingPage";
 import { PaperclipLoading } from "@/components/AnimatedPaperclipIcon";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CloudSignIn } from "@/components/CloudSignIn";
+import { clearCloudSignInAttempt } from "@/lib/cloud-sign-in";
+
+const RECONNECT_INTERVAL_MS = 5_000;
+
+export function CloudAccessError({
+  temporary,
+  retrying,
+  onRetry,
+}: {
+  temporary: boolean;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  useTranslation();
+  return (
+    <div className="mx-auto flex max-w-xl flex-col gap-4 px-4 py-16">
+      <RefreshCw className="size-6 text-muted-foreground" aria-hidden="true" />
+      <div className="flex flex-col gap-2" role="status">
+        <h1 className="text-xl font-semibold">
+          {temporary ? t("oct5Core.s0407") : t("oct5Core.s0408")}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {temporary
+            ? t("oct5Core.s0409")
+            : t("oct5Core.s0410")}
+        </p>
+      </div>
+      <div>
+        <Button variant="outline" onClick={onRetry} disabled={retrying}>
+          {retrying ? "Connecting…" : t("oct5Core.s0057")}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function NoBoardAccessPage() {
   const { t } = useTranslation();
@@ -27,14 +67,15 @@ export function CloudAccessGate({ allowMembershipRequest = false }: { allowMembe
   const { t } = useTranslation();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const [hasOpenedBoard, setHasOpenedBoard] = useState(false);
   const healthQuery = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
     retry: false,
     refetchInterval: (query) => {
-      const data = query.state.data as
-        | { deploymentMode?: "local_trusted" | "authenticated"; bootstrapStatus?: "ready" | "bootstrap_pending" }
-        | undefined;
+      if (query.state.error) return isTemporaryApiError(query.state.error) ? RECONNECT_INTERVAL_MS : false;
+      const data = query.state.data;
+      if (data?.status === "starting") return RECONNECT_INTERVAL_MS;
       return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending"
         ? 2000
         : false;
@@ -49,13 +90,21 @@ export function CloudAccessGate({ allowMembershipRequest = false }: { allowMembe
     queryFn: () => authApi.getSession(),
     enabled: isAuthenticatedMode,
     retry: false,
+    refetchInterval: (query) => isTemporaryApiError(query.state.error) ? RECONNECT_INTERVAL_MS : false,
+    refetchIntervalInBackground: true,
   });
+
+  useEffect(() => {
+    if (sessionQuery.data) clearCloudSignInAttempt();
+  }, [sessionQuery.data]);
 
   const boardAccessQuery = useQuery({
     queryKey: queryKeys.access.currentBoardAccess,
     queryFn: () => accessApi.getCurrentBoardAccess(),
     enabled: isAuthenticatedMode && !isBootstrapPending && !!sessionQuery.data,
     retry: false,
+    refetchInterval: (query) => isTemporaryApiError(query.state.error) ? RECONNECT_INTERVAL_MS : false,
+    refetchIntervalInBackground: true,
   });
   const claimMutation = useMutation({
     mutationFn: () => accessApi.claimBootstrapAdmin(),
@@ -68,24 +117,63 @@ export function CloudAccessGate({ allowMembershipRequest = false }: { allowMembe
     },
   });
 
-  if (
+  const activeQueries = [
+    healthQuery,
+    ...(isAuthenticatedMode ? [sessionQuery] : []),
+    ...(isAuthenticatedMode && !isBootstrapPending && sessionQuery.data ? [boardAccessQuery] : []),
+  ];
+  const isServerStarting = healthQuery.data?.status === "starting";
+  const isReconnecting = isServerStarting || activeQueries.some((query) => isTemporaryApiError(query.error));
+  // A background outage must not unmount editors and discard drafts. Cached
+  // access is only retained for transport failures; 401/403 still fail closed.
+  const blockingError = activeQueries.find((query) => query.error
+    && !(query.data !== undefined && isTemporaryApiError(query.error)))?.error;
+  const isLoading =
     healthQuery.isLoading ||
     (isAuthenticatedMode && sessionQuery.isLoading) ||
-    (isAuthenticatedMode && !isBootstrapPending && !!sessionQuery.data && boardAccessQuery.isLoading)
-  ) {
+    (isAuthenticatedMode && !isBootstrapPending && !!sessionQuery.data && boardAccessQuery.isLoading);
+  const hasBoardAccess = allowMembershipRequest || !isAuthenticatedMode
+    || !!boardAccessQuery.data?.isInstanceAdmin || (boardAccessQuery.data?.companyIds.length ?? 0) > 0;
+  const canAccessBoard = !isLoading && !blockingError && !isBootstrapPending
+    && (!isAuthenticatedMode || !!sessionQuery.data) && hasBoardAccess;
+  useEffect(() => {
+    if (!canAccessBoard) setHasOpenedBoard(false);
+    else if (healthQuery.data?.status === "ok") setHasOpenedBoard(true);
+  }, [canAccessBoard, healthQuery.data?.status]);
+  const wasReconnecting = useRef(false);
+  useEffect(() => {
+    if (isReconnecting) {
+      wasReconnecting.current = true;
+    } else if (wasReconnecting.current && !isLoading && !blockingError) {
+      wasReconnecting.current = false;
+      // Other reads (including the company list) may have failed during boot.
+      // Refresh those too so recovery does not strand the user on a second error.
+      void queryClient.invalidateQueries({ predicate: (query) => isTemporaryApiError(query.state.error) });
+    }
+  }, [isReconnecting, isLoading, blockingError, queryClient]);
+
+  if (blockingError || (isServerStarting && !hasOpenedBoard)) {
+    return (
+      <CloudAccessError
+        temporary={blockingError ? isTemporaryApiError(blockingError) : true}
+        retrying={activeQueries.some((query) => query.isFetching)}
+        onRetry={() => {
+          for (const query of activeQueries) {
+            if (query.error || (query === healthQuery && isServerStarting)) {
+              void query.refetch({ cancelRefetch: false });
+            }
+          }
+        }}
+      />
+    );
+  }
+
+  if (isLoading) {
     return <PaperclipLoading />;
   }
 
-  if (healthQuery.error || boardAccessQuery.error) {
-    return (
-      <div className="mx-auto max-w-xl py-10 text-sm text-destructive">
-        {healthQuery.error instanceof Error
-          ? healthQuery.error.message
-          : boardAccessQuery.error instanceof Error
-            ? boardAccessQuery.error.message
-            : t("localizationCommonChrome.loadAppFailed")}
-      </div>
-    );
+  if (isAuthenticatedMode && healthQuery.data?.cloud && !sessionQuery.data) {
+    return <CloudSignIn cloud={healthQuery.data.cloud} returnTo={`${location.pathname}${location.search}${location.hash}`} />;
   }
 
   if (isBootstrapPending) {
@@ -117,15 +205,18 @@ export function CloudAccessGate({ allowMembershipRequest = false }: { allowMembe
 
   // Private invitation pages may let signed-in nonmembers request access.
   // Their token APIs still enforce membership before granting any authority.
-  if (
-    !allowMembershipRequest &&
-    isAuthenticatedMode &&
-    sessionQuery.data &&
-    !boardAccessQuery.data?.isInstanceAdmin &&
-    (boardAccessQuery.data?.companyIds.length ?? 0) === 0
-  ) {
+  if (!hasBoardAccess) {
     return <NoBoardAccessPage />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      {isReconnecting && (
+        <div role="status" className="bg-muted px-4 py-2 text-center text-sm text-muted-foreground">
+          {t("oct5Core.s0411")}
+        </div>
+      )}
+      <Outlet />
+    </>
+  );
 }

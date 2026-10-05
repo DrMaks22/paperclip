@@ -67,7 +67,7 @@ it("retranslates the ACPX read permission EN → RU → EN without changing save
     expect(permission.getAttribute("aria-label")).toBe(language === "ru"
       ? "Режим разрешений"
       : "Permission mode");
-    expect(container.querySelector('option[value="acpx"]')?.textContent).toBe("ACPX Claude");
+    expect(container.querySelector('option[value="acpx"]')?.textContent).toBe(language === "ru" ? "Агенты ACP" : "ACP agents");
     expect(nativeValues()).toEqual(originalValues);
     expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe("45000");
     expect(JSON.stringify(config)).toBe(original);

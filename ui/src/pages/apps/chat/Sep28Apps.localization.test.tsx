@@ -15,6 +15,8 @@ import { githubVerificationText, chatUiErrorMessage, githubReviewStatusLabel, sl
 vi.mock("@/features/connections/ConnectionSetupFlow", () => ({
   StepHeader: ({ title, subtitle, labels }: { title?: string; subtitle: string; labels: string[] }) => <header>{title}{subtitle}{labels.join(" · ")}</header>,
   AccessStepContent: () => null,
+  ConnectionAccessDefaults: ({ extra }: { extra?: ReactNode }) => <>{extra}</>,
+  connectionDefaultSummarySentence: () => "",
 }));
 vi.mock("@/pages/apps/app-detail/PermissionsPanel", () => ({ ActionsSection: () => null }));
 
@@ -76,10 +78,10 @@ describe("September app localization boundaries", () => {
     const called = vi.fn();
     let lastState: RemoteMcpSetupState | undefined;
     function Harness() {
-      const [state, setState] = useState<RemoteMcpSetupState>({ step: "connect", grantKind: "organization", setupComplete: false, url: "https://example.test/mcp?access=synthetic", auth: "headers", token: "synthetic-token", headers: [{ id: "header-id", name: "X-Identity", value: "synthetic-header" }], advanced: true, connectStatus: "idle", connected: false, identity: null, allAgents: false, agentIds: ["unchanged-agent"], permissions: {}, tools: [], notice: { key: "sep28Apps.headerBoth" }, refreshing: false });
+      const [state, setState] = useState<RemoteMcpSetupState>({ step: "connect", grantKind: "organization", setupComplete: false, url: "https://example.test/mcp?access=synthetic", auth: "headers", token: "synthetic-token", headers: [{ id: "header-id", name: "X-Identity", value: "synthetic-header" }], connectStatus: "idle", connected: false, identity: null, allAgents: false, agentIds: ["unchanged-agent"], permissions: {}, tools: [], notice: { key: "sep28Apps.headerBoth" }, refreshing: false });
       lastState = state;
       const actions: RemoteMcpSetupActions = { edit: patch => setState(s => ({ ...s, ...patch })), navigate: called, connect: called, cancelConnect: called, openProvider: called, saveExit: called, resumeDraft: called, finish: called, refresh: called, reconnect: called, disconnect: called };
-      return <RemoteMcpConnectionSetup provider={remoteMcpProviders.arcade} state={state} actions={actions} agents={[]} connectionId="connection-id" host="dialog" />;
+      return <RemoteMcpConnectionSetup companyId="" provider={remoteMcpProviders.arcade} state={state} actions={actions} agents={[]} connectionId="connection-id" host="dialog" />;
     }
     await render(<TooltipProvider><Harness /></TooltipProvider>);
     const values = [...container.querySelectorAll('input')].map(input => input.value);

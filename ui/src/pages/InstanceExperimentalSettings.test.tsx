@@ -85,6 +85,7 @@ function defaultExperimentalSettings(): InstanceExperimentalSettingsPayload {
     enablePipelines: false,
     enableCases: false,
     enableAgentChat: false,
+    enableCombinedInboxTasks: false,
     enableConferenceRoomChat: false,
     enableClassicTaskInterface: false,
     enableIssuePlanDecompositions: false,
@@ -226,6 +227,20 @@ describe("InstanceExperimentalSettings — Conference Room Chat card (PAP-11233)
     }
   });
 
+  it("defaults Combined Inbox + Task List off and persists an explicit toggle in both directions", async () => {
+    await renderPage();
+    const selector = 'button[aria-label="Toggle combined inbox and task list experimental setting"]';
+    expect(container.textContent).toContain("Combined Inbox + Task List");
+    expect(container.textContent).not.toContain("Agent Chat v2");
+    expect(container.querySelector(selector)?.getAttribute("aria-checked")).toBe("false");
+    for (const enabled of [true, false]) {
+      await act(() => container.querySelector<HTMLButtonElement>(selector)!.click());
+      await flushReact();
+      expect(mockInstanceSettingsApi.updateExperimental).toHaveBeenLastCalledWith({ enableCombinedInboxTasks: enabled });
+      expect(container.querySelector(selector)?.getAttribute("aria-checked")).toBe(String(enabled));
+    }
+  });
+
   it("does not offer a retired MCP aggregators toggle", async () => {
     await renderPage();
     expect(container.querySelector('button[aria-label="Toggle MCP aggregators experimental setting"]')).toBeNull();
@@ -254,7 +269,7 @@ describe("InstanceExperimentalSettings — Conference Room Chat card (PAP-11233)
       const name = t("localizationExperimental.features.enableChatConnectors.ariaLabel");
       const toggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find(b => b.getAttribute("aria-label") === name)!;
       expect(toggle).toBeDefined();
-      expect(container.textContent).toContain(t("localizationExperimental.features.enableChatConnectors.footnote"));
+      expect(container.textContent).toContain(t("oct5Core.chatConnectorsFootnote"));
       expect(mockInstanceSettingsApi.getExperimental).toHaveBeenCalledTimes(initialFetches);
       expect(mockInstanceSettingsApi.updateExperimental).not.toHaveBeenCalled();
       await act(() => toggle.click());
@@ -276,7 +291,7 @@ describe("InstanceExperimentalSettings — Conference Room Chat card (PAP-11233)
       await act(async () => { await i18n.changeLanguage("ru"); });
       const toggle = container.querySelector<HTMLButtonElement>('button[aria-label="Включить или выключить экспериментальный чат с агентом"]')!;
       expect(toggle).not.toBeNull();
-      expect(container.textContent).toContain("Общайтесь с каждым агентом в отдельной беседе, к которой можно возвращаться.");
+      expect(container.textContent).toContain(t("oct5Core.agentChatDescription"));
       expect(mockInstanceSettingsApi.getExperimental).toHaveBeenCalledTimes(initialFetches);
       expect(mockInstanceSettingsApi.updateExperimental).not.toHaveBeenCalled();
       await act(() => toggle.click());

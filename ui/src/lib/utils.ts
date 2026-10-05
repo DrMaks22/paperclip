@@ -47,8 +47,8 @@ export function formatCents(cents: number): string {
   }).format(cents / 100);
 }
 
-export function formatNumber(n: number): string {
-  return n.toLocaleString(activeLocale());
+export function formatNumber(n: number, options?: Intl.NumberFormatOptions): string {
+  return n.toLocaleString(activeLocale(), options);
 }
 
 /**
@@ -72,12 +72,12 @@ export function formatDate(date: Date | string): string {
 
 export function formatDateTime(
   date: Date | string,
-  options: { includeSeconds?: boolean } = {},
+  options: { includeSeconds?: boolean; includeYear?: boolean } = {},
 ): string {
   return new Date(date).toLocaleString(activeLocale(), {
     month: "short",
     day: "numeric",
-    year: "numeric",
+    ...(options.includeYear === false ? {} : { year: "numeric" as const }),
     hour: "numeric",
     minute: "2-digit",
     ...(options.includeSeconds ? { second: "2-digit" as const } : {}),

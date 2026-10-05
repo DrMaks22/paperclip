@@ -9,6 +9,9 @@ import { agentAvatarUrl } from "@/lib/agent-avatar-url";
 import { resolveAgentAppearance } from "@paperclipai/shared";
 import { GitHubBotManagement, GitHubReviews } from "./GitHubBotManagement";
 import { EmailEndpointSettings } from "./EmailEndpointSetup";
+import { EmailConnectionAccess } from "@/components/EmailConnectionAccess";
+import { emailApi } from "@/api/email";
+import { toolsApi } from "@/api/tools";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -270,7 +273,8 @@ export function ChatEndpointDetail() {
         <Button variant="outline" onClick={() => endpointQuery.refetch()}>{t("localizationIssuePanels.ui_Try_again_982hh6")}</Button>
       </div>
     );
-  if (endpoint.provider === "agentmail") return <EmailEndpointSettings endpointId={endpoint.id} companyId={endpoint.companyId} />;
+  if (endpoint.provider === "agentmail" && activeTab === "settings")
+    return <EmailEndpointSettings key={endpoint.id} endpointId={endpoint.id} companyId={endpoint.companyId} assignedAgentName={endpoint.assignedAgentName} />;
   const setupIncomplete =
     endpoint.setup?.step !== "complete" &&
     ["draft", "verifying", "attention", "revoked"].includes(endpoint.status);
@@ -281,7 +285,7 @@ export function ChatEndpointDetail() {
         <div>
           <h1 className="text-xl font-bold">{t("chatUi.chatEndpointDetail.in", { value0: endpoint.assignedAgentName, value1: providerNames[endpoint.provider] })}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {endpoint.providerAccountLabel ?? t("chatUi.chatEndpointDetail.chatConnection")}
+            {endpoint.providerAccountLabel ?? (endpoint.provider === "agentmail" ? endpoint.botExternalId ?? t("oct5Apps.copy081") : t("chatUi.chatEndpointDetail.chatConnection"))}
           </p>
           {endpoint.provider === "imessage-photon" && endpoint.botExternalId && endpoint.photonAllocation !== "shared" && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -316,7 +320,8 @@ export function ChatEndpointDetail() {
       )}
       {activeTab === "reviews" && endpoint.provider === "github" && <GitHubReviews endpointId={endpoint.id} />}
 {activeTab === "access" && endpoint.provider === "github" && <GitHubBotManagement endpoint={endpoint} view="access" />}
-{activeTab === "access" && endpoint.provider !== "github" && (
+{activeTab === "access" && endpoint.provider === "agentmail" && <EmailAccess endpoint={endpoint} />}
+{activeTab === "access" && endpoint.provider !== "github" && endpoint.provider !== "agentmail" && (
         <Access
           endpointId={endpoint.id}
           allowUnlinked={endpoint.allowUnlinkedPeople}
@@ -331,6 +336,33 @@ export function ChatEndpointDetail() {
       )}
     </div>
   );
+}
+
+function EmailAccess({ endpoint }: { endpoint: ChatEndpoint }) {
+  useTranslation();
+  const connection = useQuery({
+    queryKey: queryKeys.tools.connection(endpoint.connectionId ?? ""),
+    queryFn: () => toolsApi.getConnection(endpoint.connectionId!),
+    enabled: Boolean(endpoint.connectionId),
+  });
+  const agents = useQuery({
+    queryKey: queryKeys.agents.list(endpoint.companyId),
+    queryFn: () => agentsApi.list(endpoint.companyId),
+  });
+  if (!endpoint.connectionId || agents.isError || connection.isError) return (
+    <div className="space-y-3">
+      <p role="alert" className="text-sm text-destructive">{t("oct5Apps.copy082")}</p>
+      <Button variant="outline" onClick={() => { void agents.refetch(); void connection.refetch(); }}>{t("localizationProjectRepositories.retry")}</Button>
+    </div>
+  );
+  if (agents.isPending || connection.isPending) return <p role="status" className="text-sm text-muted-foreground">{t("oct5Apps.copy083")}</p>;
+  const sourceId = connection.data.config?.credentialConnectionId;
+  const credentialId = typeof sourceId === "string" ? sourceId : endpoint.connectionId;
+  return <section className="max-w-3xl space-y-4">
+    <h2 className="text-lg font-semibold">{t("localizationSettings.navAccess")}</h2>
+    {credentialId !== endpoint.connectionId && <p className="text-sm text-muted-foreground">{t("oct5Apps.copy084")}</p>}
+    <EmailConnectionAccess key={credentialId} companyId={endpoint.companyId} connectionId={credentialId} agents={agents.data} />
+  </section>;
 }
 
 function Settings({
@@ -719,8 +751,17 @@ function Conversations({
       <div>
         <h2 className="text-lg font-semibold">{t("chatUi.chatEndpointDetail.conversations")}</h2>
       </div>
-      {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{t("chatUi.chatEndpointDetail.noConversationsYetAddressTheAgentInAnEnabledDestination")}</p>
+      {query.isPending ? <p role="status" className="text-sm text-muted-foreground">{t("oct5Apps.copy085")}</p> : query.isError ? (
+        <div className="space-y-3">
+          <p role="alert" className="text-sm text-destructive">{t("oct5Apps.copy086")}</p>
+          <Button variant="outline" onClick={() => void query.refetch()}>{t("localizationProjectRepositories.retry")}</Button>
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+          {provider === "agentmail"
+            ? t("oct5Apps.copy087")
+            : t("chatUi.chatEndpointDetail.noConversationsYetAddressTheAgentInAnEnabledDestination")}
+        </p>
       ) : (
         <ul aria-label={t("chatUi.chatEndpointDetail.conversations")} className="divide-y divide-border overflow-x-auto border-y border-border">
           {rows.map((row) => (
@@ -850,20 +891,25 @@ function Activity({
       }),
   });
   const lifecycle = useMutation({
-    mutationFn: (action: "pause" | "resume" | "remove") =>
-      chatEndpointsApi.setup(endpointId, { action }),
+    mutationFn: async (action: "pause" | "resume" | "remove") =>
+      endpoint.provider === "agentmail"
+        ? emailApi.control(endpointId, action)
+        : chatEndpointsApi.setup(endpointId, { action }),
     onSuccess: async (next, action) => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.chatEndpoints.list(next.companyId),
       });
+      if (endpoint.provider === "agentmail") {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["email-inboxes", next.companyId] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.chatEndpoints.detail(endpointId) }),
+        ]);
+      }
       if (action === "remove") {
         navigate("/apps");
         return;
       }
-      queryClient.setQueryData(
-        queryKeys.chatEndpoints.detail(endpointId),
-        next,
-      );
+      if (endpoint.provider !== "agentmail") queryClient.setQueryData(queryKeys.chatEndpoints.detail(endpointId), next);
       pushToast({
         title: action === "pause" ? t("chatUi.chatEndpointDetail.connectionPaused") : t("chatUi.chatEndpointDetail.connectionResumed"),
         tone: "success",
@@ -1002,7 +1048,9 @@ function Activity({
                 disabled={lifecycle.isPending}
                 onClick={() =>
                   navigate(
-                    `/apps/chat/connect?provider=${endpoint.provider}&purpose=chat&resume=${endpoint.id}${status === "draft" || status === "verifying" ? "" : "&reconnect=1"}`,
+                    endpoint.provider === "agentmail" && status !== "draft" && status !== "verifying"
+                      ? `/apps/chat/${endpoint.id}/settings`
+                      : `/apps/chat/connect?provider=${endpoint.provider}&purpose=chat&resume=${endpoint.id}${status === "draft" || status === "verifying" ? "" : "&reconnect=1"}`,
                   )
                 }
               >
@@ -1031,6 +1079,11 @@ function Activity({
       </details>
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">{t("pages.userProfile.recentActivity")}</h3>
+        {endpoint.provider === "agentmail" && rows.some((item) => item.kind === "publication" && item.status === "delivery_unknown") && (
+          <p className="text-sm text-muted-foreground">
+            <Trans i18nKey="oct5Apps.reviewDelivery" components={{ task: <Link to={`/apps/chat/${endpointId}/conversations`} className="underline underline-offset-4" /> }} />
+          </p>
+        )}
         <div className="divide-y divide-border border-y border-border">
           {query.isLoading && (
             <div className="flex items-center gap-2 py-5 text-sm text-muted-foreground">
@@ -1080,7 +1133,7 @@ function Activity({
                     </p>
                   )}
                 </div>
-                {isReplayEligible(item) && (
+                {endpoint.provider !== "agentmail" && isReplayEligible(item) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1094,7 +1147,7 @@ function Activity({
                       <RefreshCw />
                     )}{t("chatUi.chatEndpointDetail.replay")}</Button>
                 )}
-                {isResolutionEligible(item) && (
+                {endpoint.provider !== "agentmail" && isResolutionEligible(item) && (
                   <Button
                     size="sm"
                     variant="outline"

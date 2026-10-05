@@ -4,7 +4,6 @@ import { ArrowUpDown, Check, ChevronDown, Columns3, Filter, Layers, ListTree, Se
 import { Link, useCaseHref, useNavigate } from "@/lib/router";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
-import { useGeneralSettings } from "@/context/GeneralSettingsContext";
 import { queryKeys } from "@/lib/queryKeys";
 import { casesApi, CASE_STATUSES, TERMINAL_CASE_STATUSES, type CaseStatus, type CaseSummary } from "@/api/cases";
 import { projectsApi } from "@/api/projects";
@@ -751,7 +750,6 @@ function CasesEmptyHero() {
 export function Cases() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const { keyboardShortcutsEnabled } = useGeneralSettings();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -1139,8 +1137,6 @@ export function Cases() {
   }
 
   useEffect(() => {
-    if (!keyboardShortcutsEnabled) return;
-
     function handleKeyDown(event: KeyboardEvent) {
       if (event.defaultPrevented) return;
       const target = event.target;
@@ -1200,7 +1196,7 @@ export function Cases() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [caseHref, keyboardNavItems, keyboardShortcutsEnabled, navigate, selectedIndex, viewState.treeView]);
+  }, [caseHref, keyboardNavItems, navigate, selectedIndex, viewState.treeView]);
 
   if (casesQuery.isLoading) return <PageSkeleton variant="list" />;
 

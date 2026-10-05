@@ -2,7 +2,7 @@ import { t, i18n, useTranslation } from "@/i18n";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { deriveOriginatingActor, INBOX_MINE_ISSUE_STATUS_FILTER } from "@paperclipai/shared";
+import { deriveOriginatingActor, INBOX_MINE_ISSUE_STATUS_FILTER, isHeartbeatRunVisibleInMine } from "@paperclipai/shared";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "@/hooks/useSharedPolling";
 import { approvalsApi } from "../api/approvals";
 import { accessApi } from "../api/access";
@@ -24,7 +24,6 @@ import {
 import { useCompany } from "../context/CompanyContext";
 import { useToastActions } from "../context/ToastContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
-import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { useSidebar } from "../context/SidebarContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useDialogActions } from "../context/DialogContext";
@@ -796,13 +795,36 @@ function InboxCollectionToolbar({
   );
 }
 
-export function Inbox() {
-  useTranslation();
-  const { enabled: streamlinedUiEnabled } = useStreamlinedUiEnabled();
-  return streamlinedUiEnabled ? <StreamlinedInbox /> : <LegacyInbox />;
+/**
+ * PAP-670: the inbox stopped being its own page and became the "My work" half
+ * of Tasks. `Tasks` hosts this component and drives it through these props, so
+ * every inbox behaviour (unread state, archive, date groups, the mixed
+ * approval / failed-run / join-request rows) survives the merge by construction
+ * rather than being reimplemented on the task list.
+ *
+ * With no props it is still the standalone `/inbox/*` page, which the legacy
+ * (non-streamlined) shell continues to use.
+ */
+export interface InboxSurfaceProps {
+  /** Which view to render. Falls back to the last path segment when absent. */
+  tab?: InboxTab;
+  /** Replaces the inbox tab bar in the toolbar's context slot. */
+  toolbarContext?: ReactNode;
+  /** Breadcrumb and back-link label; "Inbox" when standalone, "Tasks" when hosted. */
+  surfaceLabel?: string;
 }
 
-function StreamlinedInbox() {
+export function Inbox(props: InboxSurfaceProps = {}) {
+  useTranslation();
+  const { enabled: streamlinedUiEnabled } = useStreamlinedUiEnabled();
+  return streamlinedUiEnabled ? <StreamlinedInbox {...props} /> : <LegacyInbox />;
+}
+
+function StreamlinedInbox({
+  tab: tabOverride,
+  toolbarContext,
+  surfaceLabel = t("nav.inbox"),
+}: InboxSurfaceProps) {
   useTranslation();
   const streamlinedUiEnabled = true;
   const { selectedCompanyId } = useCompany();
@@ -814,7 +836,6 @@ function StreamlinedInbox() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
-  const { keyboardShortcutsEnabled } = useGeneralSettings();
   const { data: experimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
     queryFn: () => instanceSettingsApi.getExperimental(),
@@ -838,7 +859,7 @@ function StreamlinedInbox() {
   const { allCategoryFilter, allApprovalFilter, issueFilters } = filterPreferences;
 
   const pathSegment = location.pathname.split("/").pop() ?? "mine";
-  const tab: InboxTab =
+  const pathTab: InboxTab =
     pathSegment === "mine"
     || pathSegment === "recent"
     || pathSegment === "all"
@@ -846,15 +867,16 @@ function StreamlinedInbox() {
     || pathSegment === "blocked"
       ? pathSegment
       : "mine";
+  const tab: InboxTab = tabOverride ?? pathTab;
   const canArchiveFromTab = isMineInboxTab(tab);
   const issueLinkState = useMemo(
     () =>
       createIssueDetailLocationState(
-        t("nav.inbox"),
+        surfaceLabel,
         `${location.pathname}${location.search}${location.hash}`,
         "inbox",
       ),
-    [i18n.resolvedLanguage, location.pathname, location.search, location.hash],
+    [surfaceLabel, location.pathname, location.search, location.hash],
   );
 
   const { data: session } = useQuery({
@@ -889,8 +911,8 @@ function StreamlinedInbox() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ get label() { return t("nav.inbox", { defaultValue: "Inbox" }); } }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: surfaceLabel }]);
+  }, [setBreadcrumbs, surfaceLabel]);
 
   useEffect(() => {
     saveLastInboxTab(tab);
@@ -1336,8 +1358,9 @@ function StreamlinedInbox() {
   const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
   const failedRunsForTab = useMemo(() => {
     if (tab === "all" && !showFailedRunsCategory) return [];
+    if (tab === "mine") return failedRuns.filter((run) => isHeartbeatRunVisibleInMine(run, currentUserId));
     return failedRuns;
-  }, [i18n.resolvedLanguage, failedRuns, tab, showFailedRunsCategory]);
+  }, [i18n.resolvedLanguage, failedRuns, tab, showFailedRunsCategory, currentUserId]);
 
   const joinRequestsForTab = useMemo(() => {
     if (tab === "all" && !showJoinRequestsCategory) return [];
@@ -2138,8 +2161,6 @@ function StreamlinedInbox() {
 
   // Keyboard shortcuts (mail-client style) — single stable listener using refs
   useEffect(() => {
-    if (!keyboardShortcutsEnabled) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
 
@@ -2328,7 +2349,7 @@ function StreamlinedInbox() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [issueLinkState, keyboardShortcutsEnabled, noteInboxSortInteraction]);
+  }, [issueLinkState, noteInboxSortInteraction]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -2339,7 +2360,7 @@ function StreamlinedInbox() {
   }, [selectedIndex]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={InboxIcon} message={t("pages.inbox.selectCompany")} />;
+    return <EmptyState icon={InboxIcon} message={t("oct5Core.selectOrganizationSurface", { surface: surfaceLabel })} />;
   }
 
   const hasRunFailures = failedRuns.length > 0;
@@ -2408,8 +2429,8 @@ function StreamlinedInbox() {
     <div className="space-y-6">
       <InboxCollectionToolbar
         streamlined={streamlinedUiEnabled}
-        ariaLabel={t("localizationIssueLists.inboxControls", { defaultValue: "Inbox controls" })}
-        context={(
+        ariaLabel={t("oct5Core.surfaceControls", { surface: surfaceLabel })}
+        context={toolbarContext ?? (
           <Tabs value={tab} onValueChange={(value) => navigate(`/inbox/${value}`)}>
             <PageTabBar
               items={[
@@ -2427,7 +2448,7 @@ function StreamlinedInbox() {
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              placeholder={t("pages.inbox.searchInbox", { defaultValue: "Search inbox…" })}
+              placeholder={t("oct5Core.searchSurface", { surface: surfaceLabel.toLowerCase() })}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -2515,7 +2536,7 @@ function StreamlinedInbox() {
                   }));
                 }}
                 onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-                title={t("pages.inbox.chooseColumns", { defaultValue: "Choose which inbox columns stay visible" })}
+                title={t("oct5Core.chooseColumns")}
                 iconOnly
               />
               <Popover>
@@ -2641,7 +2662,7 @@ function StreamlinedInbox() {
                   }));
                 }}
                 onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-                title={t("pages.inbox.chooseColumns", { defaultValue: "Choose which inbox columns stay visible" })}
+                title={t("oct5Core.chooseColumns")}
                 iconOnly
                 rowPresentation={streamlinedUiEnabled ? "task" : "legacy"}
               />

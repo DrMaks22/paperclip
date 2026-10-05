@@ -75,8 +75,9 @@ describe("issue chrome runtime localization", () => {
     const toggle = host.querySelector('[aria-expanded="false"]')!;
     await click(toggle);
     const body = host.querySelector("[data-raw-markdown]")!;
-    await click([...host.querySelectorAll("button")].find((b) => b.textContent === "Скопировать"));
+    await click([...host.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === i18n.t("oct5Core.continueWithAgent")));
     expect(mocks.copy).toHaveBeenCalledWith(document.body);
+    expect(mocks.copy).toHaveBeenCalledTimes(1);
     await locale("en");
     expect(host.textContent).toContain("Copied");
     expect(host.textContent).toContain("revision 21");

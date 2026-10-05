@@ -1,13 +1,12 @@
 import { useTranslation } from "@/i18n";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { IssueDocument } from "@paperclipai/shared";
 import { ISSUE_CONTINUATION_SUMMARY_DOCUMENT_KEY } from "@paperclipai/shared";
-import { Button } from "@/components/ui/button";
+import { AgentSetupPrompt } from "@/components/AgentSetupPrompt";
 import { cn, relativeTime } from "../lib/utils";
 import { MarkdownBody, type MarkdownExternalReferenceMap } from "./MarkdownBody";
-import { Check, ChevronDown, ChevronRight, Copy, History } from "lucide-react";
+import { ChevronDown, ChevronRight, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { copyTextToClipboard } from "@/lib/clipboard";
 
 type IssueContinuationHandoffProps = {
   document: IssueDocument | null | undefined;
@@ -22,18 +21,8 @@ export function IssueContinuationHandoff({
 }: IssueContinuationHandoffProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [highlighted, setHighlighted] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current) {
-        clearTimeout(copiedTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!document || focusSignal <= 0) return;
@@ -43,20 +32,6 @@ export function IssueContinuationHandoff({
     const timer = setTimeout(() => setHighlighted(false), 3000);
     return () => clearTimeout(timer);
   }, [document, focusSignal]);
-
-  const copyBody = useCallback(async () => {
-    if (!document) return;
-    try {
-      await copyTextToClipboard(document.body);
-    } catch {
-      return;
-    }
-    setCopied(true);
-    if (copiedTimerRef.current) {
-      clearTimeout(copiedTimerRef.current);
-    }
-    copiedTimerRef.current = setTimeout(() => setCopied(false), 1500);
-  }, [document]);
 
   if (!document) return null;
 
@@ -93,10 +68,13 @@ export function IssueContinuationHandoff({
             {t(document.latestRevisionNumber > 0 ? "localizationIssueChrome.handoffUpdatedRevision" : "localizationIssueChrome.handoffUpdated", { time: relativeTime(document.updatedAt), revision: document.latestRevisionNumber })}
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={copyBody} className="shrink-0">
-          {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
-          {copied ? t("localizationIssueChrome.copied") : t("localizationIssueChrome.copy")}
-        </Button>
+        <AgentSetupPrompt
+          prompt={document.body}
+          label={t("oct5Core.continueWithAgent")}
+          title={t("oct5Core.taskHandoff")}
+          description={t("oct5Core.handoffDescription")}
+          align="end"
+        />
       </div>
       {expanded ? (
         <div className="mt-3 rounded-md border border-border bg-background/80 p-3">

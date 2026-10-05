@@ -8,6 +8,7 @@ import { formatAssigneeUserDisplayLabel as formatAssigneeUserLabel } from "../li
 import { describeInteractionAudienceDisplay as describeInteractionAudience, type InteractionAudienceDescription } from "../lib/interaction-audience";
 import { InteractionResolutionDisplayError } from "../lib/interaction-resolution-error";
 import {
+  isInteractionPreparingApproval,
   buildSuggestedTaskTree,
   collectSuggestedTaskClientKeys,
   countSuggestedTaskNodes,
@@ -32,6 +33,7 @@ import {
   type SuggestedTaskTreeNode,
 } from "../lib/issue-thread-interactions";
 import { cn, formatDateTime, formatShortDate } from "../lib/utils";
+import { InteractionPreparationNotice } from "./InteractionPreparationNotice";
 import { InteractionAudienceLine } from "./InteractionAudienceLine";
 import { MarkdownBody, type MarkdownExternalReferenceMap } from "./MarkdownBody";
 import { Button } from "./ui/button";
@@ -2025,6 +2027,7 @@ function RequestSecretProposalCard({
           reasonPlaceholder={interaction.payload.declineReasonPlaceholder ?? t("localizationIssueDetail.ui_Optional_explain_why_this_binding_should_not_be_created")}
           working={working}
           actionError={actionError}
+          preparingApproval={isInteractionPreparingApproval(interaction)}
           canApprove={Boolean(onAcceptInteraction)}
           canReject={Boolean(onRejectInteraction)}
           onApprove={() => void handleAccept()}
@@ -2075,6 +2078,7 @@ function ConfirmationActionRow({
   working,
   actionError,
   approveDisabled = false,
+  preparingApproval = false,
   canApprove,
   canReject,
   onApprove,
@@ -2098,6 +2102,7 @@ function ConfirmationActionRow({
   working: "accept" | "reject" | null;
   actionError: InteractionResolutionDisplayError | null;
   approveDisabled?: boolean;
+  preparingApproval?: boolean;
   canApprove: boolean;
   canReject: boolean;
   onApprove: () => void;
@@ -2136,6 +2141,7 @@ function ConfirmationActionRow({
 
   return (
     <div className="space-y-3">
+      {preparingApproval ? <InteractionPreparationNotice /> : null}
       <div
         data-testid="confirmation-actions"
         data-mobile-layout={stackActionsOnMobile ? "stacked" : "inline"}
@@ -2150,7 +2156,7 @@ function ConfirmationActionRow({
           size="sm"
           variant={revising ? "outline" : approveVariant}
           className={stackActionsOnMobile ? "col-span-2 w-full sm:col-auto sm:w-auto" : undefined}
-          disabled={!canApprove || working !== null || approveDisabled}
+          disabled={!canApprove || working !== null || approveDisabled || preparingApproval}
           onClick={onApprove}
         >
           {working === "accept" ? (
@@ -2631,6 +2637,7 @@ function RequestConfirmationCard({
           reasonPlaceholder={reasonPlaceholder}
           working={working}
           actionError={actionError}
+          preparingApproval={isInteractionPreparingApproval(interaction)}
           canApprove={Boolean(onAcceptInteraction)}
           canReject={Boolean(onRejectInteraction)}
           onApprove={() => void handleAccept()}
@@ -3047,6 +3054,7 @@ function RequestCheckboxConfirmationCard({
           reasonPlaceholder={reasonPlaceholder}
           working={working}
           actionError={actionError}
+          preparingApproval={isInteractionPreparingApproval(interaction)}
           canApprove={Boolean(onAcceptInteraction)}
           canReject={Boolean(onRejectInteraction)}
           onApprove={() => void handleAccept()}
@@ -3853,6 +3861,7 @@ export function IssueThreadInteractionCard({
               interaction={interaction}
               currentUserId={currentUserId}
               addresseeLabel={addresseeLabel ?? t("localizationIssueDetail.addressedPerson")}
+              addresseeName={interaction.addresseeUserId ? userLabelMap?.get(interaction.addresseeUserId) : undefined}
             />
           ) : interaction.kind === "request_item_verdicts" ? (
             <RequestItemVerdictsCard

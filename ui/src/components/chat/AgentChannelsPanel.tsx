@@ -12,7 +12,7 @@ import { photonBotLabel } from "@/pages/apps/chat/photon-copy";
 
 const providerNames: Record<ChatProvider, string> = {
   slack: "Slack",
-  github: "GitHub",
+  github: "GitHub Code Review Bot",
   discord: "Discord",
   "microsoft-teams": "Microsoft Teams",
   telegram: "Telegram",
@@ -32,12 +32,11 @@ export function AgentChannelsPanel({
   const query = useQuery({
     queryKey: queryKeys.chatEndpoints.list(companyId),
     queryFn: () => chatEndpointsApi.list(companyId),
-    enabled,
+    enabled: Boolean(companyId),
   });
-  if (!enabled) return null;
   const endpoints = (query.data ?? []).filter(
     (endpoint) =>
-      endpoint.assignedAgentId === agentId && endpoint.status !== "archived",
+      endpoint.assignedAgentId === agentId && endpoint.status !== "archived" && (endpoint.provider === "agentmail" || enabled),
   );
   return (
     <section className="max-w-3xl space-y-5">
@@ -59,7 +58,7 @@ export function AgentChannelsPanel({
         <div className="rounded-lg border border-dashed border-border p-5">
           <p className="text-sm font-medium">{t("sep12Connections.noChannels")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("sep12Connections.connectChannels")}
+            {enabled ? t("oct5Core.connectChannels") : t("oct5Core.connectAgentMail")}
           </p>
           <Button asChild className="mt-3" variant="outline" size="sm">
             <Link to="/apps">{t("chatUi.agentChannelsPanel.openConnectors")}</Link>

@@ -93,7 +93,7 @@ it("keeps a paused routine distinct from an activated webhook at the final step"
     onSaveExit={() => {}} onFinish={() => {}} />));
   expect(container.textContent).toContain("Сценарий приостановлен");
   expect(container.textContent).toContain("Сценарий не запускался, задача не создавалась.");
-  expect(container.textContent).not.toContain("Последующие события будут запускать сценарий");
+  expect(container.textContent).not.toContain("Последующие события будут запускать регламент");
 });
 
 describe("localized webhook address warnings", () => {

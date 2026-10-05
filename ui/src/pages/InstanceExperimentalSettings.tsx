@@ -1,4 +1,4 @@
-import { useTranslation, i18n } from "@/i18n";
+import { useTranslation, i18n, t } from "@/i18n";
 import { Trans } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -289,7 +289,7 @@ export function InstanceExperimentalSettings() {
 
         <ExperimentalToggleCard
           title={t("sep12Screens.agentChatTitle")}
-          description={t("sep12Screens.agentChatDescription")}
+          description={t("oct5Core.agentChatDescription")}
           footnote={t("sep12Screens.agentChatFootnote")}
           checked={experimentalQuery.data?.enableAgentChat ?? false}
           onCheckedChange={(checked) => toggleMutation.mutate({ enableAgentChat: checked })}
@@ -335,14 +335,26 @@ export function InstanceExperimentalSettings() {
 
         <ExperimentalToggleCard
           title={t("localizationExperimental.features.enableChatConnectors.title")}
-          description={t("localizationExperimental.features.enableChatConnectors.description")}
-          footnote={t("localizationExperimental.features.enableChatConnectors.footnote")}
+          description={t("oct5Core.chatConnectorsDescription")}
+          footnote={t("oct5Core.chatConnectorsFootnote")}
           checked={enableChatConnectors}
           onCheckedChange={(checked) => toggleMutation.mutate({ enableChatConnectors: checked })}
           disabled={toggleMutation.isPending}
           settingKey="enableChatConnectors"
           managed={managedKeys.enableChatConnectors}
           ariaLabel={t("localizationExperimental.features.enableChatConnectors.ariaLabel")}
+        />
+
+        <ExperimentalToggleCard
+          title={t("oct5Core.s0441")}
+          description={t("oct5Core.s0442")}
+          footnote="Old Inbox links redirect to the matching view. Turning this off restores the separate Inbox; no data changes."
+          checked={experimentalQuery.data?.enableCombinedInboxTasks ?? false}
+          onCheckedChange={(checked) => toggleMutation.mutate({ enableCombinedInboxTasks: checked })}
+          disabled={toggleMutation.isPending}
+          settingKey="enableCombinedInboxTasks"
+          managed={managedKeys.enableCombinedInboxTasks}
+          ariaLabel="Toggle combined inbox and task list experimental setting"
         />
 
         {SHOW_CONFERENCE_ROOM_EXPERIMENTAL_SETTING ? (

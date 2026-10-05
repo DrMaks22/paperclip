@@ -41,6 +41,22 @@ export const AI_CONNECTION_STATUS: Record<AiConnectionStatus, string> = {
   get revoked() { return t("sep13Connections.status_revoked"); },
 };
 
+export function defaultAiConnectionName(ownerName: string | undefined, provider: AiProvider, method: AiAuthMethod) {
+  const owner = ownerName?.trim();
+  if (method === "subscription" && AI_PROVIDERS[provider].subscriptionName) {
+    const providerName = provider === "openai" ? "ChatGPT" : AI_PROVIDERS[provider].name;
+    return owner && owner !== "You"
+      ? t("oct5Apps.namedSubscriptionAccount", { owner, provider: providerName })
+      : t("oct5Apps.mySubscriptionAccount", { provider: providerName });
+  }
+  const providerName = method === "subscription"
+    ? AI_PROVIDERS[provider].subscriptionName ?? AI_PROVIDERS[provider].name
+    : `${AI_PROVIDERS[provider].name} API`;
+  return owner && owner !== "You"
+    ? t("oct5Apps.namedAccount", { owner, provider: providerName })
+    : t("oct5Apps.myAccount", { provider: providerName });
+}
+
 export function aiMethodLabel(provider: AiProvider, method: AiAuthMethod) {
   return method === "subscription"
     ? (AI_PROVIDERS[provider].subscriptionName ?? t("sep13Connections.subscriptionUnavailable"))

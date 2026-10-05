@@ -27,6 +27,14 @@ interface ActivityFormatOptions {
 // collide with a built-in code (for example issue.read_marked / issue_read.marked).
 // These labels supplement the existing detail-aware formatters below.
 const LOCALIZED_FALLBACK_ACTIVITY_ACTIONS = new Set<string>([
+"agent.files_updated",
+"ai_connection.authentication_failed",
+"browser.resized",
+"browser.settings_updated",
+"email.connection.agents_updated",
+"issue.workspace_export_retry_requested",
+"agent.instruction_write_attempted",
+"plugin.managed_agent.relinked",
   "ai_connection.default_changed",
   "ai_connection.connected",
   "ai_connection.reconnected",

@@ -378,7 +378,7 @@ export function Dashboard() {
         </div>
       )}
 
-      <ActiveAgentsPanel companyId={selectedCompanyId!} />
+      <ActiveAgentsPanel companyId={selectedCompanyId!} dedupeLinkedTasks />
 
       {data && (
         <>

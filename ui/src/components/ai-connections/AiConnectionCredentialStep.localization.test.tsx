@@ -39,6 +39,12 @@ it("preserves the editable account name and key across en/ru/en and submits unch
   const inputs = [...host.querySelectorAll("input")];
   const name = inputs.find((input) => input.value === "Original name")!;
   const key = inputs.find((input) => input.type === "password")!;
+  // A supplied account name is data even before the user edits the field.
+  for (const locale of ["ru", "en"]) {
+    await act(async () => { await i18n.changeLanguage(locale); });
+    expect(name.value).toBe("Original name");
+    expect(createConnection).not.toHaveBeenCalled();
+  }
   await act(async () => {
     for (const [input, value] of [[name, "My account: Connect"], [key, "fixture-api-key-42"]] as const) {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);

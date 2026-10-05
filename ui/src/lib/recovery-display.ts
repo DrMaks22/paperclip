@@ -1,5 +1,31 @@
 import type { IssueRecoveryAction, IssueRecoveryActionKind } from "@paperclipai/shared";
 import { t } from "@/i18n";
+// Project only complete built-in notices; provider diagnostics and user text stay raw.
+const EXECUTION_RECOVERY_TEXT: Readonly<Record<string, string>> = {
+  "Automatic recovery stopped. Recorded work is preserved; actions with unverified outcomes will not be repeated.": "oct5Core.recoveryPreserved",
+  "This chat connection was removed. Inspect the stopped run and create a new task to continue the work.": "oct5Core.recoveryChatRemoved",
+  "This chat connection is unavailable. Restore access in Apps or create a new task to continue the work.": "oct5Core.recoveryChatUnavailable",
+  "Send a new chat message to continue this conversation.": "oct5Core.recoveryChatContinue",
+  "Workspace repair required. Verify safe staging or repair before continuing. Saved work and approval decisions remain in force.": "oct5Core.recoveryWorkspace",
+  "Verify safe workspace staging or repair, then reconcile the stopped run before continuing. Saved work and approval decisions remain in force.": "oct5Core.recoveryLegacyWorkspace",
+  "Inspect the stopped provider and recorded actions, then reconcile their outcomes before continuing. This adapter has not established a safe resume checkpoint.": "oct5Core.recoveryLegacyProvider",
+  "Recovery closed because the task's owner, execution, or status changed. No work was replayed.": "oct5Core.recoveryClosed",
+  "Try again or send a new message to continue once the previous execution has stopped.": "oct5Core.recoveryRetrySuffix",
+  "Inspect the run before sending a new message to request continuation.": "oct5Core.recoveryInspectSuffix",
+  "Waiting for review; this continuation never started.": "oct5Core.recoveryReviewWait",
+  "Execution was cancelled; its source was not recorded.": "oct5Core.recoveryCancelledUnknown",
+};
+export function executionRecoveryText(value: string): string {
+  if (Object.hasOwn(EXECUTION_RECOVERY_TEXT, value)) return t(EXECUTION_RECOVERY_TEXT[value]);
+  for (const suffix of ["Try again or send a new message to continue once the previous execution has stopped.", "Inspect the run before sending a new message to request continuation."]) {
+    if (!value.endsWith(` ${suffix}`)) continue;
+    const base = value.slice(0, -suffix.length - 1);
+    if (Object.hasOwn(EXECUTION_RECOVERY_TEXT, base)) {
+      return `${t(EXECUTION_RECOVERY_TEXT[base])} ${t(EXECUTION_RECOVERY_TEXT[suffix])}`;
+    }
+  }
+  return value;
+}
 import { Eye, OctagonAlert, RefreshCw, TriangleAlert } from "lucide-react";
 import {
   readRecoveryRetryLineage,
@@ -56,12 +82,14 @@ export type RecoveryDisplayInput = Pick<
   Partial<
     Pick<
       IssueRecoveryAction,
+      | "cause"
       | "ownerType"
       | "wakePolicy"
       | "evidence"
       | "attemptCount"
       | "maxAttempts"
       | "timeoutAt"
+      | "nativeRunActivity"
     >
   >;
 
@@ -70,13 +98,7 @@ export function deriveRecoveryDisplayState(
   context?: RecoveryLivenessContext,
 ): RecoveryDisplayState {
   if (action.status === "resolved") return "resolved";
-  if (action.status === "escalated") return "escalated";
   if (action.status === "cancelled") return "resolved";
-  if (action.kind === "active_run_watchdog") {
-    // Native terminal failures also use this kind. Board ownership means a
-    // human must choose recovery; it is not evidence of a still-running turn.
-    return action.ownerType === "board" ? "needed" : "observe_only";
-  }
   // A bounded retry lineage still holding a durable path is work the server will do on its
   // own. Shouting "recovery needed" over it would ask a human to fix something nobody has to
   // fix yet, so the calm tone is reserved for a lane with an attempt genuinely still coming.
@@ -88,7 +110,22 @@ export function deriveRecoveryDisplayState(
     attemptCount: action.attemptCount,
     maxAttempts: action.maxAttempts,
     timeoutAt: action.timeoutAt,
+    nativeRunActivity: action.nativeRunActivity,
   }, context);
+  // An explicit board retry may retain its old owner/budget while the exact
+  // native run is already making progress. Actual activity wins over that
+  // historical repair state, but a merely scheduled board retry does not.
+  if (lineage?.lane === "native_run" && lineage.liveRunId) return "in_progress";
+  if (action.status === "escalated") return "escalated";
+  if (action.kind === "active_run_watchdog") {
+    // Native finalization shares the watchdog kind, but resumes a failed
+    // coordinator rather than observing a live agent turn. Preserve board
+    // ownership and only describe recovery as active while its retry is live.
+    if (action.ownerType === "board") return "needed";
+    if (lineage) return lineage.hasDurablePath ? "in_progress" : "needed";
+    if (action.cause?.startsWith("native_")) return "needed";
+    return "observe_only";
+  }
   if (lineage && lineage.lane !== "board" && lineage.hasDurablePath) return "in_progress";
   if (action.outcome === "delegated") return "in_progress";
   return "needed";
@@ -98,6 +135,7 @@ export function deriveActiveRecoveryDisplayState(
   action: RecoveryDisplayInput,
   context?: RecoveryLivenessContext,
 ): ActiveRecoveryDisplayState | null {
+  if (action.cause === "native_workspace_sync_out_unsafe_archive") return null;
   const state = deriveRecoveryDisplayState(action, context);
   return state === "resolved" ? null : state;
 }

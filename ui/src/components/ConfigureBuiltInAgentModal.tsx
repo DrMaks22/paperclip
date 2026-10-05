@@ -24,6 +24,7 @@ import {
   builtInAgentsApi,
   type BuiltInAgentState,
 } from "@/api/builtInAgents";
+import { adapterCuratesModelOrder } from "../lib/model-utils";
 
 // Guard stock metadata by registry ID and exact source so custom/future copy is not masked.
 function builtInPurpose(definition: BuiltInAgentState["definition"]): string {
@@ -202,6 +203,7 @@ export function ConfigureBuiltInAgentModal({
               allowDefault={adapterType !== "opencode_local"}
               required
               groupByProvider={false}
+              preserveOrder={adapterCuratesModelOrder(adapterType)}
               creatable
             />
           )}

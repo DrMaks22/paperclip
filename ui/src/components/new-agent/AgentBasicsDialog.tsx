@@ -276,6 +276,7 @@ export function AgentBasicsDialog({
                     >
                       <option value="codex">{t("agentSetup.codexAppServer")}</option>
                       <option value="claude">Claude (ACPX)</option>
+                      <option value="grok">Grok Build (ACPX)</option>
                       <option value="opencode">OpenCode</option>
                     </select>
                   </label>

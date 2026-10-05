@@ -82,7 +82,6 @@ import {
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
 import { getInboxKeyboardSelectionIndex } from "../lib/inbox";
 import { hasBlockingShortcutDialog, isKeyboardShortcutTextInputTarget } from "../lib/keyboardShortcuts";
-import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { buildSubIssueDefaultsForViewer } from "../lib/subIssueDefaults";
 import { statusBadge } from "../lib/status-colors";
 import { workflowSort } from "../lib/workflow-sort";
@@ -713,7 +712,6 @@ export function IssuesList({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { keyboardShortcutsEnabled } = useGeneralSettings();
   // Keyboard selection for the list view (mirrors the inbox). Hover moves the
   // selection only after real pointer movement, so keyboard-driven scrolling
   // doesn't hand the selection to whatever row lands under the cursor.
@@ -1383,7 +1381,6 @@ export function IssuesList({
   }, []);
 
   useEffect(() => {
-    if (!keyboardShortcutsEnabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       const target = e.target;
@@ -1481,7 +1478,7 @@ export function IssuesList({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [keyboardShortcutsEnabled, navigate, queryClient]);
+  }, [navigate, queryClient]);
 
   // Keep the keyboard selection visible while navigating. Depends on the
   // render budget too: a selection past the mounted batch scrolls once its
@@ -2045,14 +2042,14 @@ export function IssuesList({
                       if (!blockerIssue) return null;
                       const label = blockerIssue.identifier ?? blockerIssue.id.slice(0, 8);
                       const blockerStep = checklistMeta?.stepNumberByIssueId.get(blockerId);
-                      const blockerStepSuffix = blockerStep ? ` \u00b7 step ${blockerStep}` : "";
-                      return { blockerId, chipLabel: `blocked by ${label}${blockerStepSuffix}` };
+                      const blockerStepSuffix = blockerStep ? t("oct5Core.blockerStep", { step: blockerStep }) : "";
+                      return { blockerId, chipLabel: t("oct5Core.blockedBy", { label, step: blockerStepSuffix }) };
                     })
                     .filter((chip): chip is { blockerId: string; chipLabel: string } => chip !== null);
                   const firstVisibleBlockerChip = visibleBlockerChips[0] ?? null;
                   const additionalVisibleBlockerCount = Math.max(visibleBlockerChips.length - 1, 0);
                   const additionalVisibleBlockerLabel = additionalVisibleBlockerCount > 0
-                    ? ` ... and ${additionalVisibleBlockerCount} more`
+                    ? t("oct5Core.moreBlockers", { count: additionalVisibleBlockerCount })
                     : "";
                   const firstVisibleBlockerDisplayLabel = firstVisibleBlockerChip
                     ? `${firstVisibleBlockerChip.chipLabel}${additionalVisibleBlockerLabel}`

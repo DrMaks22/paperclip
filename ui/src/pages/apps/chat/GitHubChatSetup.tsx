@@ -130,7 +130,7 @@ export function GitHubChatSetup() {
   useEffect(() => {
     setBreadcrumbs([
       { label: t("localizationConnections.connectors16"), href: "/apps" },
-      { label: t("sep28Apps.copy113") },
+      { label: t("oct5Apps.copy059") },
     ]);
     return () => setBreadcrumbs([]);
   }, [setBreadcrumbs, t]);
@@ -519,7 +519,7 @@ export function GitHubChatSetup() {
                 })
               }
             >
-              <RefreshCw className="mr-2 size-4" /> {t("localizationApps.refreshAccess387")}</Button>
+              <RefreshCw className="mr-2 size-4" />{t("localizationApps.refreshAccess387")}</Button>
             <Button variant="outline" asChild>
               <a
                 href={
