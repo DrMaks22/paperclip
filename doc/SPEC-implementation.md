@@ -584,6 +584,18 @@ conversation lifecycles, and protection against replaying superseded requests.
 - Board has full read/write across all companies in deployment
 - Every board mutation writes to `activity_log`
 
+Human invitations default to the Operator role. Its default grants allow agent
+creation and configuration, skill editing, environment management, invitations,
+task assignment, pipeline editing, connection and tool management/use, and tool
+and agent-action audit views. Operators do not receive `joins:approve` or
+`users:manage_permissions`. Explicit invitation grants remain authoritative.
+Creating a human invitation also requires any of these two membership powers
+included in its selected role. Operators can invite Operators and Viewers;
+inviting an Admin requires join approval, and inviting an Owner also requires
+member-permission management.
+This preset change adds no database migration; existing role-default seeding
+continues to insert missing grants without replacing custom scopes.
+
 ## 9.2 Agent Auth
 
 - Bearer API key mapped to one agent and company
@@ -1975,3 +1987,12 @@ and honor current ownership, review, governance, pause, dependency, budget, and
 cleanup gates. Restart or duplicate finalization must not create another
 successor. Permanent model/auth incompatibility and usage-limit exhaustion retain
 their existing operator recovery requirements.
+
+## Internal agent commentary
+
+`agent_commentary` stores company-scoped, attributed complaints and suggestions
+as free-form text in the instance database. Legacy agents use the default
+`complain` and `suggestion-box` runtime skills; native runs use dedicated tools
+in standard, ask, and planning modes. Submission never changes task disposition
+or routes feedback externally. See [Agent commentary](agent-commentary.md) for
+authentication, replay, document-sized limits, inspection, and deletion semantics.

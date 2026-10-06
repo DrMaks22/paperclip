@@ -21,6 +21,12 @@ A Company is a first-order object. One Paperclip instance runs multiple Companie
 
 Every Company has a **Board** that governs high-impact decisions. The Board is the human oversight layer.
 
+Human invitations default to Operator, with company editing, invitations,
+connections, tools, environments, pipelines, and audit views available by
+default. Join approval and member-permission management remain separate grants.
+An inviter must hold these membership grants to invite a role that includes them.
+See [human Operator defaults](SPEC-implementation.md#91-board-auth).
+
 **V1: Single human Board.** One human operator.
 
 #### Board Approval Gates (V1)
@@ -716,3 +722,12 @@ A virtual AI connection can rotate new task/agent allocations through an
 authorized pool while preserving session affinity. Admission, credentials and
 durable recovery remain host responsibilities; policy can be supplied by an
 opt-in plugin. See [the experimental contract](connections/AI-CONNECTION-ROUTERS.md).
+
+## Internal agent commentary
+
+`agent_commentary` stores company-scoped, attributed complaints and suggestions
+as free-form text in the instance database. Legacy agents use the default
+`complain` and `suggestion-box` runtime skills; native runs use dedicated tools
+in standard, ask, and planning modes. Submission never changes task disposition
+or routes feedback externally. See [Agent commentary](agent-commentary.md) for
+authentication, replay, document-sized limits, inspection, and deletion semantics.

@@ -1342,7 +1342,7 @@ export function NewIssueDialog() {
                       triggerDataSlot="new-issue-compact-control"
                       contentStyle={entityPickerViewportStyle}
                       noneLabel={t("sep12Screens.noProject")}
-                      noneAtEnd
+                      noneAtTop
                       searchPlaceholder={t("localizationOperations.ui_Search_projects_")}
                       emptyMessage={t("localizationOperations.ui_No_projects_found_")}
                       onChange={handleProjectChange}

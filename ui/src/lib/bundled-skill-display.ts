@@ -3,6 +3,8 @@ import { resolveSkillSummaryText } from "./company-skill-summary";
 
 // Display-only metadata. Never replace the source used to install or run a skill.
 const descriptionKeys: Record<string, string> = {
+  "paperclipai/paperclip/complain": "localizationBundledSkillDescriptions.complain",
+  "paperclipai/paperclip/suggestion-box": "localizationBundledSkillDescriptions.suggestion_box",
   "paperclipai/bundled/docs/doc-maintenance": "localizationBundledSkillDescriptions.doc_maintenance",
   "paperclipai/bundled/paperclip-operations/issue-triage": "localizationBundledSkillDescriptions.issue_triage",
   "paperclipai/bundled/paperclip-operations/reflection-coach": "localizationBundledSkillDescriptions.reflection_coach",
@@ -38,7 +40,7 @@ export function bundledSkillDescriptionDisplay(skill: SkillDisplayInput, raw: st
   if (!raw) return raw ?? null;
   const kind = skill.sourceKind ?? skill.catalogKind ?? skill.kind;
   const recognizedSource = skill.sourceBadge === "paperclip" || kind === "bundled" || kind === "optional";
-  const key = skill.key ? descriptionKeys[skill.key] : undefined;
+  const key = skill.key && Object.hasOwn(descriptionKeys, skill.key) ? descriptionKeys[skill.key] : undefined;
   // A modified description/tagline is user content, even for a recognized key.
   if (!recognizedSource || !key || raw !== i18n.getResource("en", "translation", key)) return raw;
   return t(key, { defaultValue: raw });

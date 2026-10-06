@@ -9,10 +9,14 @@ const catalog = JSON.parse(readFileSync(new URL("../../../packages/skills-catalo
 };
 const coreSource = readFileSync(new URL("../../../server/src/services/company-skills.ts", import.meta.url), "utf8");
 const coreKeys = [...coreSource.match(/export const PAPERCLIP_CORE_SKILL_KEYS = \[([\s\S]*?)\] as const/)![1].matchAll(/"([^"]+)"/g)].map(m => m[1]);
-const core = coreKeys.map(key => {
+const core = [...coreKeys, "paperclipai/paperclip/complain", "paperclipai/paperclip/suggestion-box"].map(key => {
   const name = key.split("/").at(-1)!;
   const source = readFileSync(new URL(`../../../skills/${name}/SKILL.md`, import.meta.url), "utf8");
-  const description = source.split("---")[1].match(/description: >\s*\n([\s\S]*)/)![1].trim().replace(/\s+/g, " ");
+  const metadata = source.split("---")[1];
+  const inlineDescription = metadata.match(/^description:[ \t]*(.*)$/m)![1];
+  const description = inlineDescription === ">"
+    ? metadata.match(/description: >\s*\n([\s\S]*)/)![1].trim().replace(/\s+/g, " ")
+    : inlineDescription;
   return { key, name, description, sourceBadge: "paperclip" };
 });
 

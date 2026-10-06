@@ -46,7 +46,7 @@ function presentation(item: Activity, active: boolean, t: TFunction) {
             ? tool.interruptedLabel
             : running
               ? tool.runningLabel
-              : tool.completedLabel),
+              : tool.completedLabel, tool.technicalName),
       target: item.target,
       mono: true,
       running,

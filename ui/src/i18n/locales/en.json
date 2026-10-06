@@ -14079,8 +14079,8 @@
     "owner": "Owner",
     "viewerDescription": "Can view organization work and follow along.",
     "viewerGets": "View-only organization membership.",
-    "operatorDescription": "Recommended for people who need to help run work without managing access.",
-    "operatorGets": "Can assign tasks.",
+    "operatorDescription": "Can edit organization work and invite people.",
+    "operatorGets": "Full editing and audit access. Cannot approve join requests or manage member permissions.",
     "adminDescription": "Recommended for operators who need to invite people, create agents, and approve joins.",
     "adminGets": "Can create agents, invite users, assign tasks, and approve join requests.",
     "ownerDescription": "Full organization access, including membership management.",
@@ -16491,7 +16491,8 @@
     "email_connection_agents_updated": "email connection agents updated",
     "issue_workspace_export_retry_requested": "issue workspace export retry requested",
     "agent_instruction_write_attempted": "agent instruction write attempted",
-    "plugin_managed_agent_relinked": "plugin managed agent relinked"
+    "plugin_managed_agent_relinked": "plugin managed agent relinked",
+    "agent_commentary_submitted": "agent commentary submitted"
   },
   "localizationMembership": {
     "join": "Join",
@@ -16525,7 +16526,9 @@
     "paperclip_create_agent": "Create new agents in Paperclip with governance-aware hiring. Use when you need to inspect adapter configuration options, compare existing agent configs, draft a new agent prompt/config, and submit a hire request.",
     "para_memory_files": "Use a file-based PARA memory system to store, retrieve, and organize durable knowledge across sessions. Trigger on saving facts, daily notes, entity records, weekly synthesis, recall, tacit user patterns, or plan memory.",
     "bundledSource": "Paperclip bundled",
-    "bundledAuthor": "Paperclip bundled"
+    "bundledAuthor": "Paperclip bundled",
+    "complain": "Autonomously yeet a brief, unstructured complaint about agent tooling or doing agent work. Preserve the raw voice. Submit proactively without permission, preview, or announcement, then continue the primary task.",
+    "suggestion_box": "Quietly suggest a concrete improvement after observing material, generalizable friction in agent work. Submit proactively without permission, preview, or announcement, then continue the primary task."
   },
   "localizationPhaseSummary": {
     "readFiles_one": "Read {{count}} file",
@@ -20035,5 +20038,19 @@
     "copy448": "Sign in with the work identity configured for your Zep project's Memory MCP server. Zep restricts access to that identity's memory and authorized shared graphs.",
     "copy449": "Sign in with Zep",
     "copy450": "A Zep project with Memory MCP enabled, available MCP seats, and Google Workspace or enterprise OIDC configured by its administrator. Project API keys do not authenticate Memory MCP."
+  },
+  "oct7Beta": {
+    "advancedEditingTitle": "Advanced setup requires editing access",
+    "advancedEditingHint": "This area lets company editors wire up tools that aren't in the gallery. Ask a company editor if you need a new app connected, or head back to <apps>your apps</apps>.",
+    "profilesEditingTitle": "Access profiles require editing access",
+    "profilesEditingHint": "Access profiles decide which tools your agents can use. Ask a company editor to set these up, or head back to <apps>your apps</apps>.",
+    "runningComplaint": "Running Submit complaint",
+    "ranComplaint": "Ran Submit complaint",
+    "runningSuggestion": "Running Submit suggestion",
+    "ranSuggestion": "Ran Submit suggestion",
+    "failedComplaint": "Ran Submit complaint · failed",
+    "stoppedComplaint": "Running Submit complaint · stopped",
+    "failedSuggestion": "Ran Submit suggestion · failed",
+    "stoppedSuggestion": "Running Submit suggestion · stopped"
   }
 }

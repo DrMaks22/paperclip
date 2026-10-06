@@ -348,7 +348,7 @@ export function TaskChatStatusPill({
             float above the label's baseline. */}
         <span className="flex min-w-0 flex-1 items-baseline gap-2">
           <span className="shimmer-text shimmer-text-muted shrink-0 font-medium">
-            {taskChatToolActivityLabel(label)}…
+            {taskChatToolActivityLabel(label, item.toolName)}…
           </span>
           {liveElapsed ? (
             <span className="shrink-0 font-mono tabular-nums text-(length:--text-micro)">
