@@ -736,7 +736,7 @@ export function FileCard(props: FileCardProps) {
             )}
             {props.downloadUrl ? (
               <Button asChild size="sm" variant="outline">
-                <a href={props.downloadUrl} download={props.filename} aria-label={t("oct5Core.downloadTitle", { title: props.title })}>
+                <a href={props.downloadUrl} download={props.filename}>
                   {t("oct5Core.s0211")}
                 </a>
               </Button>
