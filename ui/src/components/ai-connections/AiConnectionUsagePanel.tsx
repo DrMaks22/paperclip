@@ -33,13 +33,14 @@ function usageLabel(label: string): string {
 }
 
 function limitLabel(window: AiConnectionUsageLimit) {
-  const label = window.label.replace(/\b(\d+(?:\.\d+)?) hour limit\b/i, "$1h").replace(/\bweekly limit\b/i, t("oct5Apps.usageLabels.weekly"));
+  // Normalize and deduplicate canonical periods before translating the final label.
+  const label = window.label.replace(/\b(\d+(?:\.\d+)?) hour limit\b/i, "$1h").replace(/\bweekly limit\b/i, "Weekly");
   if (window.windowDurationSeconds == null) return usageLabel(label);
   const hours = window.windowDurationSeconds / 3600;
-  const period = hours === 168 ? t("oct5Apps.usageLabels.weekly") : `${hours}h`;
-  if (/\b(?:Primary|Secondary)$/.test(label)) return `${usageLabel(label)} · ${usageLabel(period)}`;
+  const period = hours === 168 ? "Weekly" : `${hours}h`;
+  if (/\b(?:Primary|Secondary)$/.test(label)) return usageLabel(`${label} · ${period}`);
   if ((hours === 168 && /weekly/i.test(label)) || label.split(/[\s·()]+/).includes(period)) return usageLabel(label);
-  return `${usageLabel(label)} · ${usageLabel(period)}`;
+  return usageLabel(`${label} · ${period}`);
 }
 
 function limitValue(window: AiConnectionUsageLimit) {
