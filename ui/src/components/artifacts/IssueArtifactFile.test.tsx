@@ -112,7 +112,7 @@ it.each([
     download.focus();
     for (const [locale, label] of [["en", "Download file"], ["ru", "Скачать файл"], ["en", "Download file"]]) {
       await act(async () => { await i18n.changeLanguage(locale); });
-      expect(within(container).getByRole("link", { name: label, exact: true })).toBe(download);
+      expect(within(container).getByRole("link", { name: label })).toBe(download);
       expect(download.textContent).toBe(label);
       expect(download.getAttribute("href")).toBe(downloadUrl);
       expect(download.getAttribute("download")).toBe(props.filename);
