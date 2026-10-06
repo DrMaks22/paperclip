@@ -73,10 +73,10 @@ export function buildMonitorSurfaceCopy(
 
   if (derived.source === "scheduled-retry" && scheduledRetryReason === "workspace_busy") {
     return {
-      bannerTitle: "Waiting for workspace",
-      stripTitle: "Waiting for workspace",
-      bannerMeta: ["Another task is using this workspace. Work starts automatically when it is available."],
-      stripMeta: ["Work starts automatically when the workspace is available."],
+      bannerTitle: t("sep14Runtime.waitingForWorkspace"),
+      stripTitle: t("sep14Runtime.waitingForWorkspace"),
+      bannerMeta: [t("sep14Runtime.workspaceBusy")],
+      stripMeta: [t("sep14Runtime.workspaceAvailable")],
       tone: "info",
       workspaceWait: true,
     };
@@ -84,6 +84,16 @@ export function buildMonitorSurfaceCopy(
 
   const eta = formatMonitorEta(derived.nextCheckAt, now); // "in 2h 12m" | "due now" | "overdue by 18m"
   const absolute = formatMonitorAbsolute(derived.nextCheckAt, {}, now); // local time, e.g. "Today, 4:08 PM"
+  if (derived.source === "scheduled-retry" && scheduledRetryReason === "ai_connection_pool_wait") {
+    return {
+      bannerTitle: t("oct6Beta.copy009"),
+      stripTitle: t("oct6Beta.copy009"),
+      bannerMeta: [`Usage recheck ${eta} · ${absolute} (your time)`, t("oct6Beta.copy010")],
+      stripMeta: [`Usage recheck ${eta} · ${absolute}`, t("oct6Beta.copy011")],
+      tone: "info",
+    };
+  }
+
   const isScheduledRetryOnly = derived.source === "scheduled-retry";
 
   let bannerTitle: string;
@@ -96,15 +106,15 @@ export function buildMonitorSurfaceCopy(
       stripTitle = `Resumes ${eta}`;
       break;
     case "due-now":
-      bannerTitle = isScheduledRetryOnly ? "Agent retry due now" : "Waiting on monitor — due now";
-      stripTitle = "Due now";
-      statusHint = "Checking momentarily…";
+      bannerTitle = isScheduledRetryOnly ? t("localizationIssueChrome.monitorAgentDue") : t("localizationIssueChrome.monitorWaitDue");
+      stripTitle = t("localizationIssueChrome.monitorDue");
+      statusHint = t("localizationIssueChrome.monitorMomentarily");
       break;
     case "overdue":
     default:
       bannerTitle = isScheduledRetryOnly ? `Agent retry ${eta}` : `Waiting on monitor — ${eta}`;
       stripTitle = capitalize(eta);
-      statusHint = "Fires on next tick";
+      statusHint = t("localizationIssueChrome.monitorNextTick");
       break;
   }
 
@@ -142,6 +152,9 @@ export function buildMonitorSurfaceCopyDisplay(derived: DerivedMonitorState, now
   }
   const eta = formatMonitorEtaDisplay(derived.nextCheckAt, now);
   const absolute = formatMonitorAbsoluteDisplay(derived.nextCheckAt, {}, now);
+  if (derived.source === "scheduled-retry" && scheduledRetryReason === "ai_connection_pool_wait") {
+    return { ...raw, bannerTitle: t("oct6Beta.copy009"), stripTitle: t("oct6Beta.copy009"), bannerMeta: [t("oct6Beta.poolRecheckLocal", { eta, time: absolute }), t("oct6Beta.copy010")], stripMeta: [t("oct6Beta.poolRecheck", { eta, time: absolute }), t("oct6Beta.copy011")] };
+  }
   const retryOnly = derived.source === "scheduled-retry";
   let bannerTitle: string;
   let stripTitle: string;
@@ -221,6 +234,7 @@ export function IssueMonitorBanner({
   onCheckNow = null,
   checkingNow = false,
 }: IssueMonitorSurfaceProps) {
+  useTranslation();
   const copy = useMonitorSurfaceCopy(issue);
   if (!copy) return null;
 

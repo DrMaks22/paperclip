@@ -1,4 +1,5 @@
 import { useTranslation, t } from "@/i18n";
+import { useConnectionModels } from "../ai-connections/useConnectionModels";
 import { AgentCharacter } from "../AgentCharacter";
 import { useAgentAppearanceDraft } from "../../hooks/useAgentAppearanceDraft";
 import { AiConnectionField, aiProviderForAdapter } from "../ai-connections/AiConnectionField";
@@ -56,6 +57,7 @@ import { Field } from "../agent-config-primitives";
 import { SecretPicker } from "../environment-variables-editor/SecretPicker";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { NativeSelect, nativeSelectClassName } from "../ui/select";
 import {
   OnboardingCard,
   OnboardingHeading,
@@ -69,8 +71,7 @@ import {
 } from "./AgentProviderConnection";
 import { adapterCuratesModelOrder } from "../../lib/model-utils";
 
-const controlClass =
-  "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const controlClass = nativeSelectClassName;
 const blocking = (result: AdapterEnvironmentTestResult) =>
   result.status === "fail" ||
   result.checks.some((check) => check.code === ADAPTER_AUTH_MISSING_CHECK_CODE);
@@ -160,6 +161,7 @@ function Setup({
   );
   const [connection, setConnection] = useState<ProviderConnection | null>(null);
   const aiBinding = runtimeAiBinding ?? connection?.aiConnection;
+  const connectionModels = useConnectionModels(companyId, aiBinding, brandType);
   const [repository, setRepository] = useState("");
   const [branch, setBranch] = useState("");
   const [createdInSession, setCreated] = useState<Agent | null>(null);
@@ -193,6 +195,12 @@ function Setup({
     setTestState("idle");
     setError(null);
   };
+  const editConnection = () => {
+    setConnection(null);
+    setRuntimeAiBinding(undefined);
+    resetTest();
+    setScreen("connect");
+  };
   const adapters = useQuery({
     queryKey: queryKeys.adapters.all,
     queryFn: adaptersApi.list,
@@ -224,7 +232,7 @@ function Setup({
   const models = useQuery({
     queryKey: queryKeys.agents.adapterModels(companyId, brandType, null, aiBinding?.provider),
     queryFn: () => agentsApi.adapterModels(companyId, brandType, { provider: aiBinding?.provider }),
-    enabled: Boolean(brandType) && showModel,
+    enabled: Boolean(brandType) && showModel && !connectionModels,
     retry: false,
   });
   const companySecrets = useQuery({
@@ -688,9 +696,9 @@ function Setup({
                     type="button"
                     aria-current={step === screen ? "step" : undefined}
                     disabled={
-                      busy || Boolean(created) || index > steps.indexOf(screen)
+                      busy || Boolean(created) || step === "saved"
                     }
-                    onClick={() => setScreen(step)}
+                    onClick={() => step === "connect" && screen !== "connect" ? editConnection() : setScreen(step)}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm",
                       step === screen
@@ -721,39 +729,43 @@ function Setup({
                   <OnboardingCard className="mx-auto">
                     <div className="mb-8">
                       <OnboardingHeading
-                        title={t("onboarding.stepper.connectModel")}
-                        lede={t("agentSetup.connectAgentProvider", { name, provider: connectionAdapter === "claude_local" ? "Claude" : connectionAdapter === "grok_local" ? "Grok" : "OpenAI" })}
+                        title={t("localizationOnboarding.stepModel")}
                         center
                       />
                     </div>
-                    <div className="mb-5">
-                      <Field label={t("oct5Core.s0436")}>
-                        <select
-                          aria-label={t("oct5Core.s0436")}
-                          className={controlClass}
-                          value={environmentOverride}
-                          disabled={busy || forced.forced}
-                          onChange={(event) => {
-                            setEnvironmentOverride(event.target.value);
-                            setConnection(null);
-                            resetTest();
-                          }}
-                        >
-                          <option value="">{t("oct5Core.s0437")} {environmentLabel}</option>
-                          {(envs.data ?? []).filter((env) => env.status === "active" && (!managedOnly || env.driver !== "local")).map((env) => (
-                            <option key={env.id} value={env.id}>{environmentDisplayLabel(env)}</option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                    <AgentProviderConnection
+                    {ready ? <AgentProviderConnection
                       key={environmentId ?? "local"}
                       companyId={companyId}
                       adapterType={connectionAdapter}
                       environmentId={environmentId}
                       canLogin={canLogin}
                       localEnvironment={environment?.driver === "local"}
+                      advancedConnection={{
+                        value: aiBinding,
+                        content: (
+                          <AiConnectionField
+                            companyId={companyId}
+                            agentName={name}
+                            adapterType={brandType}
+                            model={model}
+                            environmentId={environmentId ?? undefined}
+                            value={aiBinding}
+                            preferAdvanced
+                            onChange={binding => {
+                              if (binding.mode === "router") return;
+                              setConnection(null);
+                              setRuntimeAiBinding(binding);
+                              resetTest();
+                            }}
+                          />
+                        ),
+                      }}
                       onBack={() => navigate("/agents/all")}
+                      onDraftChanged={() => {
+                        setConnection(null);
+                        setRuntimeAiBinding(undefined);
+                        resetTest();
+                      }}
                       testConnection={runTest}
                       testError={
                         error ??
@@ -770,10 +782,11 @@ function Setup({
                       }
                       onConnected={(next) => {
                         setConnection(next);
+                        setRuntimeAiBinding(undefined);
                         resetTest();
                         setScreen("runtime");
                       }}
-                    />
+                    /> : <p role="status" className="text-sm text-muted-foreground">{t("sep28Apps.copy271")}</p>}
                   </OnboardingCard>
                 ) : screen === "saved" && created ? (
                   <div className="space-y-6">
@@ -839,32 +852,24 @@ function Setup({
                     </h2>
                     <fieldset disabled={busy} className="space-y-8">
                       <section className="space-y-5">
-                        <h3 className="text-sm font-semibold">{t("localizationAgents.navigation_Runtime")}</h3>
-                        {aiProviderForAdapter(brandType) && (
-                          connection && !aiBinding ? (
-                            <div className="space-y-3">
-                              <p className="text-sm text-muted-foreground">
-                                {t("stable916Ai.usingSelectedConnection")}
-                              </p>
-                              <Button type="button" variant="outline" onClick={() => setScreen("connect")}>
-                                {t("stable916Ai.changeConnection")}
-                              </Button>
-                            </div>
-                          ) : (
-                            <AiConnectionField companyId={companyId} agentName={name} adapterType={brandType} model={model} environmentId={environmentId ?? undefined} value={aiBinding}
-                              onChange={binding => { setRuntimeAiBinding(binding); resetTest(); }} />
-                          )
+                        {!connectionAdapter && aiProviderForAdapter(brandType) && (
+                          <AiConnectionField companyId={companyId} agentName={name} adapterType={brandType} model={model} environmentId={environmentId ?? undefined} value={aiBinding}
+                            onChange={binding => { binding.mode !== "router" && setRuntimeAiBinding(binding); resetTest(); }} />
                         )}
-                        {models.error && <p role="alert" className="text-sm text-destructive">{t("sep13ProviderIntegration.modelLoadFailed")}</p>}
+                        {(connectionModels ? connectionModels.error : models.error) && <p role="alert" className="text-sm text-destructive">{t("sep13ProviderIntegration.modelLoadFailed")}</p>}
                         {((showModel && !usingKimiApi) ||
                           efforts.length > 0) && (
                           <div className="grid items-start gap-5 sm:grid-cols-2">
                             {showModel && !usingKimiApi && (
                               <ModelDropdown
-                                models={models.data ?? []}
+                                presentation="native"
+                                models={connectionModels?.models ?? models.data ?? []}
+                                loadingModels={connectionModels?.isLoading ?? models.isLoading}
+                                onRefreshModels={connectionModels?.refreshModels}
+                                refreshingModels={connectionModels?.refreshing}
                                 value={model}
                                 onChange={(value) => {
-                                  setModel(value);
+                                  setModel(connectionModels?.resolveModel(value) ?? value);
                                   if (
                                     effort &&
                                     !setupEfforts(adapterType, value).includes(
@@ -889,15 +894,14 @@ function Setup({
                                 allowDefault={!multiProvider}
                                 required={multiProvider}
                                 creatable
-                                groupByProvider={multiProvider}
-                                preserveOrder={adapterCuratesModelOrder(brandType)}
+                                groupByProvider={multiProvider && !connectionModels}
+                                preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(brandType)}
                               />
                             )}
                             {efforts.length > 0 && (
-                              <Field label={t("localizationIssueLists.thinkingEffort")}>
-                                <select
-                                  aria-label={t("localizationIssueLists.thinkingEffort")}
-                                  className={controlClass}
+                              <Field label={t("localizationAgents.ui208_Thinking_effort")}>
+                                <NativeSelect
+                                  aria-label={t("localizationAgents.ui208_Thinking_effort")}
                                   value={effort}
                                   onChange={(event) => {
                                     setEffort(event.target.value);
@@ -910,19 +914,14 @@ function Setup({
                                       {setupEffortLabel(value)}
                                     </option>
                                   ))}
-                                </select>
+                                </NativeSelect>
                               </Field>
                             )}
                           </div>
                         )}
-                        {SETUP_LOGIN_HINTS[adapterType] && (
+                        {!aiBinding && SETUP_LOGIN_HINTS[adapterType] && (
                           <p className="text-sm text-muted-foreground">
                             {SETUP_LOGIN_HINTS[adapterType]}
-                          </p>
-                        )}
-                        {showModel && models.error && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("agentSetup.modelsLoadFailed")}
                           </p>
                         )}
                         {hasCredentialField && !aiBinding && (
@@ -1160,7 +1159,7 @@ function Setup({
                       state={testState}
                       result={result}
                       error={error}
-                      disabled={!ready || busy}
+                      disabled={!ready || busy || Boolean(connectionAdapter && !connection)}
                       onTest={() => void runTest()}
                     />
                     {error && testState !== "fail" && (
@@ -1174,7 +1173,7 @@ function Setup({
                           type="button"
                           variant="ghost"
                           disabled={busy}
-                          onClick={() => setScreen("connect")}
+                          onClick={editConnection}
                         >
                           <ArrowLeft className="size-4" />
                           {t("localizationActivity.connection")}
@@ -1182,7 +1181,14 @@ function Setup({
                       ) : (
                         <span />
                       )}
-                      <Button
+                      {connectionAdapter && !connection ? <Button
+                        type="button"
+                        disabled={!ready || busy}
+                        onClick={() => setScreen("connect")}
+                      >
+                        {t("oct6Beta.copy113")}
+                        <ArrowRight className="size-4" />
+                      </Button> : <Button
                         type="submit"
                         disabled={
                           !ready ||
@@ -1193,7 +1199,7 @@ function Setup({
                       >
                         {saving ? t("localizationProjectRepositories.creating") : t("pages.apps.connect.install.finish")}
                         <Check className="size-4" />
-                      </Button>
+                      </Button>}
                     </div>
                   </form>
                 )}

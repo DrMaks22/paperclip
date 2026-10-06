@@ -114,12 +114,12 @@ export function SkillSourceTree({ candidates, selected, excludedFolders, onChang
     <div className="min-h-0 max-h-(--sz-480px) overflow-auto py-1">
       <FileTree layout="explorer" wrapLabels={false}
         nodes={nodes} selectedFile={null} expandedDirs={expanded}
-        visiblePaths={visiblePaths} disabled={disabled} ariaLabel="Discovered skills"
+        visiblePaths={visiblePaths} disabled={disabled} ariaLabel={t("oct6Beta.discoveredSkills")}
         empty={{ title: t("oct5Core.s0397"), description: t("oct5Core.s0398") }}
         onToggleDir={path => setExpansion(previous => new Map(previous).set(path, !expanded.has(path)))}
         onSelectFile={path => { const file = included.get(path); if (file) onPreview?.(file.skill, file.filePath); }}
         onToggleCheck={toggleCheck}
-        checkboxLabel={node => skillsByPath.has(node.path) ? `Import ${node.path}` : t("oct5Core.importFolder", { path: node.path })}
+        checkboxLabel={node => skillsByPath.has(node.path) ? t("oct6Beta.importPath", { path: node.path }) : t("oct5Core.importFolder", { path: node.path })}
         getCheckboxState={node => {
           if (included.has(node.path)) return null;
           if (skillsByPath.has(node.path)) return selected.has(node.path) ? 'checked' : 'unchecked';

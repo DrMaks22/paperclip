@@ -70,8 +70,8 @@ describe("shared provider login localization", () => {
 
   it("preserves expanded local login instructions and raw commands without retrying on locale change", async () => {
     const retry = vi.fn();
-    const command = "CODEX_HOME='/fixture/isolated-login' codex login";
-    await act(async () => root.render(<LocalProviderLoginInstructions adapterType="codex_local" login={{ status: "ready", command, preparing: false, error: null, retry }} />));
+    const command = "GROK_HOME='/fixture/isolated-login' grok login";
+    await act(async () => root.render(<LocalProviderLoginInstructions adapterType="grok_local" login={{ status: "ready", command, preparing: false, error: null, retry }} />));
     const different = [...container.querySelectorAll("button")].find((button) => button.textContent === "Use a different account")!;
     await act(async () => different.click());
     const code = container.querySelector("code")!;
@@ -79,7 +79,7 @@ describe("shared provider login localization", () => {
       await act(async () => { await i18n.changeLanguage(locale); });
       expect(container.querySelector("code")).toBe(code);
       expect(code.textContent).toBe(command);
-      expect(container.textContent).toContain(locale === "ru" ? "Вход в Codex CLI выполнен" : "Codex CLI is signed in");
+      expect(container.textContent).toContain(locale === "ru" ? "Вход в Grok CLI выполнен" : "Grok CLI is signed in");
       expect(container.querySelector("button[aria-label]")?.getAttribute("aria-label")).toBe(locale === "ru" ? "Скопировать команду входа" : "Copy sign-in command");
       expect(retry).not.toHaveBeenCalled();
     }

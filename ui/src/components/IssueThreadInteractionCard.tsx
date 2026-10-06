@@ -3681,6 +3681,17 @@ export function IssueThreadInteractionCard({
     isCreatorCurrentUser: Boolean(currentUserId && interaction.createdByUserId === currentUserId),
     isAddresseeCurrentUser: Boolean(currentUserId && interaction.addresseeUserId === currentUserId),
   });
+  if (interaction.kind === "connection_intent" && interaction.payload.accessRequest) {
+    return (
+      <div id={`interaction-${interaction.id}`}>
+        <ConnectionIntentInteractionBody
+          interaction={interaction}
+          currentUserId={currentUserId}
+          addresseeLabel={addresseeLabel ?? "the addressed person"}
+        />
+      </div>
+    );
+  }
   if (isToolAction && interaction.kind === "request_confirmation" && toolActionState) {
     return (
       <InteractionAudienceContext.Provider value={audience}>

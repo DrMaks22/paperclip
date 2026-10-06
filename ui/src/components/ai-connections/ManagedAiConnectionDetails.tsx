@@ -1,4 +1,4 @@
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import { heartbeatsApi } from "@/api/heartbeats";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { toolsApi } from "@/api/tools";
 import { useNavigate } from "@/lib/router";
 import { AiConnectionAccountControls } from "./AiConnectionAccountControls";
 import { AiConnectionUsagePanel } from "./AiConnectionUsagePanel";
-import type { ToolConnection } from "@paperclipai/shared";
+import type { ToolConnection, AiConnectionMetadata } from "@paperclipai/shared";
 import { aiMethodLabel } from "./model";
 
 export function ManagedAiConnectionRow({
@@ -15,17 +15,12 @@ export function ManagedAiConnectionRow({
 }: {
   connection: ToolConnection;
 }) {
+  const metadata = connection.config?.ai as AiConnectionMetadata | undefined;
   const { t } = useTranslation();
-  const metadata = connection.config?.ai as
-    | {
-        provider: "anthropic" | "openai" | "openrouter" | "xai";
-        method: "subscription" | "api_key";
-      }
-    | undefined;
   if (!metadata) return null;
   return (
     <p className="text-xs text-muted-foreground">
-      {aiMethodLabel(metadata.provider, metadata.method)} ·{" "}
+      {metadata.routing ? metadata.routing.kind === "bedrock" ? `Bedrock · ${metadata.routing.region}` : metadata.routing.kind === "openrouter" ? "OpenRouter" : metadata.routing.baseUrl : aiMethodLabel(metadata.provider, metadata.method)} ·{" "}
       {connection.credentialPolicy === "per_user"
         ? t("sep13Connections.personal")
         : t("sep13Connections.companyShared")}
@@ -93,6 +88,7 @@ export function ManagedAiConnectionDetails({
     );
   return (
     <div className="space-y-4">
+      {account.routing && <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer text-sm font-medium">{t("oct6Beta.copy107")}</summary><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><dt className="text-muted-foreground">{t("oct6Beta.copy108")}</dt><dd className="break-all">{account.routing.baseUrl ?? (account.routing.kind === "bedrock" ? account.routing.region : "OpenRouter")}</dd><dt className="text-muted-foreground">{t("oct6Beta.copy101")}</dt><dd>{account.routing.kind === "openrouter" ? t("oct6Beta.copy109") : account.routing.protocol}</dd><dt className="text-muted-foreground">{t("localizationApps.authentication264")}</dt><dd>{account.routing.auth}</dd><dt className="text-muted-foreground">{t("oct5Core.s0149")}</dt><dd>{account.routing.models.map(m => m.label ?? m.id).join(", ") || t("oct6Beta.copy110")}</dd></dl></details>}
       <AiConnectionAccountControls
         account={account}
         grant={grant}

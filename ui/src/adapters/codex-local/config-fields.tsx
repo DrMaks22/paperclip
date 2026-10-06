@@ -1,5 +1,6 @@
 import { t, useTranslation } from "@/i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { AdapterMark } from "../../components/AdapterMark";
 import { configFieldsForSection } from "../config-sections";
 import type { AdapterConfigFieldsProps } from "../types";
 import {
@@ -37,6 +38,14 @@ const defaultOpenCodeRunnerModel = "openrouter/deepseek/deepseek-v4-flash-0731";
 const defaultAcpxClaudeModel = "claude-sonnet-5";
 const defaultClaudeManagedModel = "claude-sonnet-5";
 const defaultAwsAgentCoreModel = "global.anthropic.claude-sonnet-4-6";
+const runnerHarnessOptions = [
+  { value: "codex", label: "Codex", adapter: "codex_local" },
+  { value: "opencode", label: "OpenCode 1.18.34", adapter: "opencode_local" },
+  { value: "claude_managed", label: "Claude Managed", adapter: "claude_local" },
+  { value: "aws_agentcore", label: "AWS AgentCore", adapter: "aws_agentcore" },
+  { value: "acpx", get label() { return t("oct5Core.acpAgents"); }, adapter: "acpx_local" },
+  { value: "grok", label: "Grok Build", adapter: "grok_local" },
+];
 
 /** Resolve metadata at render time; mode values and permission validation stay native. */
 export function runnerPermissionCapabilityForDisplay(provider: PaperclipRunnerProvider): PaperclipRunnerPermissionCapability {
@@ -210,16 +219,15 @@ export function CodexLocalConfigFields({
       )}
       {runnerManaged && (
         <Field configSection="adapter"
-          label={t("pages.secrets.fields.provider")}
-          hint={t("localizationAgents.ui308_The_runner_persists_this_provider_with_each_run_so_recovery_")}
+          label={t("oct6Beta.copy001")}
+          hint={t("oct6Beta.copy002")}
         >
-          <select
-            className={inputClass}
+          <Select
             value={runnerProvider === "acpx" && runnerSchemaValue("acpxAgent", "claude") === "grok" ? "grok" : runnerProvider}
-            onChange={(event) => {
-              const grok = event.target.value === "grok";
-              const provider = grok ? "acpx" : isPaperclipRunnerProvider(event.target.value)
-                ? event.target.value
+            onValueChange={(value) => {
+              const grok = value === "grok";
+              const provider = grok ? "acpx" : isPaperclipRunnerProvider(value)
+                ? value
                 : "codex";
               const model =
                 provider === "opencode"
@@ -249,30 +257,39 @@ export function CodexLocalConfigFields({
               }
             }}
           >
-            <option value="codex">Codex</option>
-            <option value="opencode">OpenCode 1.18.32</option>
-            <option value="claude_managed">Claude Managed</option>
-            <option value="aws_agentcore">AWS AgentCore</option>
-            <option value="acpx">{t("oct5Core.acpAgents")}</option>
-            <option value="grok">Grok Build</option>
-          </select>
+            <SelectTrigger className="w-full" aria-label={t("oct6Beta.copy001")}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {runnerHarnessOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <AdapterMark type={option.adapter} className="size-4" />
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       )}
       {runnerManaged && runnerProvider === "acpx" && runnerSchemaValue("acpxAgent", "claude") !== "grok" && (
         <Field configSection="adapter" label={t("oct5Core.acpAgent")} hint={t("oct5Core.acpQualificationHint")}>
-          <select className={inputClass}
+          <Select
             value={String(isCreate ? values!.adapterSchemaValues?.acpxAgent ?? "claude" : eff("adapterConfig", "acpxAgent", config.acpxAgent ?? "claude"))}
-            onChange={(event) => {
-              const profile = PAPERCLIP_RUNNER_ACPX_PROFILES.find(entry => entry.value === event.target.value);
+            onValueChange={(value) => {
+              const profile = PAPERCLIP_RUNNER_ACPX_PROFILES.find(entry => entry.value === value);
               if (!profile?.qualified) return;
               if (isCreate) set!({ model: profile.value === "claude" ? defaultAcpxClaudeModel : "",
                 adapterSchemaValues: { ...values!.adapterSchemaValues, acpxAgent: profile.value } });
               else { mark("adapterConfig", "acpxAgent", profile.value); mark("adapterConfig", "model", profile.value === "claude" ? defaultAcpxClaudeModel : ""); }
             }}>
-            {PAPERCLIP_RUNNER_ACPX_PROFILES.map(profile => <option key={profile.value} value={profile.value} disabled={!profile.qualified}>
-              {profile.label}{profile.qualified ? "" : t("oct5Core.qualificationPending")}
-            </option>)}
-          </select>
+            <SelectTrigger className="w-full" aria-label={t("oct5Core.acpAgent")}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PAPERCLIP_RUNNER_ACPX_PROFILES.map(profile => (
+                <SelectItem key={profile.value} value={profile.value} disabled={!profile.qualified}>
+                  <AdapterMark type={profile.value === "cursor" ? "cursor" : `${profile.value}_local`} className="size-4" />
+                  {profile.label}{profile.qualified ? "" : t("oct5Core.qualificationPending")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       )}
 

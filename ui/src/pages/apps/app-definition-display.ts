@@ -1,6 +1,7 @@
 import { t } from "@/i18n";
-import type { AppDefinition, ToolApplication, ToolConnection } from "@paperclipai/shared";
 import { APP_DEFINITION_COPY } from "./app-definition-copy";
+import { aiConnectionCatalogSlug, aiConnectionMetadataSchema, type AppDefinition, type ToolApplication, type ToolConnection } from "@paperclipai/shared";
+import { aiConnectionRouterSlug, aiConnectionRouterPluginKey } from "@paperclipai/shared";
 
 export type AppGalleryDisplayEntry = AppDefinition & {
   key?: string;
@@ -15,6 +16,11 @@ export function appDefinitionSlug(entry: AppGalleryDisplayEntry | null | undefin
 
 export function appDefinitionName(entry: AppGalleryDisplayEntry | null | undefined): string {
   return entry?.name ?? appDefinitionSlug(entry) ?? t("pages.apps.common.app");
+}
+
+/** Render a built-in name without changing the canonical name used by requests and matching. */
+export function appDefinitionDisplayName(entry: AppGalleryDisplayEntry | null | undefined): string {
+  return appDefinitionText(entry, appDefinitionName(entry));
 }
 
 /** Translate known built-in display text without changing custom metadata or API objects. */
@@ -43,6 +49,8 @@ export function appApplicationSourceSlug(application: ToolApplication | null | u
   if (typeof source === "string" && source.trim()) return source.trim();
   const key = application.applicationKey?.trim();
   if (!key) return null;
+  const router = key.match(/^plugin:(.+):ai-router$/);
+  if (router) return aiConnectionRouterSlug(router[1]);
   const galleryPrefix = "app-gallery:";
   if (key.startsWith(galleryPrefix)) {
     const slug = key.slice(galleryPrefix.length).split(":")[0] || null;
@@ -56,6 +64,12 @@ export function appApplicationSourceSlug(application: ToolApplication | null | u
 
 export function appConnectionSourceSlug(connection: ToolConnection | null | undefined): string | null {
   if (!connection) return null;
+  if (connection.connectionPurpose === "ai") {
+    const metadata = aiConnectionMetadataSchema.safeParse(connection.config?.ai);
+    if (metadata.success) return aiConnectionCatalogSlug(metadata.data.provider, metadata.data.routing);
+  }
+  const router = aiConnectionRouterPluginKey(connection);
+  if (router) return aiConnectionRouterSlug(router);
   const source = connection.config?.sourceTemplateKey ?? connection.transportConfig?.sourceTemplateKey;
   return typeof source === "string" && source.trim() ? source.trim() : null;
 }

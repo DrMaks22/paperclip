@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import type { ExecutionBlocker } from "@paperclipai/shared";
 import { agentsApi } from "../api/agents";
 import { activityApi } from "../api/activity";
@@ -22,6 +22,7 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
   });
   const failedRun = runs?.find(run => run.runId === blocker.runId &&
     ["failed", "timed_out"].includes(run.status));
+  const modelRejected = failedRun?.errorCode === "native_provider_model_rejected";
   const requiresInspection = blocker.cause === "native_continuation_requires_reconciliation" ||
     blocker.cause === "native_session_cleanup_quarantined";
   const retry = useMutation({
@@ -37,7 +38,8 @@ export function ExecutionBlockerNotice({ companyId, issueId, blocker, onRetried 
   return (
     <div role="status" aria-label={t("sep13Recovery.label")} className="mx-(--sz-execution-blocker-inline) my-(--sz-execution-blocker-block) flex flex-wrap items-center justify-between execution-blocker-notice border border-border bg-muted text-foreground">
       <div className="min-w-0 flex-1 break-words">
-        <p>{t("oct5Core.recoveryNeeded")}{blocker.runError ? ` ${executionRecoveryText(blocker.runError)}` : ""}</p>
+        <p>{modelRejected ? t("oct6Beta.copy007") : t("oct5Core.recoveryNeeded")}{blocker.runError ? ` ${executionRecoveryText(blocker.runError)}` : ""}</p>
+        {modelRejected && <p>{t("oct6Beta.copy008")}</p>}
         <p>{executionRecoveryText(blocker.nextAction)}</p>
         {Boolean(blocker.savedMessageCount) && (
           <p>{t("oct5Core.savedMessages", { count: blocker.savedMessageCount })}</p>

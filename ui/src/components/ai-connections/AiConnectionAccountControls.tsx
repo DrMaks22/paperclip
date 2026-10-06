@@ -1,4 +1,4 @@
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import { chatUiErrorMessage, type ChatUiError } from "@/pages/apps/chat/chat-copy";
 import { useState, type ReactNode } from "react";
 import { RefreshCw, Star, Unplug } from "lucide-react";
@@ -30,7 +30,7 @@ export function AiConnectionAccountControls({
   const activeDefault = account.isDefault && available;
   return (
     <section className="space-y-4" aria-label={t("sep13Connections.accountSettings")}>
-      {ownPersonal && (
+      {ownPersonal && !account.routing && (
         <div className={cn(
           "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3",
           activeDefault && "border-(--status-task-done)/30 bg-(--status-task-done)/5",

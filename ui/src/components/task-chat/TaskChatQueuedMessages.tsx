@@ -31,6 +31,7 @@ import type {
 } from "@paperclipai/shared";
 import { cn } from "@/lib/utils";
 import { queuedMessageWaitMessage } from "@/lib/queued-message-display";
+import { TaskChatComposerBar } from "./TaskChatComposerBar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -381,8 +382,7 @@ export function TaskChatQueuedMessages({
   if (entries.length === 0 && !visibleError) return null;
 
   return (
-    <div
-      className="relative z-0 mx-3 -mb-px overflow-hidden rounded-t-xl rounded-b-none border border-b-0 border-border/75 bg-card shadow-sm"
+    <TaskChatComposerBar
       data-testid="task-chat-queued-messages"
       aria-label={t("localizationTaskRuntime.ui_Queued_messages_3244mw")}
     >
@@ -437,6 +437,6 @@ export function TaskChatQueuedMessages({
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement ? t(announcement.key, announcement.values) : null}
       </div>
-    </div>
+    </TaskChatComposerBar>
   );
 }

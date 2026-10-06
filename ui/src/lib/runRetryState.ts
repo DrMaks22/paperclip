@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t, useTranslation } from "@/i18n";
 import { formatDateTime } from "./utils";
 
 type RetryAwareRun = {
@@ -20,6 +20,8 @@ export type RunRetryStateSummary = {
 };
 
 const RETRY_REASON_LABELS: Record<string, string> = {
+  native_provider_overloaded: "oct6Beta.modelAtCapacity",
+  ai_connection_pool_wait: "oct6Beta.waitingPoolUsage",
   transient_failure: "localizationActivity.retryReason_transient_failure",
   missing_issue_comment: "localizationActivity.retryReason_missing_issue_comment",
   process_lost: "localizationActivity.retryReason_process_lost",
@@ -68,7 +70,7 @@ export function describeRunRetryState(run: RetryAwareRun): RunRetryStateSummary 
   if (run.status === "scheduled_retry") {
     return {
       kind: "scheduled",
-      badgeLabel: isMaxTurnContinuation ? t("localizationActivity.continuationScheduled") : t("localizationActivity.retryScheduled"),
+      badgeLabel: run.scheduledRetryReason === "ai_connection_pool_wait" ? t("oct6Beta.copy009") : isMaxTurnContinuation ? t("localizationIssuePanels.ui_Continuation_scheduled_gvik1x") : t("localizationIssuePanels.ui_Retry_scheduled_1bpbz02"),
       tone: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
       detail: joinFragments([attemptLabel, reasonLabel]),
       secondary: dueAt

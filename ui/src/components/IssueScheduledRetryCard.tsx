@@ -1,4 +1,4 @@
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import { Trans } from "react-i18next";
 import { Clock, RotateCcw, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { Link } from "@/lib/router";
@@ -107,7 +107,7 @@ export function IssueScheduledRetryCard({
           ) : null}
           {scheduledRetry.error ? (
             <div className="mt-1 text-xs text-muted-foreground">
-              {t("localizationIssuePanels.retryFailure", { error: scheduledRetry.error })}
+              {t("oct6Beta.retryFailure", { error: scheduledRetry.error + (/[.!?]$/.test(scheduledRetry.error.trim()) ? "" : ".") })}
             </div>
           ) : null}
           {isError ? (

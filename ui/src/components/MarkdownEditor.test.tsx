@@ -1013,6 +1013,7 @@ describe("MarkdownEditor", () => {
     ).toEqual({
       top: 100,
       left: 250,
+      maxWidth: 542,
     });
   });
 
@@ -1025,6 +1026,7 @@ describe("MarkdownEditor", () => {
     ).toEqual({
       top: 340,
       left: 154,
+      maxWidth: 182,
     });
   });
 
@@ -1037,6 +1039,7 @@ describe("MarkdownEditor", () => {
     ).toEqual({
       top: 12,
       left: 92,
+      maxWidth: 180,
     });
   });
 
@@ -1049,6 +1052,7 @@ describe("MarkdownEditor", () => {
     ).toEqual({
       top: 372,
       left: 210,
+      maxWidth: 582,
     });
   });
 
@@ -1062,6 +1066,7 @@ describe("MarkdownEditor", () => {
     ).toEqual({
       top: 160,
       left: 130,
+      maxWidth: 182,
     });
   });
 

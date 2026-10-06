@@ -1,10 +1,11 @@
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import { AgentSetupError, agentSetupErrorText } from "@/lib/agent-setup-error";
 import { healthApi } from "@/api/health";
 import { aiConnectionsApi } from "@/api/ai-connections";
 import { useLocalAiLogin } from "../ai-connections/useLocalAiLogin";
 import type { AiConnectionBinding, AiConnectionLoginIntent } from "@paperclipai/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Cable } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
@@ -20,7 +21,7 @@ import {
   OnboardingCardField,
   OnboardingLoginCard,
 } from "../AdapterLoginChrome";
-import { ModelSourceTiles } from "../onboarding/ModelSourceTiles";
+import { ModelSourceTiles, type ModelConnectionMode } from "../onboarding/ModelSourceTiles";
 import { CredentialModeLink } from "../onboarding/CredentialModeLink";
 import { FooterNav } from "../onboarding/FooterNav";
 import { MAKE_ROOM, CARD_ENTER } from "../onboarding/onboarding-motion";
@@ -42,10 +43,12 @@ export function AgentProviderConnection({
   canLogin,
   localEnvironment = false,
   onConnected,
+  onDraftChanged,
   onBack,
   testConnection,
   testError,
   managedAccount,
+  advancedConnection,
 }: {
   companyId: string;
   adapterType: "claude_local" | "codex_local" | "grok_local";
@@ -53,9 +56,11 @@ export function AgentProviderConnection({
   canLogin: boolean;
   localEnvironment?: boolean;
   onConnected: (connection: ProviderConnection) => void;
+  onDraftChanged?: () => void;
   onBack: () => void;
   testConnection: (connection: ProviderConnection) => Promise<boolean>;
   testError?: string | null;
+  advancedConnection?: { content: ReactNode; value?: AiConnectionBinding };
   /** Connections supplies its access intent; presentation and login controllers stay shared. */
   managedAccount?: {
     intent: AiConnectionLoginIntent;
@@ -84,7 +89,9 @@ export function AgentProviderConnection({
     setLoginPhase("preparing");
   };
   const [methodChoice, setMethod] = useState<"subscription" | "api" | null>(managedAccount?.initialMethod === "api_key" ? "api" : managedAccount ? "subscription" : null);
-  const [opened, setOpened] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
+  // Connections already selected the provider before showing this step.
+  const [opened, setOpened] = useState(Boolean(advancedConnection || managedAccount));
   const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null);
   const [loginPhase, setLoginPhase] = useState<"preparing" | "ready" | "waiting" | "connecting">("preparing");
   const phaseBeforeSubmit = useRef<"ready" | "waiting">("ready");
@@ -138,10 +145,10 @@ export function AgentProviderConnection({
       : managedAccount.nameForMethod?.(authMethod) ?? managedAccount.intent.name,
   } : undefined;
   const localLogin = useLocalAiLogin(companyId, managedIntent ?? {
-    provider: aiProvider, method: "subscription", name: `My ${provider} subscription`,
+    provider: aiProvider, method: "subscription", name: t("oct6Beta.dynamic062", { v0: provider }),
     ownership: "personal", agentIds: [], allAgents: true,
-  }, canUseLocalLogin && method === "subscription" && !savedSubscription && !storedLogin.data,
-  { allowHostClaude: health.data?.deploymentMode === "local_trusted" });
+  }, !advanced && canUseLocalLogin && method === "subscription" && !savedSubscription && !storedLogin.data,
+  );
   const auth = useQuery({
     queryKey: queryKeys.agents.authSignal(
       companyId,
@@ -155,7 +162,7 @@ export function AgentProviderConnection({
         environmentId ?? undefined,
       ),
     retry: false,
-    enabled: !managedAccount,
+    enabled: !managedAccount && !advanced,
   });
   async function connect() {
     if (busy || managedAccount?.disabled) return;
@@ -198,7 +205,7 @@ export function AgentProviderConnection({
         connection = { env: {}, aiConnection: { provider: aiProvider, method: "subscription", mode: "responsible_user" } };
       }
       if (connection.credentials) {
-        await aiConnectionsApi.create(companyId, { provider: aiProvider, method: "api_key", name: `My ${provider} API`, ownership: "personal", apiKey: connection.credentials[envKey], agentIds: [], allAgents: true });
+        await aiConnectionsApi.create(companyId, { provider: aiProvider, method: "api_key", name: t("oct6Beta.dynamic063", { v0: provider }), ownership: "personal", apiKey: connection.credentials[envKey], agentIds: [], allAgents: true });
         connection = { env: {}, aiConnection: { provider: aiProvider, method: "api_key", mode: "responsible_user" } };
       }
       if (run !== epoch.current) return;
@@ -233,38 +240,58 @@ export function AgentProviderConnection({
     !savedKeys.loading &&
     !storedLogin.data &&
     (Boolean(managedAccount) || auth.data?.status !== "present" || subscriptionId === "");
+  const switchMode = (next: ModelConnectionMode) => {
+    if (advancedConnection && next === (advanced ? "advanced" : method)) return;
+    onDraftChanged?.();
+    cancel();
+    setAdvanced(next === "advanced");
+    setOpened(advancedConnection ? true : opened);
+    savedManagedAccount.current = null;
+    if (next !== "advanced") setMethod(next);
+    setApiKey("");
+    setStoredConnection(null);
+    setError(null);
+  };
   return (
     <div className="min-w-0 max-w-full">
       <ModelSourceTiles
-        label={t("agentSetup.connectProvider")}
-        sources={[
+        label={advancedConnection ? t("pages.apps.notConnected.connectionType") : t("agentSetup.connectProvider")}
+        sources={advancedConnection ? [
+          { id: "subscription", label: provider, icon: <AdapterMark type={adapterType} />, credentialMode: "subscription" },
+          { id: "api", label: provider, icon: <AdapterMark type={adapterType} />, credentialMode: "api" },
+          { id: "advanced", label: t("localizationOperations.ui_Advanced"), icon: <Cable className="size-6 text-muted-foreground" />, credentialMode: "advanced" },
+        ] : [
           {
             id: adapterType,
             label: provider,
             icon: <AdapterMark type={adapterType} />,
           },
         ]}
-        mode={method}
-        selectedId={opened ? adapterType : null}
-        collapsed={opened}
-        onSelect={() => { if (!managedAccount?.disabled) setOpened(true); }}
+        mode={advanced ? "advanced" : method}
+        selectedId={advancedConnection ? (advanced ? "advanced" : method) : opened ? adapterType : null}
+        collapsed={!advancedConnection && opened}
+        onSelect={id => {
+          if (managedAccount?.disabled) return;
+          if (advancedConnection) switchMode(id as ModelConnectionMode);
+          else setOpened(true);
+        }}
       />
-      {(!opened || managedAccount) && !managedAccount?.fixedMethod && (
+      {!advancedConnection && (!opened || managedAccount) && !managedAccount?.fixedMethod && (
         <div className="-ml-3 mt-1">
-          <CredentialModeLink
-            mode={method}
-            onChange={(next) => {
-              cancel();
-              setOpened(opened);
-              savedManagedAccount.current = null;
-              setMethod(next);
-              setApiKey("");
-              setStoredConnection(null);
-              setError(null);
-            }}
-          />
+          <CredentialModeLink mode={method} onChange={switchMode} />
         </div>
       )}
+      {advanced && advancedConnection ? <>
+        <div className="pt-5">{advancedConnection.content}</div>
+        <FooterNav
+          onBack={onBack}
+          primaryLabel={t("sep13Connections.useConnection")}
+          primaryDisabled={!advancedConnection.value}
+          onPrimary={() => {
+            if (advancedConnection.value) onConnected({ env: {}, aiConnection: advancedConnection.value });
+          }}
+        />
+      </> : <>
       {!opened && savedKeys.options.length > 0 && (
         <p className="mt-2 text-sm text-muted-foreground">
           {t("agentSetup.savedKeysAvailable", { count: savedKeys.options.length })}
@@ -272,15 +299,17 @@ export function AgentProviderConnection({
       )}
       {method === "subscription" &&
         savedKeys.subscriptions.length > 0 && (
-          <SavedProviderKeySelect
-            options={savedKeys.subscriptions}
-            value={savedSubscription?.id ?? ""}
-            onChange={setSubscriptionId}
-            loading={false}
-            error={false}
-            kind="subscription"
-            disabled={busy}
-          />
+          <div className={advancedConnection ? "pt-5" : undefined}>
+            <SavedProviderKeySelect
+              options={savedKeys.subscriptions}
+              value={savedSubscription?.id ?? ""}
+              onChange={(id) => { onDraftChanged?.(); setSubscriptionId(id); }}
+              loading={false}
+              error={false}
+              kind="subscription"
+              disabled={busy}
+            />
+          </div>
         )}
       <motion.div
         initial={false}
@@ -303,6 +332,7 @@ export function AgentProviderConnection({
                   value={selectedKey?.id ?? ""}
                   disabled={busy}
                   onChange={(id) => {
+                    onDraftChanged?.();
                     setSelectedKeyId(id);
                     setApiKey("");
                     setStoredConnection(null);
@@ -321,6 +351,7 @@ export function AgentProviderConnection({
                         : t("localizationOnboarding.apiKeyPlaceholder")
                     }
                     onChange={(value) => {
+                      onDraftChanged?.();
                       setSelectedKeyId("");
                       setApiKey(value);
                       setStoredConnection(null);
@@ -336,7 +367,7 @@ export function AgentProviderConnection({
                 adapterType={adapterType}
                 environmentId={environmentId}
                 chrome="onboarding"
-                aiConnection={managedIntent ?? { provider: aiProvider, method: "subscription", name: `My ${provider} subscription`, ownership: "personal", agentIds: [], allAgents: true }}
+                aiConnection={managedIntent ?? { provider: aiProvider, method: "subscription", name: t("oct6Beta.dynamic062", { v0: provider }), ownership: "personal", agentIds: [], allAgents: true }}
                 autoStart
                 onStored={() => {}}
                 onPromptReady={(url) => {
@@ -398,7 +429,7 @@ export function AgentProviderConnection({
       )}
       <FooterNav
         onBack={() => {
-          if (opened) cancel();
+          if (opened && !advancedConnection) cancel();
           else onBack();
         }}
         primaryLabel={
@@ -419,6 +450,7 @@ export function AgentProviderConnection({
           managedAccount?.disabled ||
           (Boolean(managedAccount) && method === "subscription" && !canLogin && !canUseLocalLogin) ||
           (localEnvironment && health.isPending) || localLogin.preparing || Boolean(localLogin.error) ||
+          (method === "subscription" && canUseLocalLogin && !savedSubscription && !storedLogin.data && localLogin.status !== "ready") ||
           (!managedAccount && auth.isPending) ||
           savedKeys.loading ||
           (adapterType === "claude_local" && storedLogin.isPending) ||
@@ -441,6 +473,7 @@ export function AgentProviderConnection({
           } else void connect();
         }}
       />
+      </>}
     </div>
   );
 }

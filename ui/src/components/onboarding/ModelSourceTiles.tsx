@@ -1,6 +1,6 @@
+import { t, useTranslation } from "@/i18n";
 import { useRef, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useTranslation } from "react-i18next";
 
 import { cn } from "../../lib/utils";
 import {
@@ -22,17 +22,21 @@ import {
 
 /** How a source gets authenticated. Every tile is in the same mode at once. */
 export type CredentialMode = "subscription" | "api";
+export type ModelConnectionMode = CredentialMode | "advanced";
 
 export type ModelSource = {
   id: string;
   label: string;
   /** The brand mark, rendered into a 30px square. */
   icon: ReactNode;
+  /** Override the row's credential mode; null leaves the tag slot empty. */
+  credentialMode?: ModelConnectionMode | null;
 };
 
-const CREDENTIAL_TAG_LABEL_KEY: Record<CredentialMode, string> = {
-  subscription: "localizationOnboarding.subscription",
-  api: "localizationOnboarding.api",
+const CREDENTIAL_TAG_LABEL: Record<ModelConnectionMode, string> = {
+  get subscription() { return t("localizationOnboarding.subscription"); },
+  get api() { return t("sep13Connections.apiKey"); },
+  get advanced() { return t("oct6Beta.copy088"); },
 };
 
 /**
@@ -44,7 +48,7 @@ const CREDENTIAL_TAG_LABEL_KEY: Record<CredentialMode, string> = {
  * what makes the outgoing label fall out of frame rather than slide past the
  * tile's padding and over the row below.
  */
-export function CredentialTag({ mode }: { mode: CredentialMode }) {
+export function CredentialTag({ mode }: { mode: ModelConnectionMode }) {
   const { t } = useTranslation();
   return (
     <span className="relative flex h-4 w-full items-center justify-center overflow-hidden text-(length:--text-micro) text-muted-foreground">
@@ -56,7 +60,7 @@ export function CredentialTag({ mode }: { mode: CredentialMode }) {
           animate={{ opacity: 1, y: 0, transition: TAG_SWAP_ENTER }}
           exit={{ opacity: 0, y: TAG_SWAP_TRAVEL, transition: TAG_SWAP_EXIT }}
         >
-          {t(CREDENTIAL_TAG_LABEL_KEY[mode])}
+          {CREDENTIAL_TAG_LABEL[mode]}
         </motion.span>
       </AnimatePresence>
     </span>
@@ -72,12 +76,13 @@ function ModelSourceTile({
   settling,
 }: {
   source: ModelSource;
-  mode: CredentialMode;
+  mode: ModelConnectionMode | null;
   selected: boolean;
   onSelect: () => void;
   buttonRef: (node: HTMLButtonElement | null) => void;
   settling: boolean;
 }) {
+  useTranslation();
   return (
     <button
       ref={buttonRef}
@@ -125,7 +130,7 @@ function ModelSourceTile({
       <span className="text-(length:--text-compact) font-medium text-foreground">
         {source.label}
       </span>
-      <CredentialTag mode={mode} />
+      {mode ? <CredentialTag mode={mode} /> : <span aria-hidden className="h-4" />}
     </button>
   );
 }
@@ -140,7 +145,7 @@ export function ModelSourceTiles({
   settling = false,
 }: {
   sources: ModelSource[];
-  mode: CredentialMode;
+  mode: ModelConnectionMode;
   /** `null` before anything has been picked — the step opens this way. */
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -160,6 +165,7 @@ export function ModelSourceTiles({
    */
   settling?: boolean;
 }) {
+  useTranslation();
   const tiles = useRef(new Map<string, HTMLButtonElement>());
 
   /**
@@ -222,7 +228,7 @@ export function ModelSourceTiles({
           >
             <ModelSourceTile
               source={source}
-              mode={mode}
+              mode={source.credentialMode === undefined ? mode : source.credentialMode}
               selected={source.id === selectedId}
               onSelect={() => onSelect(source.id)}
               settling={settling}

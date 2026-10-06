@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { embedStartupLocales } from "./vite-startup-localization";
 import en from "../i18n/locales/en.json";
 
-const template = readFileSync(resolve("index.html"), "utf8");
+const template = readFileSync(resolve(import.meta.dirname, "../../index.html"), "utf8");
 
 function mount(html = embedStartupLocales(template)) {
   document.body.innerHTML = html.slice(html.indexOf("<body>") + 6, html.indexOf("</body>"));

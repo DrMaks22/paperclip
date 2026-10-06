@@ -1,18 +1,21 @@
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ProjectRepository } from "@paperclipai/shared";
-import { Folder, X } from "lucide-react";
+import { PROJECT_COLORS, type ProjectRepository } from "@paperclipai/shared";
+import { X } from "lucide-react";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
+import { trackRecentProject } from "../lib/recent-projects";
+import { ProjectTile } from "./ProjectTile";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { ProjectRepositoryInput, repositoryOptionsKey } from "./ProjectRepositoryInput";
 import { ConnectionSetupFlow } from "@/features/connections/ConnectionSetupFlow";
 
 export function NewProjectDialog() {
+  useTranslation();
   const { newProjectOpen, closeNewProject } = useDialog();
   const { selectedCompanyId } = useCompany();
   return selectedCompanyId && newProjectOpen
@@ -23,12 +26,14 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
   const { t } = useTranslation();
   const client = useQueryClient();
   const [name, setName] = useState("");
+  const [color] = useState(() => PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)]!);
   const [repos, setRepos] = useState<ProjectRepository[]>([]);
   const [connecting, setConnecting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const create = useMutation({
-    mutationFn: () => projectsApi.create(companyId, { name: name.trim(), status: "planned", repositoryIds: repos.map((repo) => repo.id) }),
-    onSuccess: () => {
+    mutationFn: () => projectsApi.create(companyId, { name: name.trim(), color, status: "planned", repositoryIds: repos.map((repo) => repo.id) }),
+    onSuccess: (project) => {
+      trackRecentProject(project.id, companyId);
       void client.invalidateQueries({ queryKey: queryKeys.projects.all(companyId) });
       onClose();
     },
@@ -50,8 +55,8 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
             <Button type="button" variant="ghost" size="icon-sm" disabled={create.isPending} aria-label={t("localizationProjectRepositories.closeNewProject")} onClick={onClose}><X className="size-4" /></Button>
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-input px-3 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-            <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <input ref={input} aria-label={t("localizationProjectRepositories.projectName")} value={name} disabled={create.isPending} onChange={(event) => setName(event.target.value)} placeholder={t("localizationProjectRepositories.projectName")} required
+            <ProjectTile color={color} size="sm" />
+            <input ref={input} aria-label={t("localizationFilters.operators.project.label")} value={name} disabled={create.isPending} onChange={(event) => setName(event.target.value)} placeholder={t("localizationFilters.operators.project.label")} required
               className="h-10 w-full min-w-0 border-0 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm" />
           </div>
         </div>

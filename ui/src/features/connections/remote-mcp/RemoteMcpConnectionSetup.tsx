@@ -9,6 +9,7 @@ import { SetupWizardFooter } from "@/components/SetupWizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RemoteMcpManagement } from "./RemoteMcpManagement";
 import {
@@ -45,7 +46,9 @@ function ExternalAction({ onClick, children }: { onClick: () => void; children?:
 
 /** Controlled presentation shared by provider setup, configuration imports and review stories.
  * Authentication, persistence and calls belong to the controller, never these views. */
-export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agents, companyId, connectionId, fixedGrantKind, lockedAgentId, host = "page", authorizationUrl, upstreamServiceName, onCancel }: {
+export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agents, companyId, connectionId, fixedGrantKind, lockedAgentId, host = "page", authorizationUrl, upstreamServiceName, onCancel, additionalSettings, settingsValid = true }: {
+  additionalSettings?: ReactNode;
+  settingsValid?: boolean;
   companyId: string;
   onCancel?: () => void;
   upstreamServiceName?: string;
@@ -63,6 +66,7 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
   const uid = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const previousStep = useRef(s.step);
+  const [sessionOpen, setSessionOpen] = useState(() => Boolean(provider.defaultUrl && s.url !== provider.defaultUrl));
   useEffect(() => {
     if (previousStep.current !== s.step) heading.current?.focus();
     previousStep.current = s.step;
@@ -121,6 +125,15 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
     : s.connectStatus === "rejected" ? { title: t("sep28Apps.credentialsRejected"), body: t("sep28Apps.checkCredentials", { provider: provider.name }) }
     : s.connectStatus === "unreachable" ? { title: t("sep28Apps.serverUnreachable"), body: t("sep28Apps.checkEndpoint") }
     : null;
+  const urlField = <div className="space-y-2">
+    <div className="flex items-center gap-2"><Label htmlFor={`${uid}-url`}>{t("localizationConnections.mCPServerURL101")}</Label><FieldHelp label={t("localizationConnections.mCPServerURL101")}>{provider.urlHelp}</FieldHelp></div>
+    <Input id={`${uid}-url`} type="password" autoComplete="off" spellCheck={false} placeholder={provider.placeholder} value={s.url} aria-invalid={s.connectStatus === "invalid_url"} aria-describedby={`${uid}-url-help`} onChange={(event) => change({ url: event.target.value })} />
+    <p id={`${uid}-url-help`} className="text-xs text-muted-foreground">{provider.urlHelp}</p>
+    {provider.id === "executor" ? <div className="space-y-2"><div className="flex items-center gap-2"><Label htmlFor={`${uid}-management`}>{t("oct6Beta.copy156")}</Label>
+      <FieldHelp label={t("oct6Beta.copy157")}>{t("oct6Beta.copy158")}</FieldHelp></div>
+      <Input id={`${uid}-management`} type="url" value={s.managementUrl ?? ""} placeholder="https://executor.sh/your-organization/integrations" onChange={event => change({ managementUrl: event.target.value })} />
+    </div> : null}
+  </div>;
 
   return <div className={host === "dialog" ? "min-w-0 text-foreground" : "mx-auto max-w-6xl p-4 text-foreground sm:p-8"} data-remote-mcp-provider={provider.id}>
     <StepHeader headingRef={heading} appIdentity={{ name: provider.name, logoUrl: null }}
@@ -128,7 +141,7 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
       subtitle={currentStep >= 0 && !s.setupComplete ? t("oct5Apps.usesProvider", { provider: provider.name }) : s.step === "draft" ? t("sep28Apps.setupReady", { provider: provider.name }) : s.step === "permissions" ? (s.identity ? t("sep28Apps.identityActions", { identity: s.identity, count: s.tools.length }) : t("sep28Apps.connectedActions", { count: s.tools.length })) : t("sep28Apps.manageConnection", { provider: provider.name })}
       step={currentStep >= 0 && !s.setupComplete ? "key" : "gallery"} activeIndex={currentStep} labels={steps.map(() => t("pages.apps.connections.connect"))} onCancel={busy || s.step === "management" || s.step === "permissions" || s.step === "draft" ? undefined : onCancel ?? a.saveExit} />
     <main className="space-y-6">
-        {upstreamServiceName && <InlineBanner compact>{t("sep28Apps.externalConnect", { provider: provider.name, service: upstreamServiceName })}</InlineBanner>}
+        {upstreamServiceName && <InlineBanner compact>{t("oct6Beta.providerHandlesRequests", { provider: provider.name, service: upstreamServiceName, detail: provider.id === "composio" ? t("oct6Beta.copy159") : t("oct6Beta.copy160") })}</InlineBanner>}
         {s.notice && <p role="status" className="text-sm text-muted-foreground">{chatUiErrorMessage(s.notice)}</p>}
 
         {s.step === "access" && <AccessStepContent agents={agents} lockedAgentId={lockedAgentId} authKind="oauth" grantKinds={fixedGrantKind ? [fixedGrantKind] : undefined} grantKind={s.grantKind} setGrantKind={(grantKind) => { if (grantKind !== "agent") change({ grantKind }); }}
@@ -160,11 +173,10 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
             {error && <div role="alert"><InlineBanner tone="danger" title={error.title}>{error.body}</InlineBanner></div>}
             {s.connectStatus === "cancelled" && <p role="status" className="text-sm text-muted-foreground">{t("sep28Apps.connectionCancelled")}</p>}
             <fieldset disabled={busy} className="min-w-0 space-y-5">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2"><Label htmlFor={`${uid}-url`}>{t("localizationConnections.mCPServerURL101")}</Label><FieldHelp label={t("localizationConnections.mCPServerURL101")}>{provider.urlHelp}</FieldHelp></div>
-                <Input id={`${uid}-url`} type="password" autoComplete="off" spellCheck={false} placeholder={provider.placeholder} value={s.url} aria-invalid={s.connectStatus === "invalid_url"} aria-describedby={`${uid}-url-help`} onChange={(event) => change({ url: event.target.value })} />
-                <p id={`${uid}-url-help`} className="text-xs text-muted-foreground">{provider.urlHelp}</p>
-              </div>
+              {provider.defaultUrl ? <Collapsible open={sessionOpen || s.connectStatus === "invalid_url"} onOpenChange={setSessionOpen}>
+                <CollapsibleTrigger asChild><Button type="button" variant="link" className="h-auto p-0 text-sm text-muted-foreground underline underline-offset-2">{t("oct6Beta.copy161")}</Button></CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">{urlField}</CollapsibleContent>
+              </Collapsible> : urlField}
               {defaults(<div className="space-y-4">
                   <p className="text-sm font-medium text-foreground">{t("localizationApps.authentication264")}</p>
                   <p className="text-sm text-muted-foreground">{provider.authHelp}</p>
@@ -183,8 +195,9 @@ export function RemoteMcpConnectionSetup({ provider, state: s, actions: a, agent
                   </div>}
                 </div>)}
             </fieldset>
+            {additionalSettings}
             {busy && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="size-4 animate-spin motion-reduce:animate-none" />{t("sep28Apps.discoveringTools")}</p>}
-            {footer(<>{s.setupComplete ? <Button type="button" variant="outline" disabled={busy} onClick={a.finish}>{t("pages.secrets.actions.back")}</Button> : <span />}<Button type="submit" disabled={busy || !s.url.trim()}>{busy ? t("sep12Connections.connecting") : error || s.connectStatus === "cancelled" ? t("localizationProjectRepositories.retry") : t("localizationConnections.connectApp", { app: provider.name })}</Button></>)}
+            {footer(<>{s.setupComplete ? <Button type="button" variant="outline" disabled={busy} onClick={a.finish}>{t("oct5Core.s0344")}</Button> : <span />}<Button type="submit" disabled={busy || !s.url.trim() || !settingsValid}>{busy ? t("sep13Connections.connecting") : error || s.connectStatus === "cancelled" ? t("oct5Core.s0057") : t("oct6Beta.dynamic086", { v0: provider.name })}</Button></>)}
           </form>}
         </>}
 

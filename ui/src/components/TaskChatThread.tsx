@@ -11,7 +11,7 @@ import { skillCreatedItems } from "@/components/task-chat/skill-created-items";
 import { requiresExecutionReconciliation } from "@paperclipai/shared";
 import { TaskChatExpansionState } from "@/components/task-chat/expansion-state";
 import { TaskChatScrollReady } from "@/components/task-chat/scroll-navigation";
-import { useTranslation } from "@/i18n";
+import { useTranslation, t } from "@/i18n";
 import { taskChatDisplayLabel, taskThreadBuiltinLabel } from "@/components/task-chat/task-chat-display";
 import {
   useCallback,
@@ -107,6 +107,7 @@ import { TaskChatQueuedMessages } from "@/components/task-chat/TaskChatQueuedMes
 import { TaskChatWindowScroll } from "@/components/task-chat/useWindowAutoFollow";
 import { useSidebar } from "@/context/SidebarContext";
 import { useStreamlinedUiEnabled } from "@/hooks/useStreamlinedUiEnabled";
+import { useDismissedTaskQuestions } from "@/hooks/useDismissedTaskQuestions";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -245,6 +246,7 @@ function isRunnerResponseComment(params: {
 // off to (e.g. a stopped run with no tool activity). Normal completions hand off
 // well within this as soon as the settled turn/comment lands.
 const SETTLING_TAIL_MAX_MS = 15_000;
+const INITIAL_HISTORY_REVEAL_TIMEOUT_MS = 15_000;
 const EMPTY_LIVE_ISSUE_IDS: ReadonlySet<string> = new Set<string>();
 const LONG_THREAD_BLOCKER_REPEAT_COUNT = 4;
 
@@ -439,26 +441,26 @@ function durableInputLabel(
   interaction: TaskChatInteractionItem["interaction"],
 ): string {
   if (interaction.kind === "ask_user_questions")
-    return interaction.title ?? "Questions";
+    return interaction.title ?? t("localizationTaskThread.questions");
   if (interaction.kind === "suggest_tasks")
-    return interaction.title ?? "Suggested tasks";
+    return interaction.title ?? t("localizationTaskThread.suggestedTasks");
   if (interaction.kind === "request_checkbox_confirmation")
-    return interaction.title ?? "Choose options";
+    return interaction.title ?? t("localizationTaskThread.chooseOptions");
   if (interaction.kind === "request_item_verdicts")
-    return interaction.title ?? "Review items";
+    return interaction.title ?? t("localizationTaskThread.reviewItems");
   if (interaction.kind === "connection_intent")
-    return interaction.title ?? "Connect service";
+    return interaction.title ?? t("localizationTaskThread.connectService");
   if (
     interaction.payload.target?.type === "issue_document" &&
     interaction.payload.target.key === "plan"
   ) {
-    return interaction.title ?? "Review plan";
+    return interaction.title ?? t("localizationTaskThread.reviewPlan");
   }
   if (interaction.payload.toolAction)
-    return interaction.title ?? "Approve tool action";
+    return interaction.title ?? t("localizationTaskThread.approveTool");
   if (interaction.payload.secretProposal)
-    return interaction.title ?? "Review secret proposal";
-  return interaction.title ?? "Confirmation";
+    return interaction.title ?? t("localizationTaskThread.reviewSecret");
+  return interaction.title ?? t("localizationTaskThread.confirmation");
 }
 
 function pendingInputDisplayLabel(input: PendingComposerInput): string {
@@ -640,7 +642,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       assigneeUserId: string | null;
     }) => {
       if (!issueId)
-        throw new Error("The task is not available for reassignment.");
+        throw new Error(t("oct6Beta.reassignmentUnavailable"));
       await issuesApi.update(issueId, {
         ...reassignment,
         deferWakeForGoal: true,
@@ -701,14 +703,14 @@ export function TaskChatThread(props: TaskChatThreadProps) {
   const saveQueuedEdit = useCallback(
     async (commentId: string, body: string) => {
       if (!queuedEdit || queuedEdit.commentId !== commentId) {
-        throw new Error("This queued message is no longer editable.");
+        throw new Error(t("localizationTaskThread.queuedNotEditable"));
       }
       if (queuedEdit.stale) {
         await onAdd(body);
         return;
       }
       if (!onEditQueuedComment)
-        throw new Error("This queued message is no longer editable.");
+        throw new Error(t("localizationTaskThread.queuedNotEditable"));
       try {
         await onEditQueuedComment(commentId, body, queuedEdit.revision);
       } catch (error) {
@@ -1304,7 +1306,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
           surface: "resource",
           resourceKind: "document",
           title: documentDisplayTitle(document),
-          subtitle: `Document · rev ${document.latestRevisionNumber}`,
+          subtitle: t("oct6Beta.dynamic034", { v0: document.latestRevisionNumber }),
           href: buildDocumentAnnotationHash({
             documentKey: document.key,
             threadId: null,
@@ -1355,7 +1357,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
           kind: "protocol",
           surface: "resource",
           resourceKind: "attachment",
-          title: attachment.originalFilename ?? "Agent attachment",
+          title: attachment.originalFilename ?? t("localizationTaskThread.agentAttachment"),
           subtitle: `${attachment.contentType} · ${formatResourceBytes(attachment.byteSize)}`,
           href: safeResourceHref(attachment.openPath ?? attachment.contentPath),
           timestamp: new Date(attachment.createdAt).toISOString(),
@@ -1398,7 +1400,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
           id,
           kind: "browser",
           browser,
-          label: browsers.length > 1 ? `Browser ${index + 1}` : "Browser",
+          label: browsers.length > 1 ? t("oct6Beta.dynamic036", { v0: index + 1 }) : t("oct5Core.s0159"),
           timestamp: browser.createdAt,
         },
       });
@@ -1427,6 +1429,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
     heldPaperclipRunnerStartedAtMs,
     heldPaperclipRunnerFinalText,
     queuedCommentIds,
+    t,
   ]);
 
   const legacyTimelineAnchorsByRun = useMemo(() => {
@@ -1573,8 +1576,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
             id,
             item: {
               id, kind: "marker", variant: "interrupted", tone: "neutral",
-              label: "Waiting to resume",
-              detail: "The previous execution needs to be checked before work can continue. See the task’s execution hold for the next action. Individual checks remain in the run history.",
+              label: t("sep12Chat.marker.waitingToResume"),
+              detail: t("sep12Chat.marker.executionCheckRequired"),
             },
           });
         }
@@ -1658,7 +1661,9 @@ export function TaskChatThread(props: TaskChatThreadProps) {
             ? "native_runner_timed_out"
             : "native_runner_process_exited");
         const label =
-          code === "native_provider_approval_required" && source.status === "failed"
+          code === "native_provider_model_rejected" && source.status === "failed"
+            ? "Model unavailable"
+            : code === "native_provider_approval_required" && source.status === "failed"
             ? "Approval required"
             : code === "native_provider_usage_limit" && source.status === "failed"
             ? "Usage limit reached"
@@ -1680,7 +1685,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
               : code === "native_provider_approval_required"
                 ? "This operation requires approval, but this runner has no interactive approval handler. Review the operation and update the agent's permission setting before retrying."
                 : code === "native_provider_model_rejected"
-                ? "The provider rejected the selected model. Check the model ID and your account's access, save the agent configuration, then retry. View the run for the provider's full error."
+                ? `${meta?.error || "The provider rejected the selected model."} Choose a supported model or clear the task's model override, then retry.`
                 : code === "native_provider_usage_limit" &&
                     source.status === "failed"
                   ? "The model provider has reached its current usage limit. Try again after the limit resets."
@@ -1741,7 +1746,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
           ? workspaceRestoreMarkerDetail({ result: meta?.resultJson, savedPlan, hasResponse: sourceHasPresentationComment || Boolean(acceptedSummary) })
           : aiRequest
           ? aiRequest.status === "pending"
-            ? "The selected AI account is unavailable. Fix it in the connection card."
+            ? "Use the connection card below to continue."
             : "This run stopped because its AI account was unavailable."
           : source.status === "cancelled"
             ? code === "execution_reconciliation_required"
@@ -1761,15 +1766,16 @@ export function TaskChatThread(props: TaskChatThreadProps) {
             id,
             kind: "marker",
             variant: "interrupted",
-            label: restoreFailed ? "Workspace restore failed" : source.status === "cancelled" ? (meta?.startedAt ? "Stopped" : "Couldn't start") : "Run failed",
+            label: restoreFailed ? "Workspace restore failed" : aiRequest?.status === "pending" ? "AI connection needed" : source.status === "cancelled" ? (meta?.startedAt ? "Stopped" : "Couldn't start") : "Run failed",
             runId: source.status === "cancelled" ? undefined : source.id,
+            ...(aiRequest?.status === "pending" ? { retryable: false } : {}),
             ...(restoreFailed ? {
               retryable: meta?.resultJson?.workspaceRestoreFailure !== "restore_unsafe_archive",
               collapsible: true,
               runHref: meta?.agentId ? `/agents/${encodeURIComponent(agentMap?.get(meta.agentId)?.urlKey ?? meta.agentId)}/runs/${encodeURIComponent(source.id)}` : undefined,
               planHref: savedPlan ? "#document-plan" : undefined,
             } : {}),
-            tone: source.status === "cancelled" ? "neutral" : "error",
+            tone: source.status === "cancelled" || aiRequest?.status === "pending" ? "neutral" : "error",
             detail,
           },
         });
@@ -1836,8 +1842,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
               id,
               kind: "marker",
               variant: "turn_boundary",
-              label: source.status === "cancelled" ? "Stopped" : "Run completed",
-              detail: source.status === "cancelled" ? "This turn was cancelled before it returned a response." : "The runner returned no user-facing response.",
+              label: source.status === "cancelled" ? t("sep28Recovery.stopped") : t("localizationTaskThread.runCompleted"),
+              detail: source.status === "cancelled" ? t("sep12Chat.marker.cancelledBeforeResponse") : t("localizationTaskThread.noResponse"),
             },
           });
         }
@@ -1868,8 +1874,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
             id,
             kind: "marker",
             variant: "turn_boundary",
-            label: "Run completed",
-            detail: "The runner returned no user-facing response.",
+            label: t("localizationTaskThread.runCompleted"),
+            detail: t("localizationTaskThread.noResponse"),
           },
         });
       }
@@ -2162,6 +2168,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
     planDocumentSourceRunId,
     planTurnItem,
     agentMap,
+    t,
   ]);
 
   // Hand off once the settled turn or its reply comment is in the thread; a
@@ -2395,14 +2402,14 @@ export function TaskChatThread(props: TaskChatThreadProps) {
         interaction.kind === "ask_user_questions" && interaction.sourceRunId === item.runId &&
         interaction.payload.runtimeRequestId === item.requestId);
       if (projected?.kind === "ask_user_questions") {
-        if (projected.status !== "pending") throw new Error("This question has already been answered or closed.");
+        if (projected.status !== "pending") throw new Error(t("sep28ChatDynamic.questionClosed"));
         if (decision.action === "cancel") {
-          if (!onCancelInteraction) throw new Error("Cancelling this question is unavailable.");
+          if (!onCancelInteraction) throw new Error(t("sep28ChatDynamic.questionCancelUnavailable"));
           await onCancelInteraction(projected);
           return;
         }
         if (decision.action !== "submit" || !("response" in decision) || !projected.payload.questionSet || !onSubmitInteractionAnswers) {
-          throw new Error("Submit the answer through the saved question card.");
+          throw new Error(t("sep28ChatDynamic.questionUseSavedCard"));
         }
         const response = decision.response;
         await onSubmitInteractionAnswers(projected, projected.payload.questionSet.questions.map(question => {
@@ -2415,7 +2422,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       }
       if (!item.turnId || !item.requestKind) {
         throw new Error(
-          "This runtime request is missing the provider turn identity needed to resolve it.",
+          t("localizationTaskThread.runtimeIdentityMissing"),
         );
       }
       let resolution: RuntimeRequestResolution;
@@ -2437,7 +2444,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
         resolution = { action: "submit", content: decision.values };
       } else {
         throw new Error(
-          "This runtime permission does not accept submitted form data.",
+          t("localizationTaskThread.runtimeFormNotAccepted"),
         );
       }
       await heartbeatsApi.resolveRuntimeRequest({
@@ -2468,8 +2475,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
         label:
           pendingRuntimeRequest.questionSet?.title ??
           (pendingRuntimeRequest.requestType === "permission"
-            ? "Runtime permission"
-            : "Runtime input"),
+            ? t("localizationTaskThread.runtimePermission")
+            : t("localizationTaskThread.runtimeInput")),
       });
     }
     const durable = (interactions ?? [])
@@ -2497,12 +2504,13 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       });
     }
     return result;
-  }, [interactions, pendingRuntimeRequest]);
-  // Agent Chat questions already have an answerable history card, including
+  }, [interactions, pendingRuntimeRequest, t]);
+  // Questions already have an answerable history card, including
   // when the user dismisses a fresh form without sending another message.
   const pendingReminderInputs = useMemo(() => pendingComposerInputs.filter(input =>
-    !(conversationMode && input.kind === "durable" && input.interaction.kind === "ask_user_questions")),
-  [pendingComposerInputs, conversationMode]);
+    !(input.kind === "durable" && input.interaction.kind === "ask_user_questions")),
+  [pendingComposerInputs]);
+  const { dismissedQuestionIds, dismissQuestion } = useDismissedTaskQuestions(issueId, currentUserId);
   const latestUserComment = useMemo(() => comments
     .filter(comment => !comment.deletedAt && comment.authorUserId && !comment.authorAgentId && !comment.createdByRunId)
     .reduce<(typeof comments)[number] | null>((latest, comment) =>
@@ -2511,10 +2519,10 @@ export function TaskChatThread(props: TaskChatThreadProps) {
   // A later message leaves a question answerable in history, without reopening
   // its form on every render or reload. Explicit selection can still reopen it.
   const currentPendingInputs = useMemo(() => pendingComposerInputs.filter(input =>
-    !(conversationMode && input.kind === "durable"
-      && input.interaction.kind === "ask_user_questions" && latestUserComment
-      && toMs(input.interaction.createdAt) < toMs(latestUserComment.createdAt))),
-  [pendingComposerInputs, conversationMode, latestUserComment]);
+    !(input.kind === "durable" && input.interaction.kind === "ask_user_questions"
+      && (dismissedQuestionIds.has(input.interaction.id) || (latestUserComment
+        && toMs(input.interaction.createdAt) < toMs(latestUserComment.createdAt))))),
+  [pendingComposerInputs, dismissedQuestionIds, latestUserComment]);
   const currentPendingKeys = useMemo(() => new Set(currentPendingInputs.map(input => input.key)), [currentPendingInputs]);
   const [takeoverMode, setTakeoverMode] = useState<"open" | "normal">("open");
   const [selectedPendingKey, setSelectedPendingKey] = useState<string | null>(
@@ -2568,7 +2576,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
         await handleRuntimeRequestDecision(input.item, { action: "cancel" });
       } else {
         if (!onSkipInteraction)
-          throw new Error("Skipping this interaction is unavailable.");
+          throw new Error(t("localizationTaskThread.skipUnavailable"));
         await onSkipInteraction(input.interaction);
       }
       setTakeoverMode("normal");
@@ -2597,7 +2605,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       if (assigneeUsesPaperclipRunner) setRunnerSubmissionPending(true);
       try {
         await onAdd(...args);
-        if (conversationMode && selectedPendingInput?.kind === "durable" && selectedPendingInput.interaction.kind === "ask_user_questions") {
+        if (selectedPendingInput?.kind === "durable" && selectedPendingInput.interaction.kind === "ask_user_questions") {
+          dismissQuestion(selectedPendingInput.interaction.id);
           setSelectedPendingKey(null);
           setTakeoverMode("normal");
         }
@@ -2606,7 +2615,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
         throw error;
       }
     },
-    [assigneeUsesPaperclipRunner, onAdd, conversationMode, selectedPendingInput],
+    [assigneeUsesPaperclipRunner, onAdd, selectedPendingInput, dismissQuestion],
   );
   const optimisticRunnerStartup =
     assigneeUsesPaperclipRunner &&
@@ -2685,7 +2694,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       <TaskChatInteractionCard
         item={item}
         onReviewRequest={reopenToolReview}
-        showUnansweredQuestion={conversationMode}
+        showUnansweredQuestion
         planDocument={planDocument}
         showPlanPreview={
           !threadOwnsPlanPreview(
@@ -2726,7 +2735,6 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       settledRunIds,
       tailRunId,
       reopenToolReview,
-      conversationMode,
     ],
   );
 
@@ -2785,7 +2793,13 @@ export function TaskChatThread(props: TaskChatThreadProps) {
             Boolean(selectedPendingInput.interaction.payload.toolAction),
           pendingCount: Math.max(1, pendingReminderInputs.length),
           content: takeoverContent,
-          onDismiss: () => setTakeoverMode("normal"),
+          onDismiss: () => {
+            if (selectedPendingInput.kind === "durable" && selectedPendingInput.interaction.kind === "ask_user_questions") {
+              dismissQuestion(selectedPendingInput.interaction.id);
+              setSelectedPendingKey(null);
+            }
+            setTakeoverMode("normal");
+          },
           onSkip: () => skipPendingInput(selectedPendingInput),
           onShowNext: showNextPendingInput,
           inlineSkip:
@@ -2866,12 +2880,11 @@ export function TaskChatThread(props: TaskChatThreadProps) {
       ? !hydratedLogRunIds.has(run.id)
       : logsAreInitiallyHydrating;
   });
-  // Durable messages are useful immediately. Tool history can fill in around
-  // their stable anchors without concealing already-loaded replies. A thread
-  // with only runtime output still waits for that output before showing empty.
-  const historyPending = initialHistoryPending || (
-    comments.length === 0 && !issueBrief?.description && (planLoading || transcriptHistoryPending)
-  );
+  // Hydrating a run inserts activity around its saved reply and can move the
+  // latest viewport substantially. Wait for the initial comment window's run
+  // history and plan before revealing; older runs outside that window do not
+  // delay it, and the latch below keeps subsequent refreshes visible.
+  const historyPending = initialHistoryPending || planLoading || transcriptHistoryPending;
   const historyError =
     initialHistoryError ||
     planError ||
@@ -2885,6 +2898,19 @@ export function TaskChatThread(props: TaskChatThreadProps) {
     () => (historyPending ? undefined : issueId),
   );
   const historyRevealed = revealedIssue === issueId;
+  const [expiredHistoryWait, setExpiredHistoryWait] = useState<{ issueId: typeof issueId } | null>(null);
+  const historyWaitExpired = expiredHistoryWait !== null && expiredHistoryWait.issueId === issueId;
+  // Supporting requests can stall without rejecting. Bound the first reveal
+  // independently of their pending states so saved conversation and the
+  // composer stay accessible, with an explicit incomplete-history notice.
+  useEffect(() => {
+    if (historyRevealed) return;
+    const timer = window.setTimeout(() => {
+      setExpiredHistoryWait({ issueId });
+      setRevealedIssue(issueId);
+    }, INITIAL_HISTORY_REVEAL_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [historyRevealed, issueId]);
   // Mount and measure the real thread while concealed, then reveal in one
   // commit. A frame also lets ancestor navigation scroll restoration finish.
   // Readiness is latched per issue: refetches never hide existing conversation.
@@ -2906,7 +2932,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
 
   return (
     <TaskChatExpansionState.Provider value={expansionState.current}>
-      <TaskChatScrollReady.Provider value={!historyPending}>
+      <TaskChatScrollReady.Provider value={!historyPending || historyWaitExpired}>
         <TaskChatWindowScroll
           contentKey={isMobile ? autoFollowContentKey : 0}
           enabled={isMobile && historyRevealed}
@@ -2915,23 +2941,31 @@ export function TaskChatThread(props: TaskChatThreadProps) {
           mode={streamlinedUiEnabled ? "streamlined" : "production"}
         >
           <div
-            className={cn("flex flex-col", !isMobile && "min-h-0 flex-1")}
+            className={cn(
+              "flex flex-col",
+              !isMobile && "min-h-0 flex-1",
+              isMobile && !historyRevealed && "task-chat-history-pending",
+            )}
             data-testid="task-chat-thread"
           >
             <div
               className={cn(
                 "relative flex flex-col",
-                !isMobile && "min-h-0 flex-1",
+                (!isMobile || !historyRevealed) && "min-h-0 flex-1",
               )}
               aria-busy={!historyRevealed}
             >
-              {historyError ? (
+              {historyError || (historyPending && historyWaitExpired) ? (
                 <div
                   role="status"
                   className="absolute inset-x-0 top-0 z-20 mx-auto flex w-full max-w-(--tc-shell-max-w) items-center gap-2 border border-border bg-background px-4 py-2 text-sm text-muted-foreground"
                 >
-                  {t("localizationTaskThread.historyLoadFailed")}
-                  <Button variant="ghost" size="sm" onClick={retryHistory}>{t("localizationRoutines.retry")}</Button>
+                  {historyError ? t("localizationTaskThread.historyLoadFailed") : t("oct6Beta.copy026")}
+                  {historyError ? (
+                    <Button variant="ghost" size="sm" onClick={retryHistory}>
+                      {t("oct5Core.s0281")}
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
               {!historyRevealed ? (
@@ -2950,6 +2984,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                 </div>
               ) : null}
               <div
+                data-testid="task-chat-history-content"
                 className={cn(
                   "flex flex-col",
                   !isMobile && "min-h-0 flex-1",
@@ -3108,7 +3143,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
               </div>
             ) : null}
             {showComposer ? (
-              <TaskChatComposerDock mobile={isMobile} streamlined={streamlinedUiEnabled}>
+              <TaskChatComposerDock mobile={isMobile} streamlined={streamlinedUiEnabled} concealed={!historyRevealed}>
                 {composerAccessory}
                 {tailTurnStatus ? (
                   <TaskChatTurnStatusIsland model={tailTurnStatus} />
@@ -3125,7 +3160,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                       onEdit={beginQueuedEdit}
                       onReorder={async (orderedCommentIds, revision) => {
                         if (!onReorderQueuedComments)
-                          throw new Error("Queue reordering is unavailable.");
+                          throw new Error(t("localizationTaskThread.reorderUnavailable"));
                         await onReorderQueuedComments(
                           orderedCommentIds,
                           revision,
@@ -3133,7 +3168,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                       }}
                       onSteer={async (commentId, revision) => {
                         if (!onSteerQueuedComment)
-                          throw new Error("Steering is unavailable.");
+                          throw new Error(t("localizationTaskThread.steerUnavailable"));
                         await onSteerQueuedComment(commentId, revision);
                       }}
                       onInterrupt={
@@ -3148,12 +3183,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                       onDiscard={async (commentId, revision) => {
                         if (commentId.startsWith("optimistic-")) {
                           if (!onCancelQueued)
-                            throw new Error("Discard is unavailable.");
+                            throw new Error(t("localizationTaskThread.discardUnavailable"));
                           onCancelQueued(commentId);
                           return;
                         }
                         if (!onDiscardQueuedComment)
-                          throw new Error("Discard is unavailable.");
+                          throw new Error(t("localizationTaskThread.discardUnavailable"));
                         await onDiscardQueuedComment(commentId, revision);
                         if (queuedEdit?.commentId === commentId)
                           setQueuedEdit(null);

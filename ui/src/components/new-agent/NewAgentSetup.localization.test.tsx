@@ -90,8 +90,8 @@ it("retains the Connect selection and model draft through en/ru/en, then tests t
     model.dispatchEvent(new Event("input", { bubbles: true }));
   });
   for (const [locale, copy, action] of [
-    ["ru", "Используется подключение, выбранное на шаге «Подключение».", "Изменить подключение"],
-    ["en", "Using the connection selected in the Connect step.", "Change connection"],
+    ["ru", "Настройте агента", "Подключение"],
+    ["en", "Configure your agent", "Connection"],
   ]) {
     await act(async () => { await i18n.changeLanguage(locale); });
     expect(host.textContent).toContain(copy);
@@ -107,7 +107,7 @@ it("retains the Connect selection and model draft through en/ru/en, then tests t
     companyId: "company-1", adapterType: "codex_local", environmentId: "local-1",
     adapterConfig: expect.objectContaining({ model: "model-id/Custom-42", env: selectedConnection.env }),
   }));
-  await act(async () => button("Change connection").click());
+  await act(async () => button("Connection").click());
   expect(button("Use retained connection")).toBeDefined();
   expect(mocks.hire).not.toHaveBeenCalled();
 });

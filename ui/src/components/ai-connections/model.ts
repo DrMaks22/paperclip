@@ -8,6 +8,7 @@ export const AI_PROVIDERS: Record<
   AiProvider,
   { name: string; subscriptionName?: string; logo?: string }
 > = {
+  google: { name: "Google", logo: "/brands/apps/google.svg" },
   anthropic: {
     name: "Claude",
     get subscriptionName() { return t("sep13Connections.claudeSubscription"); },

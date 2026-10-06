@@ -29,6 +29,7 @@ import {
   ListTree,
   Plus,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { fileResourcesApi } from "@/api/file-resources";
 import { IssueProperties } from "@/components/IssueProperties";
@@ -43,6 +44,7 @@ import {
   SidePanelLauncher,
   SidePanelToggleButton,
   SidePanelTabs,
+  SidePanelMobileTabs,
   useScrollbarWhileScrolling,
   useSidePanelTabs,
   type SidePanelLauncherItem,
@@ -100,6 +102,7 @@ export interface TaskSidePanelProps {
   onAddSubIssue?: () => void;
   onUpdate: (data: Record<string, unknown>) => void;
   inline?: boolean;
+  mobile?: boolean;
   hasActiveRun?: boolean;
   externalObjects?: IssueExternalObjectGroup[];
   externalObjectsLoading?: boolean;
@@ -244,6 +247,7 @@ export function TaskSidePanel({
   onAddSubIssue,
   onUpdate,
   inline = false,
+  mobile = false,
   hasActiveRun = false,
   externalObjects,
   externalObjectsLoading,
@@ -417,7 +421,7 @@ export function TaskSidePanel({
       planDocument === null
     ) return;
     const document = documents.find((candidate) => candidate.key === documentDeepLink.documentKey);
-    const label = document ? documentDisplayTitle(document) : documentDeepLink.documentKey === "plan" ? "Plan" : documentDeepLink.documentKey;
+    const label = document ? documentDisplayTitle(document) : documentDeepLink.documentKey === "plan" ? t("localizationIssuePanels.plan") : documentDeepLink.documentKey;
     // A refresh must not replay a link after the user selects another tab.
     handledDocumentRequestRef.current = documentDeepLink.requestId;
     controller.openTab(taskPanelDocumentTab(documentDeepLink.documentKey, label));
@@ -652,7 +656,7 @@ export function TaskSidePanel({
     } else if (item.id.startsWith("document:")) {
       const key = item.id.slice("document:".length);
       const document = key === "plan" ? planDocument : documentByKey.get(key);
-      const rawLabel = document ? documentDisplayTitle(document) : key === "plan" ? "Plan" : key;
+      const rawLabel = document ? documentDisplayTitle(document) : key === "plan" ? t("localizationIssuePanels.plan") : key;
       controller.openTab(taskPanelDocumentTab(key, rawLabel));
     } else if (item.id.startsWith("recent-file:") && recentFilesQuery.data?.state === "available") {
       const recent = recentFilesQuery.data.items.find((candidate) =>
@@ -683,7 +687,9 @@ export function TaskSidePanel({
           size="icon-sm"
           className={cn(
             "shrink-0 text-muted-foreground hover:text-foreground focus-visible:text-foreground",
-            streamlinedTabs
+            mobile
+              ? "size-(--sz-44px) rounded-md"
+              : streamlinedTabs
               ? "h-(--side-panel-tab-height) w-(--side-panel-tab-height) rounded-md"
               : "h-(--side-panel-tab-height) w-(--side-panel-tab-height) rounded-(--side-panel-control-radius)",
           )}
@@ -694,7 +700,15 @@ export function TaskSidePanel({
       )}
     />
   );
-  const tabStrip = (
+  const tabStrip = mobile ? (
+    <SidePanelMobileTabs
+      tabs={visualTabs}
+      activeTabId={controller.activeTabId}
+      onActiveTabChange={selectTab}
+      onCloseTab={closeTab}
+      addControl={launcherControl}
+    />
+  ) : (
     <SidePanelTabs
       tabs={visualTabs}
       activeTabId={controller.activeTabId}
@@ -813,7 +827,11 @@ export function TaskSidePanel({
         <div className="flex h-(--side-panel-header-height) shrink-0 items-center gap-1 px-2">
           {tabStrip}
           {onRequestClose ? (
-            <SidePanelToggleButton open onToggle={onRequestClose} />
+            mobile ? (
+              <Button variant="ghost" size="icon" className="size-(--sz-44px) shrink-0" aria-label={t("localizationCommonChrome.closePanel")} onClick={onRequestClose}>
+                <X aria-hidden />
+              </Button>
+            ) : <SidePanelToggleButton open onToggle={onRequestClose} />
           ) : null}
         </div>
       )}

@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t, useTranslation } from "@/i18n";
 /** Presentation metadata only. Each provider will have its own catalog entry and connection. */
 export type RemoteMcpProviderId = "zapier" | "arcade" | "composio" | "executor";
 
@@ -44,7 +44,7 @@ export const remoteMcpProviders: Record<RemoteMcpProviderId, RemoteMcpProvider> 
     setupUrl: "https://docs.composio.dev/docs/composio-connect",
     dashboardUrl: "https://dashboard.composio.dev",
     defaultUrl: "https://connect.composio.dev/mcp", placeholder: "https://connect.composio.dev/mcp",
-    get urlHelp() { return t("sep28Apps.composioUrl"); },
+    get urlHelp() { return t("oct6Beta.copy165"); },
     get authHelp() { return t("sep28Apps.composioAuth"); },
   },
   executor: {

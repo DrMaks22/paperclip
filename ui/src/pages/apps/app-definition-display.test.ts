@@ -386,9 +386,13 @@ it("localizes the Oct 5 metadata delta and exact-copy backfills without changing
     for (const [slug, source] of [
       ["browser-use-cloud", "Browser Use Cloud"], ["browser-use-cloud", "bu_…"],
       ["github-code-review-bot", "-----BEGIN RSA PRIVATE KEY-----"],
-      ["neon", "napi_... or neon_project_key_..."],
+      ["neon", "napi_..."], ["neon", "neon_project_key_..."],
       ["neon", "project_id"], ["planetscale", "read_write"],
     ]) expect(appDefinitionText(slug, source)).toBe(source);
+    // The conjunction is UI copy; each credential prefix itself remains literal.
+    expect(appDefinitionText("neon", "napi_... or neon_project_key_...")).toBe(
+      locale === "ru" ? "napi_... или neon_project_key_..." : "napi_... or neon_project_key_...",
+    );
   }
 });
 

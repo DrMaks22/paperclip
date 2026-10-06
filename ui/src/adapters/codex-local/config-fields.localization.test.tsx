@@ -52,7 +52,10 @@ it("retranslates the ACPX read permission EN → RU → EN without changing save
       />
     </TooltipProvider>,
   ));
-  const permission = container.querySelector('button[role="combobox"]')!;
+  const permissionSelector = () => container.querySelector(`button[role="combobox"][aria-label=${JSON.stringify(i18n.t("localizationAgents.ui314_Permission_mode"))}]`);
+  const permission = permissionSelector()!;
+  const harnessSelector = () => container.querySelector(`button[role="combobox"][aria-label=${JSON.stringify(i18n.t("oct6Beta.copy001"))}]`);
+  const harness = harnessSelector()!;
   const nativeValues = () => Array.from(container.querySelectorAll("select"), (select) => ({
     value: select.value,
     options: Array.from(select.options, (option) => option.value),
@@ -60,14 +63,15 @@ it("retranslates the ACPX read permission EN → RU → EN without changing save
   const originalValues = nativeValues();
   for (const language of ["en", "ru", "en"] as const) {
     await act(async () => { await i18n.changeLanguage(language); });
-    expect(container.querySelector('button[role="combobox"]')).toBe(permission);
+    expect(permissionSelector()).toBe(permission);
     expect(permission.textContent).toBe(language === "ru"
       ? "Разрешить чтение в Paperclip"
       : "Allow Paperclip reads");
     expect(permission.getAttribute("aria-label")).toBe(language === "ru"
       ? "Режим разрешений"
       : "Permission mode");
-    expect(container.querySelector('option[value="acpx"]')?.textContent).toBe(language === "ru" ? "Агенты ACP" : "ACP agents");
+    expect(harnessSelector()).toBe(harness);
+    expect(harness.textContent).toBe(language === "ru" ? "Агенты ACP" : "ACP agents");
     expect(nativeValues()).toEqual(originalValues);
     expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe("45000");
     expect(JSON.stringify(config)).toBe(original);

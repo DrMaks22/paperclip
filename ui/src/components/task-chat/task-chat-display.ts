@@ -5,6 +5,8 @@ import type { TaskChatMaterializedResourceItem } from "./task-chat-model";
 // Only call these helpers for built-in presentation metadata. Protocol models,
 // provider payloads, user messages, source code, and persisted content stay raw.
 const DISPLAY_KEYS: Readonly<Record<string, string>> = {
+  "Model unavailable": "oct6Beta.copy019",
+  "AI connection needed": "oct6Beta.copy025",
   "Naming the task": "oct5Core.namingTask",
   "Named the task": "oct5Core.namedTask",
   "Workspace restore failed": "sep28ChatDynamic.workspaceRestoreFailedLabel",
@@ -456,6 +458,8 @@ export function taskThreadErrorDisplay(value: string): string {
 /** Never alter marker.label in the model: retry eligibility compares "Run failed". */
 export function taskThreadMarkerDetailDisplay(value: string): string {
   const addedKeys: Readonly<Record<string, string>> = {
+    "The provider rejected the selected model.": "oct6Beta.copy020",
+    "Use the connection card below to continue.": "oct6Beta.copy024",
     "The run was cancelled.": "sep28ChatDynamic.cancelled",
     "The run was interrupted.": "sep28ChatDynamic.interrupted",
     "Execution was stopped.": "sep28ChatDynamic.executionStopped",
@@ -473,6 +477,8 @@ export function taskThreadMarkerDetailDisplay(value: string): string {
     "The previous execution needs to be checked before work can continue. See the task’s execution hold for the next action. Individual checks remain in the run history.": "sep12Chat.marker.executionCheckRequired",
   };
   if (Object.hasOwn(addedKeys, value)) return t(addedKeys[value]);
+  const modelRejected = /^([\s\S]+) Choose a supported model or clear the task's model override, then retry\.$/.exec(value);
+  if (modelRejected?.[0] === value) return t("oct6Beta.dynamic039", { v0: modelRejected[1] === "The provider rejected the selected model." ? t("oct6Beta.copy020") : modelRejected[1] });
   const restore = parseWorkspaceRestoreMarkerDetail(value);
   if (restore) {
     const parts = [t(restore.savedPlan ? "sep28ChatDynamic.workspaceRestoreAfterPlan" : "sep28ChatDynamic.workspaceRestoreFailed")];
@@ -505,9 +511,9 @@ export function taskThreadMarkerDetailDisplay(value: string): string {
   };
   if (Object.hasOwn(exact, value)) return t(`localizationTaskThread.${exact[value]}`);
   const preserved = /^The runner stopped before returning an answer \((.+)\)\. Your message is preserved\.$/.exec(value);
-  if (preserved) return t("stable916Tasks.stoppedBeforePreserved", { code: preserved[1] });
+  if (preserved?.[0] === value) return t("stable916Tasks.stoppedBeforePreserved", { code: preserved[1] });
   const match = /^The runner (timed out|stopped) (before returning an answer|after returning a final response) \((.+)\)\.(?: (Retry scheduled automatically\.|You can retry this message now\.))?$/.exec(value);
-  if (!match) return value;
+  if (!match || match[0] !== value) return value;
   const action = match[1] === "timed out" ? "timeout" : "stopped";
   const boundary = match[2] === "before returning an answer" ? "Before" : "After";
   const retry = match[4] === "Retry scheduled automatically." ? "RetryScheduled" : match[4] ? "RetryNow" : "";

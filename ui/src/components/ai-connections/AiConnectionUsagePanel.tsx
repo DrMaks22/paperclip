@@ -33,10 +33,10 @@ function usageLabel(label: string): string {
 }
 
 function limitLabel(window: AiConnectionUsageLimit) {
-  const label = window.label.replace(/\b(\d+(?:\.\d+)?) hour limit\b/i, "$1h").replace(/\bweekly limit\b/i, "Weekly");
+  const label = window.label.replace(/\b(\d+(?:\.\d+)?) hour limit\b/i, "$1h").replace(/\bweekly limit\b/i, t("oct5Apps.usageLabels.weekly"));
   if (window.windowDurationSeconds == null) return usageLabel(label);
   const hours = window.windowDurationSeconds / 3600;
-  const period = hours === 168 ? "Weekly" : `${hours}h`;
+  const period = hours === 168 ? t("oct5Apps.usageLabels.weekly") : `${hours}h`;
   if (/\b(?:Primary|Secondary)$/.test(label)) return `${usageLabel(label)} · ${usageLabel(period)}`;
   if ((hours === 168 && /weekly/i.test(label)) || label.split(/[\s·()]+/).includes(period)) return usageLabel(label);
   return `${usageLabel(label)} · ${usageLabel(period)}`;
@@ -89,25 +89,26 @@ function usageError(usage: AiConnectionUsage) {
     case "invalid_response": return t("oct5Apps.copy016");
     case "connection_unavailable": return t("oct5Apps.copy017");
     case "unsupported": return t("oct5Apps.copy018");
-    default: return usage.message;
+    default: return usage.message ?? t("oct5Apps.copy018");
   }
 }
 
-export function AiConnectionUsagePanel({ account }: { account: AiManagedConnectionSummary }) {
+export function AiConnectionUsagePanel({ account, observation, cachedOnly = false }: { account: AiManagedConnectionSummary; observation?: AiConnectionUsage; cachedOnly?: boolean }) {
   useTranslation();
   const probe = useMutation({
     mutationFn: () => aiConnectionsApi.probeUsage(account.companyId, account.id, account.grantId),
   });
   const supported = supportsAiConnectionUsage(account.provider, account.method);
-  const usage = probe.isSuccess ? probe.data : undefined;
+  const usage = cachedOnly ? observation : probe.isSuccess ? probe.data : undefined;
   return (
     <section aria-label={t("oct5Apps.copy019")} className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold">{t("oct5Apps.copy020")}</h3>
-        {supported && <Button variant="outline" size="sm" disabled={probe.isPending || account.status !== "connected"} onClick={() => probe.mutate()}>
-          {probe.isPending ? t("pages.apps.connect.checking") : usage?.status === "ok" ? t("common.refresh") : t("oct5Apps.copy021")}
+        {supported && !cachedOnly && <Button variant="outline" size="sm" disabled={probe.isPending || account.status !== "connected"} onClick={() => probe.mutate()}>
+          {probe.isPending ? t("localizationIssueChrome.checking") : usage?.status === "ok" ? t("oct5Core.s0317") : t("oct5Apps.copy021")}
         </Button>}
       </div>
+      {cachedOnly && !usage && <p className="text-xs text-muted-foreground">{t("oct6Beta.copy080")}</p>}
       {!supported && <p className="text-xs text-muted-foreground">{t("oct5Apps.copy022")}</p>}
       {probe.error && <p role="alert" className="text-sm text-destructive">{probe.error.message}</p>}
       {usage && usage.status !== "ok" && <p role={usage.status === "unsupported" ? "status" : "alert"} className="text-sm text-muted-foreground">{usageError(usage)}</p>}

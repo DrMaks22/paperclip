@@ -55,18 +55,18 @@ export function SkillPackagePreview({ companyId, repository, commitSha, skill, i
         <p className="mt-2 text-xs text-muted-foreground">{t("oct5Core.s0383")}</p>
       </section>}
       {Boolean(inspection?.warnings.length) && <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">{t("oct5Core.s0384")} {inspection!.warnings.length} {inspection!.warnings.length === 1 ? 'notice' : 'notices'}</summary>
+        <summary className="cursor-pointer">{t("oct6Beta.auditNotices", { count: inspection!.warnings.length })}</summary>
         <ul className="mt-2 space-y-1">{inspection!.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
       </details>}
       {inspection && <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border md:flex-row">
         <div className="max-h-48 shrink-0 overflow-auto border-b border-border py-1 md:max-h-(--sz-480px) md:w-56 md:border-b-0 md:border-r">
           <FileTree nodes={nodes} selectedFile={filePath} expandedDirs={expanded} showCheckboxes={false} wrapLabels={false}
-            ariaLabel="Included package files" onSelectFile={setFilePath} onToggleDir={path => setCollapsed(previous => { const next = new Set(previous); if (next.has(path)) next.delete(path); else next.add(path); return next; })} />
+            ariaLabel={t("oct6Beta.includedFiles")} onSelectFile={setFilePath} onToggleDir={path => setCollapsed(previous => { const next = new Set(previous); if (next.has(path)) next.delete(path); else next.add(path); return next; })} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2 text-xs">
             <span className="break-all font-mono">{filePath}</span>
-            {file && <span className="text-muted-foreground">{file.sizeBytes.toLocaleString()} {t("oct5Core.s0385")}{file.executable ? ' · executable' : ''}</span>}
+            {file && <span className="text-muted-foreground">{file.sizeBytes.toLocaleString()} {t("oct5Core.s0385")}{file.executable ? t("oct6Beta.executableSuffix") : ''}</span>}
           </div>
           <div className="max-h-(--sz-480px) min-h-40 overflow-auto p-3">
             {preview.isFetching && <p role="status" className="text-sm text-muted-foreground">{t("oct5Core.s0212")}</p>}

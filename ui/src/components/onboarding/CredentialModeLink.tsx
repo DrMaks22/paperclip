@@ -1,5 +1,5 @@
+import { t, useTranslation } from "@/i18n";
 import { AnimatePresence, motion } from "motion/react";
-import { useTranslation } from "react-i18next";
 
 import { cn } from "../../lib/utils";
 import type { CredentialMode } from "./ModelSourceTiles";
@@ -18,10 +18,11 @@ import { LINK_LABEL_FADE_IN, LINK_LABEL_FADE_OUT } from "./onboarding-motion";
  * holds up because they are right above it.
  */
 
-const LINK_LABEL_KEY: Record<CredentialMode, string> = {
-  subscription: "localizationOnboarding.useApiKey",
-  api: "localizationOnboarding.useSubscription",
+const LINK_LABEL: Record<CredentialMode, string> = {
+  get subscription() { return t("localizationOnboarding.useSubscription"); },
+  get api() { return t("localizationOnboarding.useApiKey"); },
 };
+const NATIVE_MODES: CredentialMode[] = ["subscription", "api"];
 
 const OTHER_MODE: Record<CredentialMode, CredentialMode> = {
   subscription: "api",
@@ -35,11 +36,21 @@ export function CredentialModeLink({
   mode: CredentialMode;
   onChange: (next: CredentialMode) => void;
 }) {
-  const { t } = useTranslation();
+  useTranslation();
+  return <ModeLink destination={OTHER_MODE[mode]} onClick={() => onChange(OTHER_MODE[mode])} modes={NATIVE_MODES} />;
+}
+
+function ModeLink({ destination, onClick, modes }: {
+  destination: CredentialMode;
+  onClick: () => void;
+  modes: CredentialMode[];
+}) {
+  useTranslation();
   return (
     <button
       type="button"
-      onClick={() => onChange(OTHER_MODE[mode])}
+      aria-label={LINK_LABEL[destination]}
+      onClick={onClick}
       className={cn(
         // A grid rather than a flow of text, so both labels can occupy one cell
         // and overlap during the swap. Same padding as the checkbox row this
@@ -55,19 +66,19 @@ export function CredentialModeLink({
         also takes them out of the accessibility tree, leaving the button's name
         to the one real label below.
       */}
-      {(Object.keys(LINK_LABEL_KEY) as CredentialMode[]).map((sizerMode) => (
+      {modes.map((sizerMode) => (
         <span
           key={sizerMode}
           aria-hidden
           className="invisible col-start-1 row-start-1 whitespace-nowrap"
         >
-          {t(LINK_LABEL_KEY[sizerMode])}
+          {LINK_LABEL[sizerMode]}
         </span>
       ))}
 
       <AnimatePresence initial={false} mode="sync">
         <motion.span
-          key={mode}
+          key={destination}
           // Left-aligned in that max-width cell, so the sentence starts at the
           // same x in both states and only its tail changes.
           className={cn(
@@ -83,7 +94,7 @@ export function CredentialModeLink({
           animate={{ opacity: 1, transition: LINK_LABEL_FADE_IN }}
           exit={{ opacity: 0, transition: LINK_LABEL_FADE_OUT }}
         >
-          {t(LINK_LABEL_KEY[mode])}
+          {LINK_LABEL[destination]}
         </motion.span>
       </AnimatePresence>
     </button>

@@ -36,6 +36,7 @@ export function connectionDisplayNameForOwner(
   connection: Pick<ToolConnection, "name">,
   applicationName: string,
   owner: ConnectionOwnerProfile | null,
+  displayApplicationName = applicationName,
 ): string {
   const rawName = connection.name.trim();
   // Provider account identifiers are machine values, not prose. Preserve
@@ -46,11 +47,11 @@ export function connectionDisplayNameForOwner(
     /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(rawName)
       ? rawName
       : humanizeConnectionDisplayName(connection);
-  if (!owner) return connectionName;
   if (connectionName.trim().toLocaleLowerCase() !== applicationName.trim().toLocaleLowerCase()) {
     return connectionName;
   }
-  return t("localizationApps.ownerApplication", { owner: (i18n.resolvedLanguage ?? "en").split("-")[0] !== "en" ? ownerGivenName(owner.label) : possessive(ownerGivenName(owner.label)), app: applicationName });
+  if (!owner) return displayApplicationName;
+  return t("localizationApps.ownerApplication", { owner: (i18n.resolvedLanguage ?? "en").split("-")[0] !== "en" ? ownerGivenName(owner.label) : possessive(ownerGivenName(owner.label)), app: displayApplicationName });
 }
 
 export function ConnectionOwnerIdentity({ owner }: { owner: ConnectionOwnerProfile | null }) {
