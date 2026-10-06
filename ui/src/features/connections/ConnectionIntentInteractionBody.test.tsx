@@ -558,10 +558,12 @@ describe("AI repair inside the card", () => {
   it.each(["anthropic", "openai"])("connects a missing %s default directly in the task", async (provider) => {
     setupOptionsMock.mockResolvedValue({ interaction, existingConnections: [], aiConnection: { provider, method: "api_key", mode: "responsible_user" } });
     completeMock.mockResolvedValue({ ...interaction, status: "accepted" });
-    renderBody(interaction); await flush();
+    renderBody(interaction);
     const providerName = provider === "anthropic" ? "Claude" : "OpenAI";
-    expect(document.body.textContent).toContain(`Connect your ${providerName} account`);
-    expect(document.body.textContent).toContain("needs your own AI connection");
+    await waitForAssertion(() => {
+      expect(document.body.textContent).toContain(`Connect your ${providerName} account`);
+      expect(document.body.textContent).toContain("needs your own AI connection");
+    });
     await act(() => button(`Connect ${providerName}`)!.click());
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.querySelector('[data-testid="shared-connection-setup"]')).toBeNull();
