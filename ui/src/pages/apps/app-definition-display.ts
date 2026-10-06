@@ -26,7 +26,8 @@ export function appDefinitionDisplayName(entry: AppGalleryDisplayEntry | null | 
 /** Translate known built-in display text without changing custom metadata or API objects. */
 export function appDefinitionText(entry: AppGalleryDisplayEntry | string | null | undefined, source: string): string {
   const slug = typeof entry === "string" ? entry : appDefinitionSlug(entry);
-  const key = APP_DEFINITION_COPY[slug]?.[source];
+  const copy = Object.hasOwn(APP_DEFINITION_COPY, slug) ? APP_DEFINITION_COPY[slug] : undefined;
+  const key = copy && Object.hasOwn(copy, source) ? copy[source] : undefined;
   return key ? t(key) : source;
 }
 

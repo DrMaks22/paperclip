@@ -149,7 +149,7 @@ const GENERIC: AppCopy = {
 
 /** Curated, gate-safe copy for a gallery app. */
 export function appCopyFor(key: string, fallbackTagline?: string | null): AppCopy {
-  const curated = APP_COPY[key];
+  const curated = Object.hasOwn(APP_COPY, key) ? APP_COPY[key] : undefined;
   if (curated) return curated;
   if (fallbackTagline) {
     const cleaned = sanitizeProsumerCopy(appDefinitionText(key, fallbackTagline));
