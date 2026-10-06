@@ -5,6 +5,7 @@ import { i18n } from "@/i18n";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { within } from "storybook/test";
 import type { Issue, IssueAttachment, IssueDocument, IssueWorkProduct } from "@paperclipai/shared";
 import { artifactReviewDocumentKey } from "@paperclipai/shared";
 import { IssuePropertiesArtifactsTab } from "./IssuePropertiesArtifactsTab";
@@ -406,7 +407,7 @@ describe("markdown work product review row", () => {
         await act(async () => { await i18n.changeLanguage(language); });
         expect(container.querySelector("article")).toBe(row);
         expect(row?.querySelector("a[download]")).toBe(link);
-        expect(link?.getAttribute("aria-label")).toBe(`${language === "ru" ? "Скачать" : "Download"}: Verification report`);
+        expect(within(row!).getByRole("link", { name: language === "ru" ? "Скачать файл" : "Download file" })).toBe(link);
         expect(link?.getAttribute("href")).toBe(`${contentPath}?download=1`);
         expect(JSON.stringify(workProduct)).toBe(source);
       }
